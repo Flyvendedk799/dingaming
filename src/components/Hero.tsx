@@ -157,53 +157,29 @@ const Hero = () => {
           <div className="absolute inset-0 bg-gradient-to-b from-background/50 via-transparent to-background" />
         </motion.div>
         
-        {/* Animated ambient glow orbs with smooth parallax */}
+        {/* Animated ambient glow orbs - warm tones */}
         <motion.div 
           className="absolute top-1/4 left-1/4 w-[700px] h-[700px] rounded-full blur-[150px]" 
           initial={{ opacity: 0, scale: 0.5 }}
-          animate={{ opacity: 0.4, scale: 1 }}
+          animate={{ opacity: 0.25, scale: 1 }}
           transition={{ duration: 2, delay: 0.5, ease: "easeOut" }}
           style={{ 
             x: orbX,
             y: orbY,
-            background: 'radial-gradient(circle, hsl(142 70% 45% / 0.3), transparent 70%)' 
+            background: 'radial-gradient(circle, hsl(38 92% 50% / 0.2), transparent 70%)' 
           }} 
         />
         <motion.div 
           className="absolute bottom-1/3 right-1/4 w-[600px] h-[600px] rounded-full blur-[130px]" 
           initial={{ opacity: 0, scale: 0.5 }}
-          animate={{ opacity: 0.25, scale: 1 }}
+          animate={{ opacity: 0.15, scale: 1 }}
           transition={{ duration: 2, delay: 0.8, ease: "easeOut" }}
           style={{ 
             x: useTransform(orbX, v => -v * 0.7),
             y: useTransform(orbY, v => -v * 0.7),
-            background: 'radial-gradient(circle, hsl(45 100% 51% / 0.2), transparent 70%)' 
+            background: 'radial-gradient(circle, hsl(15 75% 60% / 0.15), transparent 70%)' 
           }} 
         />
-        
-        {/* Subtle particle effect - floating dots */}
-        <div className="absolute inset-0 overflow-hidden pointer-events-none">
-          {[...Array(6)].map((_, i) => (
-            <motion.div
-              key={i}
-              className="absolute w-1 h-1 rounded-full bg-success/30"
-              style={{
-                left: `${15 + i * 15}%`,
-                top: `${20 + (i % 3) * 25}%`,
-              }}
-              animate={{
-                y: [0, -30, 0],
-                opacity: [0.2, 0.5, 0.2],
-              }}
-              transition={{
-                duration: 4 + i * 0.5,
-                repeat: Infinity,
-                delay: i * 0.8,
-                ease: "easeInOut",
-              }}
-            />
-          ))}
-        </div>
       </div>
 
       <div className="relative z-10 container mx-auto px-4">
@@ -222,7 +198,7 @@ const Hero = () => {
               ].map((badge, i) => (
                 <motion.div
                   key={badge.text}
-                  className="trust-badge magnetic-hover"
+                  className="trust-badge"
                   variants={badgeVariants}
                   custom={i}
                   whileHover={{ scale: 1.05, y: -2 }}
@@ -233,7 +209,7 @@ const Hero = () => {
                 </motion.div>
               ))}
               <motion.div
-                className="trustpilot-badge magnetic-hover"
+                className="trustpilot-badge"
                 variants={badgeVariants}
                 custom={2}
                 whileHover={{ scale: 1.05, y: -2 }}
@@ -255,41 +231,27 @@ const Hero = () => {
               </motion.div>
             </motion.div>
 
-            {/* Headline with elegant text reveal */}
+            {/* Headline with elegant typography */}
             <motion.h1 
-              className="font-heading text-4xl sm:text-5xl lg:text-6xl xl:text-7xl font-bold text-foreground mb-6 leading-[1.05] text-balance"
+              className="font-heading text-4xl sm:text-5xl lg:text-6xl xl:text-7xl text-foreground mb-6 leading-[1.1] text-balance"
               variants={itemVariants}
             >
               <motion.span
-                className="inline-block overflow-hidden"
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                transition={{ duration: 0.1, delay: 0.3 }}
+                className="inline-block"
+                initial={{ opacity: 0, y: 30 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.8, delay: 0.3, ease: "easeOut" }}
               >
-                <motion.span
-                  className="inline-block"
-                  initial={{ y: '100%' }}
-                  animate={{ y: 0 }}
-                  transition={{ duration: 0.8, delay: 0.3, ease: "easeOut" }}
-                >
-                  Køb Game Keys.
-                </motion.span>
+                Køb Game Keys.
               </motion.span>
               <br />
               <motion.span 
-                className="text-gradient-success inline-block overflow-hidden"
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                transition={{ duration: 0.1, delay: 0.5 }}
+                className="inline-block text-primary"
+                initial={{ opacity: 0, y: 30 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.8, delay: 0.5, ease: "easeOut" }}
               >
-                <motion.span
-                  className="inline-block"
-                  initial={{ y: '100%' }}
-                  animate={{ y: 0 }}
-                  transition={{ duration: 0.8, delay: 0.5, ease: "easeOut" }}
-                >
-                  Spar op til 70%.
-                </motion.span>
+                Spar op til 70%.
               </motion.span>
             </motion.h1>
 
@@ -300,7 +262,7 @@ const Hero = () => {
             >
               Danmarks største udvalg af digitale game keys. 
               Leveret til din email{" "}
-              <span className="text-success font-medium">øjeblikkeligt</span>.
+              <span className="text-primary font-medium">øjeblikkeligt</span>.
             </motion.p>
 
             {/* Enhanced CTAs - refined, no aggressive glow */}
@@ -309,28 +271,26 @@ const Hero = () => {
               variants={itemVariants}
             >
               <motion.div
-                whileHover={{ scale: 1.03, y: -2 }}
+                whileHover={{ scale: 1.02 }}
                 whileTap={{ scale: 0.98 }}
                 transition={{ duration: 0.2 }}
               >
                 <Button 
-                  variant="success" 
                   size="xl" 
-                  className="group text-base shadow-lg hover:shadow-xl hover:shadow-success/20 btn-primary transition-shadow duration-300"
+                  className="group text-base shadow-lg bg-primary text-primary-foreground hover:bg-primary/90 transition-all duration-300"
                 >
-                  <Zap className="w-5 h-5 transition-all group-hover:scale-110 group-hover:rotate-12" />
                   Se Alle Spil
                   <ChevronRight className="w-5 h-5 transition-transform group-hover:translate-x-1" />
                 </Button>
               </motion.div>
               <motion.button 
-                className="btn-secondary-cta flex items-center gap-2 group"
-                whileHover={{ scale: 1.02, y: -2 }}
+                className="flex items-center gap-2 px-6 py-3 rounded-xl font-medium bg-secondary border border-border text-foreground hover:border-primary/30 transition-all duration-300"
+                whileHover={{ scale: 1.02 }}
                 whileTap={{ scale: 0.98 }}
                 transition={{ duration: 0.2 }}
               >
                 <span>Dagens Tilbud</span>
-                <span className="px-2.5 py-1 rounded-lg bg-destructive text-destructive-foreground text-xs font-bold shadow-md">
+                <span className="px-2.5 py-1 rounded-lg bg-accent/15 text-accent text-xs font-semibold">
                   -70%
                 </span>
               </motion.button>
@@ -354,10 +314,10 @@ const Hero = () => {
                   whileHover={{ x: 4 }}
                 >
                   <motion.div 
-                    className="w-8 h-8 rounded-lg bg-success/10 flex items-center justify-center group-hover:bg-success/20 transition-colors"
-                    whileHover={{ scale: 1.1, rotate: 5 }}
+                    className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center group-hover:bg-primary/15 transition-colors"
+                    whileHover={{ scale: 1.05 }}
                   >
-                    <item.icon className="w-4 h-4 text-success" />
+                    <item.icon className="w-4 h-4 text-primary" />
                   </motion.div>
                   <span>{item.text}</span>
                 </motion.div>
@@ -376,30 +336,20 @@ const Hero = () => {
             <motion.div 
               className="featured-card"
               whileHover={{ 
-                scale: 1.02,
-                boxShadow: "0 40px 80px -20px hsl(0 0% 0% / 0.7), 0 0 60px hsl(142 70% 45% / 0.15)"
+                scale: 1.01,
+                boxShadow: "0 40px 80px -20px hsl(0 0% 0% / 0.6)"
               }}
               transition={{ duration: 0.4 }}
             >
-              {/* Urgency banner with countdown */}
+              {/* Elegant header banner */}
               <div className="relative py-4 px-6 overflow-hidden" 
-                style={{ background: 'linear-gradient(135deg, hsl(0 85% 55%), hsl(0 85% 45%))' }}>
-                <motion.div 
-                  className="absolute inset-0 opacity-20" 
-                  style={{ background: 'repeating-linear-gradient(45deg, transparent, transparent 10px, hsl(0 0% 0% / 0.1) 10px, hsl(0 0% 0% / 0.1) 20px)' }}
-                  animate={{ x: [0, 20] }}
-                  transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
-                />
+                style={{ background: 'linear-gradient(135deg, hsl(38 92% 50%), hsl(38 80% 40%))' }}>
                 <div className="relative flex items-center justify-between">
-                  <motion.div 
-                    className="flex items-center gap-2"
-                    animate={{ x: [0, 2, 0] }}
-                    transition={{ duration: 0.5, repeat: Infinity, repeatDelay: 3 }}
-                  >
+                  <div className="flex items-center gap-2">
                     <TrendingUp className="w-5 h-5" />
-                    <span className="font-bold text-sm tracking-wide">Ugens Bedste Tilbud</span>
-                  </motion.div>
-                  <div className="flex items-center gap-1.5 font-mono text-sm font-bold">
+                    <span className="font-semibold text-sm tracking-wide">Ugens Bedste Tilbud</span>
+                  </div>
+                  <div className="flex items-center gap-1.5 font-mono text-sm font-semibold">
                     {[
                       { value: timeLeft.hours, unit: 'hours' },
                       { value: timeLeft.minutes, unit: 'minutes' },
@@ -469,10 +419,9 @@ const Hero = () => {
                       Episk action-eventyr med intens sværdkamp og magiske evner.
                     </p>
 
-                    {/* Enhanced Price with pop animation */}
+                    {/* Price section */}
                     <motion.div 
-                      className="mb-5 p-3 -mx-3 rounded-xl" 
-                      style={{ background: 'linear-gradient(135deg, hsl(142 70% 45% / 0.08), transparent)' }}
+                      className="mb-5 p-3 -mx-3 rounded-xl bg-primary/5"
                       initial={{ opacity: 0, scale: 0.9 }}
                       animate={{ opacity: 1, scale: 1 }}
                       transition={{ delay: 0.6, duration: 0.5, ease: [0.34, 1.56, 0.64, 1] }}
@@ -490,7 +439,7 @@ const Hero = () => {
                       </div>
                       <div className="flex items-center gap-2">
                         <motion.span 
-                          className="px-2 py-0.5 rounded bg-success/20 text-success text-sm font-bold"
+                          className="px-2 py-0.5 rounded bg-success/15 text-success text-sm font-medium"
                           initial={{ opacity: 0, x: -10 }}
                           animate={{ opacity: 1, x: 0 }}
                           transition={{ delay: 0.9 }}
@@ -500,34 +449,28 @@ const Hero = () => {
                       </div>
                     </motion.div>
 
-                    {/* Animated Stock indicator */}
+                    {/* Stock indicator - refined */}
                     <div className="flex items-center gap-2 mb-4 text-sm">
-                      <div className="flex-1 h-2 bg-muted rounded-full overflow-hidden">
+                      <div className="flex-1 h-1.5 bg-muted rounded-full overflow-hidden">
                         <motion.div 
-                          className="h-full bg-gradient-to-r from-destructive to-destructive/70 rounded-full origin-left"
+                          className="h-full bg-accent rounded-full origin-left"
                           initial={{ scaleX: 0 }}
                           animate={{ scaleX: 0.3 }}
                           transition={{ delay: 1, duration: 1.2, ease: "easeOut" }}
                         />
                       </div>
-                      <motion.span 
-                        className="text-destructive font-medium whitespace-nowrap"
-                        animate={{ opacity: [1, 0.7, 1] }}
-                        transition={{ duration: 1.5, repeat: Infinity }}
-                      >
-                        Kun 47 tilbage!
-                      </motion.span>
+                      <span className="text-accent font-medium whitespace-nowrap text-xs">
+                        Kun 47 tilbage
+                      </span>
                     </div>
 
                     {/* CTA */}
-                    <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
-                      <Button variant="success" size="lg" className="w-full group btn-primary ripple">
-                        <Zap className="w-4 h-4 transition-all group-hover:scale-110 group-hover:rotate-12" />
+                    <motion.div whileHover={{ scale: 1.01 }} whileTap={{ scale: 0.99 }}>
+                      <Button size="lg" className="w-full bg-primary text-primary-foreground hover:bg-primary/90">
                         Køb Nu - Levering på 30 sek
                       </Button>
                     </motion.div>
 
-                    {/* Micro trust */}
                     <motion.div 
                       className="flex items-center justify-center gap-4 mt-3 text-xs text-muted-foreground"
                       initial={{ opacity: 0 }}
@@ -535,11 +478,11 @@ const Hero = () => {
                       transition={{ delay: 1.2 }}
                     >
                       <span className="flex items-center gap-1">
-                        <CheckCircle2 className="w-3.5 h-3.5 text-success" />
+                        <CheckCircle2 className="w-3.5 h-3.5 text-primary" />
                         Officiel key
                       </span>
                       <span className="flex items-center gap-1">
-                        <Shield className="w-3.5 h-3.5 text-success" />
+                        <Shield className="w-3.5 h-3.5 text-primary" />
                         Garanti
                       </span>
                     </motion.div>

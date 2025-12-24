@@ -54,9 +54,9 @@ const HowItWorks = () => {
               )}
               
               {/* Step number with icon */}
-              <div className="inline-flex items-center justify-center w-24 h-24 rounded-2xl bg-success/10 text-success mb-6 relative group-hover:bg-success/15 transition-colors">
+              <div className="inline-flex items-center justify-center w-24 h-24 rounded-2xl bg-primary/10 text-primary mb-6 relative group-hover:bg-primary/15 transition-colors">
                 <step.icon className="w-10 h-10" />
-                <span className="absolute -top-2 -right-2 w-8 h-8 rounded-full bg-success text-success-foreground text-sm font-bold flex items-center justify-center">
+                <span className="absolute -top-2 -right-2 w-8 h-8 rounded-full bg-primary text-primary-foreground text-sm font-semibold flex items-center justify-center">
                   {step.number}
                 </span>
               </div>
@@ -72,19 +72,18 @@ const HowItWorks = () => {
         </div>
 
         {/* CTA Banner */}
-        <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-success/10 via-success/5 to-transparent border border-success/20 p-8 sm:p-12">
+        <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-primary/10 via-primary/5 to-transparent border border-primary/20 p-8 sm:p-12">
           <div className="relative z-10 flex flex-col lg:flex-row items-center justify-between gap-8">
             <div>
               <h3 className="font-heading text-2xl sm:text-3xl font-bold text-foreground mb-3">
                 Klar til at spare på dine spil?
               </h3>
               <p className="text-muted-foreground text-lg">
-                Opret en gratis konto og få <span className="text-success font-semibold">10% rabat</span> på din første ordre
+                Opret en gratis konto og få <span className="text-primary font-semibold">10% rabat</span> på din første ordre
               </p>
             </div>
             <div className="flex flex-col sm:flex-row items-center gap-4">
-              <Button variant="success" size="xl" className="whitespace-nowrap group">
-                <Zap className="w-5 h-5" />
+              <Button size="xl" className="whitespace-nowrap group bg-primary text-primary-foreground hover:bg-primary/90">
                 Opret Gratis Konto
                 <ArrowRight className="w-5 h-5 transition-transform group-hover:translate-x-1" />
               </Button>
@@ -93,7 +92,7 @@ const HowItWorks = () => {
           </div>
           
           {/* Decorative element */}
-          <div className="absolute right-0 top-1/2 -translate-y-1/2 w-64 h-64 bg-success/10 rounded-full blur-3xl" />
+          <div className="absolute right-0 top-1/2 -translate-y-1/2 w-64 h-64 bg-primary/10 rounded-full blur-3xl" />
         </div>
       </div>
     </section>

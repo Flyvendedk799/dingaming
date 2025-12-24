@@ -68,8 +68,8 @@ export default {
         },
       },
       fontFamily: {
-        sans: ["Inter", "sans-serif"],
-        heading: ["Space Grotesk", "sans-serif"],
+        sans: ["DM Sans", "sans-serif"],
+        heading: ["Playfair Display", "serif"],
       },
       borderRadius: {
         lg: "var(--radius)",

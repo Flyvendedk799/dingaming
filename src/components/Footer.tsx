@@ -12,7 +12,7 @@ const Footer = () => {
               Få eksklusive tilbud først
             </h3>
             <p className="text-muted-foreground mb-8">
-              Tilmeld dig og få <span className="text-success font-semibold">10% rabat</span> på din første ordre + ugentlige deals
+              Tilmeld dig og få <span className="text-primary font-semibold">10% rabat</span> på din første ordre + ugentlige deals
             </p>
             <div className="flex flex-col sm:flex-row gap-3 max-w-md mx-auto">
               <div className="relative flex-1">
@@ -20,10 +20,10 @@ const Footer = () => {
                 <input 
                   type="email" 
                   placeholder="Din email adresse"
-                  className="w-full h-12 pl-12 pr-4 rounded-lg bg-muted border border-border text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-success transition-colors"
+                  className="w-full h-12 pl-12 pr-4 rounded-lg bg-muted border border-border text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-primary transition-colors"
                 />
               </div>
-              <Button variant="success" size="lg" className="group">
+              <Button size="lg" className="group bg-primary text-primary-foreground hover:bg-primary/90">
                 Tilmeld
                 <ArrowRight className="w-4 h-4 transition-transform group-hover:translate-x-1" />
               </Button>
@@ -41,8 +41,8 @@ const Footer = () => {
           {/* Brand */}
           <div>
             <a href="/" className="flex items-center gap-2.5 mb-5">
-              <div className="w-10 h-10 rounded-lg bg-success flex items-center justify-center">
-                <Zap className="w-5 h-5 text-success-foreground" />
+              <div className="w-10 h-10 rounded-lg bg-primary flex items-center justify-center">
+                <Zap className="w-5 h-5 text-primary-foreground" />
               </div>
               <div>
                 <span className="font-heading text-xl font-bold text-foreground">GameKeys</span>
@@ -71,7 +71,7 @@ const Footer = () => {
             <ul className="space-y-3 text-sm">
               {["Alle Spil", "Steam Keys", "PlayStation", "Xbox", "Nintendo Switch", "PC Games"].map((link) => (
                 <li key={link}>
-                  <a href="#" className="text-muted-foreground hover:text-success transition-colors">{link}</a>
+                  <a href="#" className="text-muted-foreground hover:text-primary transition-colors">{link}</a>
                 </li>
               ))}
             </ul>
@@ -82,7 +82,7 @@ const Footer = () => {
             <ul className="space-y-3 text-sm">
               {["Kontakt Os", "FAQ", "Aktiveringsguide", "Refundering", "Handelsbetingelser", "Privatlivspolitik"].map((link) => (
                 <li key={link}>
-                  <a href="#" className="text-muted-foreground hover:text-success transition-colors">{link}</a>
+                  <a href="#" className="text-muted-foreground hover:text-primary transition-colors">{link}</a>
                 </li>
               ))}
             </ul>
@@ -93,7 +93,7 @@ const Footer = () => {
             <h4 className="font-heading font-semibold text-foreground mb-5">Sikker Handel</h4>
             <div className="space-y-4">
               <div className="flex items-center gap-3 p-4 rounded-xl bg-muted/50 border border-border">
-                <Shield className="w-10 h-10 text-success" />
+                <Shield className="w-10 h-10 text-primary" />
                 <div>
                   <div className="font-medium text-foreground">SSL Krypteret</div>
                   <div className="text-xs text-muted-foreground">100% sikker betaling</div>

@@ -2,58 +2,62 @@
 @tailwind components;
 @tailwind utilities;
 
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Space+Grotesk:wght@500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&family=Playfair+Display:wght@500;600;700&display=swap');
 
 @layer base {
   :root {
-    --background: 220 20% 4%;
-    --foreground: 0 0% 98%;
+    /* Warm, sophisticated dark palette */
+    --background: 30 10% 6%;
+    --foreground: 40 20% 96%;
 
-    --card: 220 20% 8%;
-    --card-foreground: 0 0% 98%;
+    --card: 30 8% 10%;
+    --card-foreground: 40 20% 96%;
 
-    --popover: 220 20% 7%;
-    --popover-foreground: 0 0% 98%;
+    --popover: 30 10% 8%;
+    --popover-foreground: 40 20% 96%;
 
-    --primary: 142 70% 45%;
-    --primary-foreground: 0 0% 98%;
+    /* Warm gold/amber primary for premium feel */
+    --primary: 38 92% 50%;
+    --primary-foreground: 30 10% 6%;
 
-    --secondary: 220 15% 15%;
-    --secondary-foreground: 0 0% 90%;
+    --secondary: 30 6% 15%;
+    --secondary-foreground: 40 15% 85%;
 
-    --muted: 220 15% 12%;
-    --muted-foreground: 220 10% 55%;
+    --muted: 30 6% 14%;
+    --muted-foreground: 30 8% 50%;
 
-    --accent: 45 100% 51%;
-    --accent-foreground: 220 20% 4%;
+    /* Soft coral accent */
+    --accent: 15 75% 60%;
+    --accent-foreground: 30 10% 6%;
 
-    --destructive: 0 85% 60%;
+    --destructive: 0 72% 55%;
     --destructive-foreground: 0 0% 98%;
 
-    --success: 142 70% 45%;
+    /* Elegant emerald for success */
+    --success: 158 64% 42%;
     --success-foreground: 0 0% 98%;
 
-    --border: 220 15% 18%;
-    --input: 220 15% 15%;
-    --ring: 142 70% 45%;
+    --border: 30 6% 18%;
+    --input: 30 6% 15%;
+    --ring: 38 92% 50%;
 
-    --radius: 0.625rem;
+    --radius: 0.75rem;
 
     /* Premium effects */
-    --glow-success: 142 70% 45%;
-    --glow-accent: 45 100% 51%;
-    --gradient-hero: linear-gradient(135deg, hsl(142 70% 45% / 0.08) 0%, hsl(220 20% 4%) 50%, hsl(45 100% 51% / 0.05) 100%);
-    --gradient-card: linear-gradient(145deg, hsl(220 20% 10%) 0%, hsl(220 20% 6%) 100%);
-    --gradient-premium: linear-gradient(135deg, hsl(142 70% 45% / 0.15), hsl(160 70% 40% / 0.1));
+    --glow-primary: 38 92% 50%;
+    --glow-accent: 15 75% 60%;
+    --gradient-hero: linear-gradient(135deg, hsl(38 92% 50% / 0.06) 0%, hsl(30 10% 6%) 50%, hsl(15 75% 60% / 0.04) 100%);
+    --gradient-card: linear-gradient(145deg, hsl(30 8% 12%) 0%, hsl(30 8% 8%) 100%);
+    --gradient-premium: linear-gradient(135deg, hsl(38 92% 50% / 0.1), hsl(15 75% 60% / 0.08));
 
-    --sidebar-background: 220 20% 4%;
-    --sidebar-foreground: 0 0% 98%;
-    --sidebar-primary: 142 70% 45%;
-    --sidebar-primary-foreground: 0 0% 98%;
-    --sidebar-accent: 220 15% 12%;
-    --sidebar-accent-foreground: 0 0% 98%;
-    --sidebar-border: 220 15% 15%;
-    --sidebar-ring: 142 70% 45%;
+    --sidebar-background: 30 10% 6%;
+    --sidebar-foreground: 40 20% 96%;
+    --sidebar-primary: 38 92% 50%;
+    --sidebar-primary-foreground: 30 10% 6%;
+    --sidebar-accent: 30 6% 14%;
+    --sidebar-accent-foreground: 40 20% 96%;
+    --sidebar-border: 30 6% 18%;
+    --sidebar-ring: 38 92% 50%;
   }
 }
 
@@ -85,8 +89,9 @@
 
   body {
     @apply bg-background text-foreground antialiased;
-    font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+    font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, sans-serif;
     scroll-behavior: smooth;
+    font-feature-settings: "ss01", "ss02";
     /* Prevent text selection on mobile for app-like feel */
     -webkit-user-select: none;
     user-select: none;
@@ -103,7 +108,8 @@
   }
 
   h1, h2, h3, h4, h5, h6 {
-    font-family: 'Space Grotesk', -apple-system, BlinkMacSystemFont, sans-serif;
+    font-family: 'Playfair Display', Georgia, serif;
+    letter-spacing: -0.02em;
   }
 
   ::selection {
@@ -140,54 +146,38 @@
 }
 
 @layer components {
-  /* Enhanced trust badge */
+  /* Refined trust badge */
   .trust-badge {
-    @apply inline-flex items-center gap-2 px-4 py-2 rounded-full text-sm font-semibold transition-all duration-300;
-    background: linear-gradient(135deg, hsl(var(--success) / 0.12), hsl(var(--success) / 0.06));
-    color: hsl(var(--success));
-    border: 1px solid hsl(var(--success) / 0.25);
-    box-shadow: 0 2px 8px hsl(var(--success) / 0.1);
+    @apply inline-flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium transition-all duration-300;
+    background: hsl(var(--muted));
+    color: hsl(var(--foreground));
+    border: 1px solid hsl(var(--border));
   }
 
   .trust-badge:hover {
-    background: linear-gradient(135deg, hsl(var(--success) / 0.18), hsl(var(--success) / 0.1));
-    transform: translateY(-2px);
-    box-shadow: 0 4px 16px hsl(var(--success) / 0.2);
+    background: hsl(var(--secondary));
+    border-color: hsl(var(--primary) / 0.3);
+    transform: translateY(-1px);
   }
 
   /* Trustpilot specific badge */
   .trustpilot-badge {
-    @apply inline-flex items-center gap-2 px-4 py-2 rounded-full text-sm font-bold transition-all duration-300;
-    background: linear-gradient(135deg, hsl(var(--accent) / 0.15), hsl(var(--accent) / 0.08));
-    color: hsl(var(--accent));
-    border: 1px solid hsl(var(--accent) / 0.3);
-    box-shadow: 0 2px 8px hsl(var(--accent) / 0.15);
+    @apply inline-flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium transition-all duration-300;
+    background: hsl(var(--primary) / 0.1);
+    color: hsl(var(--primary));
+    border: 1px solid hsl(var(--primary) / 0.2);
   }
 
   .trustpilot-badge:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 4px 16px hsl(var(--accent) / 0.25);
+    transform: translateY(-1px);
+    background: hsl(var(--primary) / 0.15);
   }
 
   .urgency-badge {
-    @apply inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold;
-    background: linear-gradient(135deg, hsl(var(--destructive) / 0.15), hsl(var(--destructive) / 0.1));
-    color: hsl(var(--destructive));
-    border: 1px solid hsl(var(--destructive) / 0.25);
-    animation: urgency-pulse 2s ease-in-out infinite;
-  }
-
-  @keyframes urgency-pulse {
-    0%, 100% { 
-      opacity: 1;
-      box-shadow: 0 0 8px hsl(var(--destructive) / 0.2);
-      transform: scale(1);
-    }
-    50% { 
-      opacity: 0.95;
-      box-shadow: 0 0 20px hsl(var(--destructive) / 0.4);
-      transform: scale(1.02);
-    }
+    @apply inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold;
+    background: hsl(var(--accent) / 0.1);
+    color: hsl(var(--accent));
+    border: 1px solid hsl(var(--accent) / 0.2);
   }
 
   /* Premium featured card */
@@ -196,8 +186,7 @@
     background: var(--gradient-card);
     border: 1px solid hsl(var(--border));
     box-shadow: 
-      0 24px 64px -16px hsl(0 0% 0% / 0.6),
-      0 0 0 1px hsl(var(--success) / 0.1),
+      0 24px 64px -16px hsl(0 0% 0% / 0.5),
       inset 0 1px 0 hsl(0 0% 100% / 0.03);
   }
 
@@ -207,7 +196,7 @@
     inset: 0;
     border-radius: inherit;
     padding: 1px;
-    background: linear-gradient(135deg, hsl(var(--success) / 0.3), transparent 50%, hsl(var(--accent) / 0.2));
+    background: linear-gradient(135deg, hsl(var(--primary) / 0.2), transparent 50%, hsl(var(--accent) / 0.15));
     -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
     mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
     -webkit-mask-composite: xor;
@@ -215,43 +204,41 @@
     pointer-events: none;
   }
 
-  /* Premium card styling */
+  /* Elegant card styling */
   .game-card {
     @apply relative bg-card rounded-xl overflow-hidden;
     border: 1px solid hsl(var(--border));
-    box-shadow: 0 4px 24px -8px hsl(0 0% 0% / 0.4);
-    transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+    box-shadow: 0 4px 20px -8px hsl(0 0% 0% / 0.3);
+    transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
   }
 
   .game-card:hover {
-    border-color: hsl(var(--success) / 0.4);
-    transform: translateY(-8px) scale(1.02);
+    border-color: hsl(var(--primary) / 0.3);
+    transform: translateY(-6px);
     box-shadow: 
-      0 32px 64px -16px hsl(0 0% 0% / 0.7),
-      0 0 48px hsl(var(--success) / 0.15);
+      0 28px 50px -16px hsl(0 0% 0% / 0.5),
+      0 0 0 1px hsl(var(--primary) / 0.1);
   }
 
   .game-card:hover .game-card-image {
-    transform: scale(1.1);
+    transform: scale(1.05);
   }
 
   .game-card-image {
-    transition: transform 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+    transition: transform 0.7s cubic-bezier(0.4, 0, 0.2, 1);
   }
 
-  /* Price hero styling */
+  /* Price styling - elegant, not glowing */
   .price-hero {
     @apply relative inline-block;
     font-size: 2.5rem;
-    font-weight: 800;
-    color: hsl(var(--success));
-    text-shadow: 0 0 24px hsl(var(--success) / 0.4);
+    font-weight: 700;
+    color: hsl(var(--primary));
     letter-spacing: -0.02em;
   }
 
   .price-hero-lg {
     font-size: 3rem;
-    text-shadow: 0 0 32px hsl(var(--success) / 0.5);
   }
 
   /* Button enhancements */

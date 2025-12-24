@@ -18,27 +18,14 @@ const Header = () => {
 
   return (
     <>
-      {/* Announcement bar with slide-in animation */}
+      {/* Announcement bar - refined and elegant */}
       <motion.div 
-        className="bg-success text-success-foreground py-2.5 text-center text-sm font-medium relative overflow-hidden"
+        className="bg-primary text-primary-foreground py-2.5 text-center text-sm font-medium relative overflow-hidden"
         initial={{ y: -50, opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}
         transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
       >
-        {/* Animated shine effect */}
-        <motion.div
-          className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent"
-          initial={{ x: '-100%' }}
-          animate={{ x: '200%' }}
-          transition={{ duration: 2, repeat: Infinity, repeatDelay: 3, ease: "easeInOut" }}
-        />
         <div className="container mx-auto px-4 flex items-center justify-center gap-2 relative">
-          <motion.div
-            animate={{ rotate: [0, 15, -15, 0] }}
-            transition={{ duration: 0.5, repeat: Infinity, repeatDelay: 3 }}
-          >
-            <Zap className="w-4 h-4" />
-          </motion.div>
           <span>
             <span className="hidden sm:inline">Gratis levering på alle ordrer • </span>
             Keys sendt på <strong>30 sekunder</strong>
@@ -58,23 +45,23 @@ const Header = () => {
       >
         <div className="container mx-auto px-4">
           <div className="flex items-center justify-between h-16 lg:h-18">
-            {/* Logo */}
+            {/* Logo - elegant typography */}
             <motion.a 
               href="/" 
-              className="flex items-center gap-2.5 group"
+              className="flex items-center gap-3 group"
               whileHover={{ scale: 1.02 }}
               whileTap={{ scale: 0.98 }}
             >
               <motion.div 
-                className="w-10 h-10 rounded-lg bg-success flex items-center justify-center"
-                whileHover={{ rotate: [0, -10, 10, 0] }}
+                className="w-10 h-10 rounded-lg bg-primary flex items-center justify-center"
+                whileHover={{ rotate: [0, -5, 5, 0] }}
                 transition={{ duration: 0.4 }}
               >
-                <Zap className="w-5 h-5 text-success-foreground" />
+                <Zap className="w-5 h-5 text-primary-foreground" />
               </motion.div>
               <div className="hidden sm:block">
-                <span className="font-heading text-xl font-bold text-foreground">Din</span>
-                <span className="text-success font-bold">Gaming</span>
+                <span className="font-heading text-xl text-foreground tracking-tight">Din</span>
+                <span className="font-heading text-xl text-primary tracking-tight">Gaming</span>
               </div>
             </motion.a>
 
@@ -91,24 +78,15 @@ const Header = () => {
                   href={item.href}
                   className={`flex items-center gap-1 px-4 py-2 text-sm font-medium rounded-lg transition-colors relative ${
                     item.highlight 
-                      ? 'text-destructive hover:bg-destructive/10' 
-                      : 'text-foreground/80 hover:text-foreground hover:bg-muted'
+                      ? 'text-accent hover:bg-accent/10' 
+                      : 'text-foreground/70 hover:text-foreground hover:bg-muted'
                   }`}
                   initial={{ opacity: 0, y: -10 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: 0.2 + index * 0.05 }}
-                  whileHover={{ y: -2 }}
+                  whileHover={{ y: -1 }}
                 >
                   {item.label}
-                  {item.highlight && (
-                    <motion.span 
-                      className="text-xs"
-                      animate={{ scale: [1, 1.2, 1] }}
-                      transition={{ duration: 0.5, repeat: Infinity, repeatDelay: 2 }}
-                    >
-                      🔥
-                    </motion.span>
-                  )}
                   {item.hasDropdown && <ChevronDown className="w-4 h-4 text-muted-foreground" />}
                 </motion.a>
               ))}
@@ -128,7 +106,7 @@ const Header = () => {
                   <input 
                     type="text"
                     placeholder="Søg efter spil..."
-                    className="w-56 lg:w-64 h-10 pl-10 pr-4 rounded-lg bg-muted/50 border border-border text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-success focus:bg-muted transition-all focus:ring-2 focus:ring-success/20"
+                    className="w-56 lg:w-64 h-10 pl-10 pr-4 rounded-lg bg-muted/50 border border-border text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-primary focus:bg-muted transition-all focus:ring-2 focus:ring-primary/20"
                   />
                 </div>
               </motion.div>
@@ -159,7 +137,7 @@ const Header = () => {
                 whileHover={{ scale: 1.05 }}
                 whileTap={{ scale: 0.95 }}
               >
-                <Button variant="outline" className="relative gap-2 border-success/30 hover:border-success hover:bg-success/5 group">
+                <Button variant="outline" className="relative gap-2 border-primary/30 hover:border-primary hover:bg-primary/5 group">
                   <motion.div
                     whileHover={{ rotate: [-5, 5, 0] }}
                     transition={{ duration: 0.3 }}
@@ -170,7 +148,7 @@ const Header = () => {
                   <AnimatePresence>
                     {cartCount > 0 && (
                       <motion.span 
-                        className="absolute -top-2 -right-2 w-5 h-5 bg-success text-success-foreground text-xs rounded-full flex items-center justify-center font-bold shadow-sm"
+                        className="absolute -top-2 -right-2 w-5 h-5 bg-primary text-primary-foreground text-xs rounded-full flex items-center justify-center font-semibold shadow-sm"
                         initial={{ scale: 0 }}
                         animate={{ scale: 1 }}
                         exit={{ scale: 0 }}
