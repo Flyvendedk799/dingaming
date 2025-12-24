@@ -34,9 +34,9 @@ const Testimonials = () => {
       <div className="container mx-auto px-4">
         {/* Header */}
         <div className="text-center mb-12">
-          <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-accent/10 border border-accent/20 mb-6">
-            <Star className="w-4 h-4 text-accent fill-accent" />
-            <span className="text-sm font-semibold text-accent">4.9/5 på Trustpilot</span>
+          <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-primary/10 border border-primary/20 mb-6">
+            <Star className="w-4 h-4 text-primary fill-primary" />
+            <span className="text-sm font-medium text-primary">4.9/5 på Trustpilot</span>
           </div>
           <h2 className="font-heading text-3xl sm:text-4xl font-bold text-foreground mb-4">
             Hvad vores kunder siger
@@ -51,12 +51,12 @@ const Testimonials = () => {
           {testimonials.map((testimonial, index) => (
             <div 
               key={index} 
-              className="bg-card rounded-xl border border-border p-6 hover:border-success/30 hover:shadow-soft transition-all duration-300"
+              className="bg-card rounded-xl border border-border p-6 hover:border-primary/30 transition-all duration-300"
             >
               {/* Rating */}
               <div className="flex items-center gap-1 mb-4">
                 {[...Array(testimonial.rating)].map((_, i) => (
-                  <Star key={i} className="w-5 h-5 text-accent fill-accent" />
+                  <Star key={i} className="w-5 h-5 text-primary fill-primary" />
                 ))}
               </div>
 
@@ -79,7 +79,7 @@ const Testimonials = () => {
                     </div>
                   </div>
                   {testimonial.verified && (
-                    <span className="flex items-center gap-1 text-xs text-success">
+                    <span className="flex items-center gap-1 text-xs text-primary">
                       <CheckCircle2 className="w-3.5 h-3.5" />
                       Verificeret
                     </span>

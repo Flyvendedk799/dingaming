@@ -125,13 +125,8 @@ const GameCard = ({
           animate={{ opacity: isHovered ? 1 : 0, y: isHovered ? 0 : 10 }}
           transition={{ duration: 0.3 }}
         >
-          <div className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-success text-success-foreground text-xs font-semibold shadow-lg">
-            <motion.div
-              animate={{ rotate: [0, 15, -15, 0] }}
-              transition={{ duration: 0.5, repeat: Infinity, repeatDelay: 2 }}
-            >
-              <Zap className="w-3.5 h-3.5" />
-            </motion.div>
+          <div className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-primary text-primary-foreground text-xs font-medium shadow-lg">
+            <Zap className="w-3.5 h-3.5" />
             Levering på 30 sekunder
           </div>
         </motion.div>
@@ -163,7 +158,7 @@ const GameCard = ({
         </div>
 
         {/* Title */}
-        <h3 className="font-heading text-lg font-semibold text-foreground mb-3 line-clamp-2 leading-snug group-hover:text-success transition-colors duration-300">
+        <h3 className="font-heading text-lg font-semibold text-foreground mb-3 line-clamp-2 leading-snug group-hover:text-primary transition-colors duration-300">
           {title}
         </h3>
 
@@ -176,7 +171,7 @@ const GameCard = ({
         >
           <div className="flex items-baseline gap-2">
             <motion.span 
-              className="text-2xl font-bold text-success"
+              className="text-2xl font-bold text-primary"
               whileInView={{ scale: [0.9, 1.05, 1] }}
               viewport={{ once: true }}
               transition={{ delay: 0.3, duration: 0.4 }}
@@ -232,8 +227,7 @@ const GameCard = ({
           whileTap={{ scale: 0.98 }}
         >
           <Button 
-            variant="success" 
-            className={`w-full font-semibold group/btn ripple ${isAdding ? 'cart-success' : ''}`}
+            className="w-full font-medium bg-primary text-primary-foreground hover:bg-primary/90"
             size="lg"
             onClick={handleAddToCart}
             disabled={isAdding}
@@ -280,7 +274,7 @@ const GameCard = ({
           viewport={{ once: true }}
           transition={{ delay: 0.6 }}
         >
-          <CheckCircle2 className="w-3.5 h-3.5 text-success" />
+          <CheckCircle2 className="w-3.5 h-3.5 text-primary" />
           <span>Officiel key med garanti</span>
         </motion.div>
       </div>
