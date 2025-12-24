@@ -1,86 +1,104 @@
-import { Facebook, Instagram, Twitter, Youtube, CreditCard, Shield, Zap, ArrowUp } from "lucide-react";
+import { motion } from "framer-motion";
+import { Facebook, Instagram, Twitter, Youtube, Shield, Zap, ArrowUp, Mail } from "lucide-react";
 import { Button } from "./ui/button";
 
 const Footer = () => {
-  const scrollToTop = () => {
-    window.scrollTo({ top: 0, behavior: 'smooth' });
-  };
+  const scrollToTop = () => window.scrollTo({ top: 0, behavior: 'smooth' });
 
   return (
     <footer className="relative bg-card border-t border-border overflow-hidden">
-      {/* Background decoration */}
-      <div className="absolute top-0 left-1/4 w-96 h-96 bg-primary/5 rounded-full blur-3xl" />
-      <div className="absolute bottom-0 right-1/4 w-96 h-96 bg-secondary/5 rounded-full blur-3xl" />
+      {/* Background */}
+      <div className="absolute inset-0 bg-mesh opacity-30" />
 
-      <div className="relative container mx-auto px-4 py-20">
+      {/* Newsletter Section */}
+      <div className="relative border-b border-border">
+        <div className="container mx-auto px-4 py-16">
+          <motion.div
+            initial={{ opacity: 0, y: 30 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            className="max-w-2xl mx-auto text-center"
+          >
+            <h3 className="font-display text-3xl sm:text-4xl text-foreground mb-4">
+              FÅ EKSKLUSIVE TILBUD
+            </h3>
+            <p className="text-muted-foreground mb-8 font-body">
+              Tilmeld dig vores nyhedsbrev og modtag de bedste deals direkte i din inbox
+            </p>
+            <div className="flex flex-col sm:flex-row gap-4 justify-center">
+              <div className="relative flex-1 max-w-md">
+                <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
+                <input 
+                  type="email" 
+                  placeholder="Din email adresse"
+                  className="w-full h-14 pl-12 pr-4 rounded-xl bg-muted border border-border text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-primary transition-colors"
+                />
+              </div>
+              <Button variant="hero" size="xl" className="font-tech">
+                TILMELD
+              </Button>
+            </div>
+          </motion.div>
+        </div>
+      </div>
+
+      <div className="relative container mx-auto px-4 py-16">
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-12 mb-16">
           {/* Brand */}
-          <div className="lg:col-span-1">
+          <div>
             <a href="/" className="flex items-center gap-3 mb-6">
-              <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-primary to-secondary flex items-center justify-center shadow-neon">
+              <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-primary to-secondary flex items-center justify-center shadow-glow-sm">
                 <Zap className="w-6 h-6 text-primary-foreground" />
               </div>
               <div>
-                <span className="font-display text-xl font-bold text-foreground block leading-tight">
-                  GameKeys
-                </span>
-                <span className="text-xs text-primary font-semibold tracking-wider">.DK</span>
+                <span className="font-display text-2xl text-foreground block leading-none">GAMEKEYS</span>
+                <span className="text-[10px] text-primary font-tech tracking-[0.3em]">.DK</span>
               </div>
             </a>
-            <p className="text-muted-foreground mb-6 leading-relaxed">
+            <p className="text-muted-foreground mb-6 font-body leading-relaxed">
               Danmarks førende online butik for digitale game keys. 
-              Hurtig levering, sikker betaling og ægte keys garanteret.
+              Hurtig levering, sikker betaling.
             </p>
             <div className="flex items-center gap-3">
               {[Facebook, Instagram, Twitter, Youtube].map((Icon, index) => (
-                <a
+                <motion.a
                   key={index}
                   href="#"
+                  whileHover={{ scale: 1.1, y: -2 }}
                   className="w-10 h-10 rounded-xl bg-muted flex items-center justify-center text-muted-foreground hover:text-primary hover:bg-primary/10 transition-all duration-300"
                 >
                   <Icon className="w-5 h-5" />
-                </a>
+                </motion.a>
               ))}
             </div>
           </div>
 
-          {/* Quick Links */}
-          <div>
-            <h3 className="font-display font-bold text-foreground mb-6 text-lg">Hurtige Links</h3>
-            <ul className="space-y-3">
-              {["Alle Spil", "Tilbud", "Nye Udgivelser", "Forudbestillinger", "Gavekort"].map((link) => (
-                <li key={link}>
-                  <a href="#" className="text-muted-foreground hover:text-primary transition-colors inline-flex items-center gap-2 group">
-                    <span className="w-1.5 h-1.5 rounded-full bg-primary opacity-0 group-hover:opacity-100 transition-opacity" />
-                    {link}
-                  </a>
-                </li>
-              ))}
-            </ul>
-          </div>
+          {/* Links */}
+          {[
+            { title: "HURTIGE LINKS", links: ["Alle Spil", "Tilbud", "Nye Udgivelser", "Gavekort"] },
+            { title: "SUPPORT", links: ["Kontakt Os", "FAQ", "Aktiveringsguide", "Refundering"] },
+          ].map((section) => (
+            <div key={section.title}>
+              <h3 className="font-display text-lg text-foreground mb-6 tracking-wide">{section.title}</h3>
+              <ul className="space-y-3">
+                {section.links.map((link) => (
+                  <li key={link}>
+                    <a href="#" className="text-muted-foreground hover:text-primary transition-colors font-body link-glow">
+                      {link}
+                    </a>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ))}
 
-          {/* Support */}
+          {/* Security */}
           <div>
-            <h3 className="font-display font-bold text-foreground mb-6 text-lg">Support</h3>
-            <ul className="space-y-3">
-              {["Kontakt Os", "FAQ", "Aktiveringsguide", "Refunderingspolitik", "Handelsbetingelser"].map((link) => (
-                <li key={link}>
-                  <a href="#" className="text-muted-foreground hover:text-primary transition-colors inline-flex items-center gap-2 group">
-                    <span className="w-1.5 h-1.5 rounded-full bg-primary opacity-0 group-hover:opacity-100 transition-opacity" />
-                    {link}
-                  </a>
-                </li>
-              ))}
-            </ul>
-          </div>
-
-          {/* Payment & Security */}
-          <div>
-            <h3 className="font-display font-bold text-foreground mb-6 text-lg">Sikker Betaling</h3>
-            <div className="flex items-center gap-2 mb-6 flex-wrap">
+            <h3 className="font-display text-lg text-foreground mb-6 tracking-wide">SIKKER BETALING</h3>
+            <div className="flex flex-wrap gap-2 mb-6">
               {["Visa", "MasterCard", "MobilePay", "PayPal"].map((method) => (
-                <div key={method} className="px-3 py-2 rounded-lg bg-muted border border-border">
-                  <span className="text-xs font-semibold text-muted-foreground">{method}</span>
+                <div key={method} className="px-3 py-2 rounded-lg bg-muted border border-border text-xs font-tech text-muted-foreground">
+                  {method.toUpperCase()}
                 </div>
               ))}
             </div>
@@ -90,7 +108,7 @@ const Footer = () => {
                   <Shield className="w-6 h-6 text-primary" />
                 </div>
                 <div>
-                  <p className="font-semibold text-foreground text-sm">SSL Krypteret</p>
+                  <p className="font-semibold text-foreground text-sm font-tech">SSL KRYPTERET</p>
                   <p className="text-xs text-muted-foreground">100% sikre transaktioner</p>
                 </div>
               </div>
@@ -98,31 +116,33 @@ const Footer = () => {
           </div>
         </div>
 
-        {/* Bottom Bar */}
+        {/* Bottom */}
         <div className="pt-8 border-t border-border flex flex-col md:flex-row items-center justify-between gap-4">
-          <p className="text-sm text-muted-foreground">
+          <p className="text-sm text-muted-foreground font-body">
             © {new Date().getFullYear()} GameKeys.dk. Alle rettigheder forbeholdes.
           </p>
           <div className="flex items-center gap-6 text-sm">
-            <a href="#" className="text-muted-foreground hover:text-primary transition-colors">
-              Privatlivspolitik
-            </a>
-            <a href="#" className="text-muted-foreground hover:text-primary transition-colors">
-              Cookiepolitik
-            </a>
+            <a href="#" className="text-muted-foreground hover:text-primary transition-colors font-body">Privatlivspolitik</a>
+            <a href="#" className="text-muted-foreground hover:text-primary transition-colors font-body">Cookies</a>
           </div>
         </div>
       </div>
 
-      {/* Scroll to top button */}
-      <Button
-        variant="outline"
-        size="icon"
-        onClick={scrollToTop}
-        className="fixed bottom-8 right-8 z-50 rounded-full shadow-neon hover:shadow-neon-strong"
+      {/* Scroll to top */}
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        className="fixed bottom-8 right-8 z-50"
       >
-        <ArrowUp className="w-5 h-5" />
-      </Button>
+        <Button
+          variant="outline"
+          size="icon"
+          onClick={scrollToTop}
+          className="rounded-full shadow-glow-sm hover:shadow-glow-md border-2"
+        >
+          <ArrowUp className="w-5 h-5" />
+        </Button>
+      </motion.div>
     </footer>
   );
 };

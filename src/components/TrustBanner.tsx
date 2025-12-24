@@ -1,57 +1,90 @@
-import { Star, Users, ShoppingBag, Clock } from "lucide-react";
+import { motion } from "framer-motion";
+import { Star, Users, ShoppingBag, Clock, TrendingUp } from "lucide-react";
 
 const stats = [
-  {
-    icon: Users,
-    value: "50.000+",
-    label: "Tilfredse Kunder",
-  },
-  {
-    icon: ShoppingBag,
-    value: "200.000+",
-    label: "Solgte Keys",
-  },
-  {
-    icon: Star,
-    value: "4.9/5",
-    label: "Trustpilot",
-  },
-  {
-    icon: Clock,
-    value: "<60 sek",
-    label: "Gns. Leveringstid",
-  },
+  { icon: Users, value: "50.000+", label: "TILFREDSE KUNDER", color: "primary" },
+  { icon: ShoppingBag, value: "200K+", label: "SOLGTE KEYS", color: "secondary" },
+  { icon: Star, value: "4.9/5", label: "TRUSTPILOT", color: "accent" },
+  { icon: Clock, value: "<60s", label: "LEVERINGSTID", color: "primary" },
 ];
 
 const TrustBanner = () => {
   return (
-    <section className="relative py-16 overflow-hidden">
-      {/* Background */}
-      <div className="absolute inset-0 bg-gradient-to-r from-primary/10 via-secondary/10 to-primary/10" />
-      <div className="absolute inset-0 glass-strong" />
+    <section className="relative py-20 overflow-hidden">
+      {/* Animated background */}
+      <div className="absolute inset-0 bg-gradient-to-r from-primary/5 via-secondary/5 to-primary/5" />
+      <motion.div 
+        animate={{ x: [0, 100, 0] }}
+        transition={{ duration: 20, repeat: Infinity }}
+        className="absolute inset-0 bg-mesh opacity-50"
+      />
       
-      {/* Animated border */}
-      <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-primary to-transparent" />
-      <div className="absolute bottom-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-primary to-transparent" />
+      {/* Borders */}
+      <div className="absolute top-0 left-0 right-0 h-px line-glow" />
+      <div className="absolute bottom-0 left-0 right-0 h-px line-glow" />
 
-      <div className="relative container mx-auto px-4">
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-8">
+      {/* Marquee effect - trust badges */}
+      <div className="absolute top-0 left-0 right-0 py-3 overflow-hidden bg-primary/5 border-b border-primary/10">
+        <motion.div
+          animate={{ x: ["0%", "-50%"] }}
+          transition={{ duration: 30, repeat: Infinity, ease: "linear" }}
+          className="flex gap-12 whitespace-nowrap"
+        >
+          {[...Array(10)].map((_, i) => (
+            <div key={i} className="flex items-center gap-3 text-muted-foreground">
+              <TrendingUp className="w-4 h-4 text-primary" />
+              <span className="text-sm font-medium">ØJEBLIKKELIG LEVERING</span>
+              <span className="text-primary">•</span>
+              <span className="text-sm font-medium">SIKKER BETALING</span>
+              <span className="text-primary">•</span>
+              <span className="text-sm font-medium">ÆGTE KEYS</span>
+              <span className="text-primary">•</span>
+              <span className="text-sm font-medium">DANSK SUPPORT</span>
+            </div>
+          ))}
+        </motion.div>
+      </div>
+
+      <div className="relative container mx-auto px-4 pt-16">
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-8 lg:gap-4">
           {stats.map((stat, index) => (
-            <div
+            <motion.div
               key={stat.label}
-              className="text-center animate-fade-up"
-              style={{ animationDelay: `${index * 0.1}s` }}
+              initial={{ opacity: 0, y: 30 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+              transition={{ delay: index * 0.1 }}
+              className="text-center group"
             >
-              <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-primary/10 mb-4">
-                <stat.icon className="w-7 h-7 text-primary" />
-              </div>
-              <div className="font-display text-3xl sm:text-4xl font-bold text-gradient mb-2">
+              {/* Icon with glow */}
+              <motion.div 
+                whileHover={{ scale: 1.1, rotate: 5 }}
+                className={`inline-flex items-center justify-center w-16 h-16 rounded-2xl mb-5 
+                  ${stat.color === 'primary' ? 'bg-primary/10 shadow-glow-sm' : ''}
+                  ${stat.color === 'secondary' ? 'bg-secondary/10 shadow-glow-purple' : ''}
+                  ${stat.color === 'accent' ? 'bg-accent/10 shadow-gold' : ''}
+                `}
+              >
+                <stat.icon className={`w-8 h-8 
+                  ${stat.color === 'primary' ? 'text-primary' : ''}
+                  ${stat.color === 'secondary' ? 'text-secondary' : ''}
+                  ${stat.color === 'accent' ? 'text-accent' : ''}
+                `} />
+              </motion.div>
+              
+              {/* Value */}
+              <motion.div 
+                className="font-display text-4xl sm:text-5xl lg:text-6xl text-gradient glow-text mb-3"
+                whileHover={{ scale: 1.05 }}
+              >
                 {stat.value}
-              </div>
-              <div className="text-muted-foreground font-medium">
+              </motion.div>
+              
+              {/* Label */}
+              <div className="text-xs sm:text-sm text-muted-foreground font-tech tracking-widest">
                 {stat.label}
               </div>
-            </div>
+            </motion.div>
           ))}
         </div>
       </div>
