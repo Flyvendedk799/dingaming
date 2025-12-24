@@ -1,5 +1,4 @@
-import { motion } from "framer-motion";
-import { ShoppingCart, Search, User, Menu, X, Zap } from "lucide-react";
+import { ShoppingCart, Search, User, Menu, X, Zap, ChevronDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useState, useEffect } from "react";
 
@@ -9,126 +8,117 @@ const Header = () => {
   const [scrolled, setScrolled] = useState(false);
 
   useEffect(() => {
-    const handleScroll = () => setScrolled(window.scrollY > 50);
+    const handleScroll = () => setScrolled(window.scrollY > 20);
     window.addEventListener("scroll", handleScroll);
     return () => window.removeEventListener("scroll", handleScroll);
   }, []);
 
   return (
-    <motion.header 
-      initial={{ y: -100 }}
-      animate={{ y: 0 }}
-      transition={{ duration: 0.6, ease: [0.33, 1, 0.68, 1] }}
-      className={`fixed top-0 left-0 right-0 z-50 transition-all duration-500 ${
-        scrolled 
-          ? 'bg-background/80 backdrop-blur-2xl border-b border-border/50 shadow-elevation' 
-          : 'bg-transparent'
-      }`}
-    >
-      <div className="container mx-auto px-4">
-        <div className="flex items-center justify-between h-20 lg:h-24">
-          {/* Logo */}
-          <a href="/" className="flex items-center gap-3 group">
-            <motion.div 
-              whileHover={{ scale: 1.05, rotate: 5 }}
-              className="relative"
-            >
-              <div className="w-12 h-12 lg:w-14 lg:h-14 rounded-xl bg-gradient-to-br from-primary to-secondary flex items-center justify-center shadow-glow-sm group-hover:shadow-glow-md transition-all duration-300">
-                <Zap className="w-6 h-6 lg:w-7 lg:h-7 text-primary-foreground" />
-              </div>
-              <div className="absolute inset-0 rounded-xl bg-gradient-to-br from-primary to-secondary blur-xl opacity-50 group-hover:opacity-75 transition-opacity -z-10" />
-            </motion.div>
-            <div className="hidden sm:block">
-              <span className="font-display text-2xl lg:text-3xl text-foreground block leading-none tracking-wide">
-                GAMEKEYS
-              </span>
-              <span className="text-[10px] text-primary font-tech tracking-[0.3em]">.DK</span>
-            </div>
-          </a>
+    <>
+      {/* Top bar - Trust message */}
+      <div className="bg-success text-success-foreground py-2 text-center text-sm font-medium">
+        <span className="flex items-center justify-center gap-2">
+          <Zap className="w-4 h-4" />
+          Gratis levering på alle ordrer • Keys sendt på 30 sekunder
+        </span>
+      </div>
 
-          {/* Desktop Navigation */}
-          <nav className="hidden lg:flex items-center gap-1">
-            {[
-              { label: "ALLE SPIL", href: "#spil" },
-              { label: "TILBUD", href: "#tilbud", badge: "HOT" },
-              { label: "PLATFORME", href: "#platforme" },
-              { label: "SUPPORT", href: "#support" },
-            ].map((item) => (
-              <a
-                key={item.label}
-                href={item.href}
-                className="relative px-5 py-3 text-muted-foreground hover:text-foreground transition-colors font-tech text-xs tracking-wider link-glow"
-              >
-                {item.label}
-                {item.badge && (
-                  <span className="absolute -top-1 -right-1 px-1.5 py-0.5 rounded-full bg-destructive text-destructive-foreground text-[9px] font-bold animate-pulse">
-                    {item.badge}
+      <header className={`sticky top-0 z-50 transition-all duration-200 ${
+        scrolled ? 'bg-background/95 backdrop-blur-md border-b border-border shadow-sm' : 'bg-background border-b border-border'
+      }`}>
+        <div className="container mx-auto px-4">
+          <div className="flex items-center justify-between h-16">
+            {/* Logo */}
+            <a href="/" className="flex items-center gap-2">
+              <div className="w-10 h-10 rounded-lg bg-success flex items-center justify-center">
+                <Zap className="w-5 h-5 text-success-foreground" />
+              </div>
+              <span className="font-heading text-xl font-bold text-foreground">
+                GameKeys.dk
+              </span>
+            </a>
+
+            {/* Desktop Navigation - Simple & Clear */}
+            <nav className="hidden lg:flex items-center gap-1">
+              <a href="#" className="px-4 py-2 text-sm font-medium text-foreground hover:text-success transition-colors">
+                Alle Spil
+              </a>
+              <a href="#" className="flex items-center gap-1 px-4 py-2 text-sm font-medium text-foreground hover:text-success transition-colors">
+                Kategorier
+                <ChevronDown className="w-4 h-4" />
+              </a>
+              <a href="#" className="px-4 py-2 text-sm font-medium text-destructive hover:text-destructive/80 transition-colors">
+                Tilbud 🔥
+              </a>
+              <a href="#" className="px-4 py-2 text-sm font-medium text-foreground hover:text-success transition-colors">
+                Support
+              </a>
+            </nav>
+
+            {/* Actions */}
+            <div className="flex items-center gap-2">
+              {/* Search */}
+              <div className="hidden md:flex items-center">
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                  <input 
+                    type="text"
+                    placeholder="Søg efter spil..."
+                    className="w-64 h-10 pl-10 pr-4 rounded-lg bg-muted border border-border text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-success transition-colors"
+                  />
+                </div>
+              </div>
+
+              <Button variant="ghost" size="icon" className="md:hidden">
+                <Search className="w-5 h-5" />
+              </Button>
+
+              <Button variant="ghost" size="icon">
+                <User className="w-5 h-5" />
+              </Button>
+
+              {/* Cart - prominent */}
+              <Button variant="outline" className="relative gap-2">
+                <ShoppingCart className="w-5 h-5" />
+                <span className="hidden sm:inline">Kurv</span>
+                {cartCount > 0 && (
+                  <span className="absolute -top-2 -right-2 w-5 h-5 bg-success text-success-foreground text-xs rounded-full flex items-center justify-center font-bold">
+                    {cartCount}
                   </span>
                 )}
-              </a>
-            ))}
-          </nav>
-
-          {/* Actions */}
-          <div className="flex items-center gap-3">
-            <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-foreground">
-              <Search className="w-5 h-5" />
-            </Button>
-            <Button variant="ghost" size="icon" className="hidden sm:flex text-muted-foreground hover:text-foreground">
-              <User className="w-5 h-5" />
-            </Button>
-            
-            {/* Cart */}
-            <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
-              <Button variant="outline" size="icon" className="relative border-2 pulse-ring">
-                <ShoppingCart className="w-5 h-5" />
-                {cartCount > 0 && (
-                  <motion.span 
-                    initial={{ scale: 0 }}
-                    animate={{ scale: 1 }}
-                    className="absolute -top-2 -right-2 w-5 h-5 bg-gradient-to-r from-primary to-secondary text-primary-foreground text-xs rounded-full flex items-center justify-center font-bold shadow-glow-sm"
-                  >
-                    {cartCount}
-                  </motion.span>
-                )}
               </Button>
-            </motion.div>
 
-            <Button
-              variant="ghost"
-              size="icon"
-              className="lg:hidden text-muted-foreground"
-              onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-            >
-              {mobileMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
-            </Button>
-          </div>
-        </div>
-
-        {/* Mobile Menu */}
-        {mobileMenuOpen && (
-          <motion.nav 
-            initial={{ opacity: 0, height: 0 }}
-            animate={{ opacity: 1, height: "auto" }}
-            exit={{ opacity: 0, height: 0 }}
-            className="lg:hidden py-6 border-t border-border"
-          >
-            <div className="flex flex-col gap-4">
-              {["ALLE SPIL", "TILBUD", "PLATFORME", "SUPPORT", "LOG IND"].map((item) => (
-                <a
-                  key={item}
-                  href="#"
-                  className="text-lg text-muted-foreground hover:text-primary transition-colors font-tech tracking-wider py-2"
-                  onClick={() => setMobileMenuOpen(false)}
-                >
-                  {item}
-                </a>
-              ))}
+              <Button
+                variant="ghost"
+                size="icon"
+                className="lg:hidden"
+                onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+              >
+                {mobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
+              </Button>
             </div>
-          </motion.nav>
-        )}
-      </div>
-    </motion.header>
+          </div>
+
+          {/* Mobile Menu */}
+          {mobileMenuOpen && (
+            <nav className="lg:hidden py-4 border-t border-border">
+              <div className="flex flex-col gap-2">
+                {["Alle Spil", "Kategorier", "Tilbud", "Support", "Min Konto"].map((item) => (
+                  <a
+                    key={item}
+                    href="#"
+                    className="px-4 py-3 text-foreground hover:bg-muted rounded-lg transition-colors"
+                    onClick={() => setMobileMenuOpen(false)}
+                  >
+                    {item}
+                  </a>
+                ))}
+              </div>
+            </nav>
+          )}
+        </div>
+      </header>
+    </>
   );
 };
 

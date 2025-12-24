@@ -52,12 +52,9 @@ export default {
           DEFAULT: "hsl(var(--card))",
           foreground: "hsl(var(--card-foreground))",
         },
-        neon: {
-          cyan: "hsl(var(--neon-glow))",
-          purple: "hsl(var(--neon-purple))",
-        },
-        surface: {
-          elevated: "hsl(var(--surface-elevated))",
+        success: {
+          DEFAULT: "hsl(var(--success))",
+          foreground: "hsl(var(--success-foreground))",
         },
         sidebar: {
           DEFAULT: "hsl(var(--sidebar-background))",
@@ -72,7 +69,7 @@ export default {
       },
       fontFamily: {
         sans: ["Inter", "sans-serif"],
-        display: ["Orbitron", "sans-serif"],
+        heading: ["Space Grotesk", "sans-serif"],
       },
       borderRadius: {
         lg: "var(--radius)",
@@ -88,20 +85,10 @@ export default {
           from: { height: "var(--radix-accordion-content-height)" },
           to: { height: "0" },
         },
-        shimmer: {
-          "0%": { backgroundPosition: "-200% 0" },
-          "100%": { backgroundPosition: "200% 0" },
-        },
-        glow: {
-          "0%, 100%": { opacity: "1" },
-          "50%": { opacity: "0.5" },
-        },
       },
       animation: {
         "accordion-down": "accordion-down 0.2s ease-out",
         "accordion-up": "accordion-up 0.2s ease-out",
-        shimmer: "shimmer 2s linear infinite",
-        glow: "glow 2s ease-in-out infinite",
       },
     },
   },

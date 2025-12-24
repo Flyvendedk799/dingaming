@@ -1,91 +1,58 @@
-import { motion } from "framer-motion";
-import { Star, Users, ShoppingBag, Clock, TrendingUp } from "lucide-react";
+import { Shield, Zap, RefreshCw, Headphones, CreditCard, Star } from "lucide-react";
 
-const stats = [
-  { icon: Users, value: "50.000+", label: "TILFREDSE KUNDER", color: "primary" },
-  { icon: ShoppingBag, value: "200K+", label: "SOLGTE KEYS", color: "secondary" },
-  { icon: Star, value: "4.9/5", label: "TRUSTPILOT", color: "accent" },
-  { icon: Clock, value: "<60s", label: "LEVERINGSTID", color: "primary" },
+const trustPoints = [
+  { icon: Zap, title: "Øjeblikkelig Levering", description: "Din key sendes automatisk til din email inden for 30 sekunder" },
+  { icon: Shield, title: "100% Officielle Keys", description: "Alle keys er købt direkte fra udgivere og distributører" },
+  { icon: RefreshCw, title: "Pengene Tilbage", description: "Fuld refundering inden for 14 dage hvis key ikke virker" },
+  { icon: Headphones, title: "Dansk Support", description: "Vores team sidder klar til at hjælpe dig 24/7" },
 ];
 
 const TrustBanner = () => {
   return (
-    <section className="relative py-20 overflow-hidden">
-      {/* Animated background */}
-      <div className="absolute inset-0 bg-gradient-to-r from-primary/5 via-secondary/5 to-primary/5" />
-      <motion.div 
-        animate={{ x: [0, 100, 0] }}
-        transition={{ duration: 20, repeat: Infinity }}
-        className="absolute inset-0 bg-mesh opacity-50"
-      />
-      
-      {/* Borders */}
-      <div className="absolute top-0 left-0 right-0 h-px line-glow" />
-      <div className="absolute bottom-0 left-0 right-0 h-px line-glow" />
+    <section className="py-12 bg-card border-y border-border">
+      <div className="container mx-auto px-4">
+        {/* Trust score header */}
+        <div className="flex flex-col sm:flex-row items-center justify-center gap-4 mb-10">
+          <div className="flex items-center gap-2">
+            <div className="flex">
+              {[...Array(5)].map((_, i) => (
+                <Star key={i} className="w-5 h-5 text-accent fill-accent" />
+              ))}
+            </div>
+            <span className="text-lg font-bold text-foreground">4.9/5</span>
+          </div>
+          <span className="text-muted-foreground">baseret på 12.847 anmeldelser på</span>
+          <span className="font-semibold text-foreground">Trustpilot</span>
+        </div>
 
-      {/* Marquee effect - trust badges */}
-      <div className="absolute top-0 left-0 right-0 py-3 overflow-hidden bg-primary/5 border-b border-primary/10">
-        <motion.div
-          animate={{ x: ["0%", "-50%"] }}
-          transition={{ duration: 30, repeat: Infinity, ease: "linear" }}
-          className="flex gap-12 whitespace-nowrap"
-        >
-          {[...Array(10)].map((_, i) => (
-            <div key={i} className="flex items-center gap-3 text-muted-foreground">
-              <TrendingUp className="w-4 h-4 text-primary" />
-              <span className="text-sm font-medium">ØJEBLIKKELIG LEVERING</span>
-              <span className="text-primary">•</span>
-              <span className="text-sm font-medium">SIKKER BETALING</span>
-              <span className="text-primary">•</span>
-              <span className="text-sm font-medium">ÆGTE KEYS</span>
-              <span className="text-primary">•</span>
-              <span className="text-sm font-medium">DANSK SUPPORT</span>
+        {/* Trust points */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">
+          {trustPoints.map((point) => (
+            <div key={point.title} className="text-center">
+              <div className="inline-flex items-center justify-center w-14 h-14 rounded-xl bg-success/10 mb-4">
+                <point.icon className="w-7 h-7 text-success" />
+              </div>
+              <h3 className="font-heading text-lg font-semibold text-foreground mb-2">
+                {point.title}
+              </h3>
+              <p className="text-sm text-muted-foreground">
+                {point.description}
+              </p>
             </div>
           ))}
-        </motion.div>
-      </div>
+        </div>
 
-      <div className="relative container mx-auto px-4 pt-16">
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-8 lg:gap-4">
-          {stats.map((stat, index) => (
-            <motion.div
-              key={stat.label}
-              initial={{ opacity: 0, y: 30 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
-              transition={{ delay: index * 0.1 }}
-              className="text-center group"
-            >
-              {/* Icon with glow */}
-              <motion.div 
-                whileHover={{ scale: 1.1, rotate: 5 }}
-                className={`inline-flex items-center justify-center w-16 h-16 rounded-2xl mb-5 
-                  ${stat.color === 'primary' ? 'bg-primary/10 shadow-glow-sm' : ''}
-                  ${stat.color === 'secondary' ? 'bg-secondary/10 shadow-glow-purple' : ''}
-                  ${stat.color === 'accent' ? 'bg-accent/10 shadow-gold' : ''}
-                `}
-              >
-                <stat.icon className={`w-8 h-8 
-                  ${stat.color === 'primary' ? 'text-primary' : ''}
-                  ${stat.color === 'secondary' ? 'text-secondary' : ''}
-                  ${stat.color === 'accent' ? 'text-accent' : ''}
-                `} />
-              </motion.div>
-              
-              {/* Value */}
-              <motion.div 
-                className="font-display text-4xl sm:text-5xl lg:text-6xl text-gradient glow-text mb-3"
-                whileHover={{ scale: 1.05 }}
-              >
-                {stat.value}
-              </motion.div>
-              
-              {/* Label */}
-              <div className="text-xs sm:text-sm text-muted-foreground font-tech tracking-widest">
-                {stat.label}
+        {/* Payment methods - trust signals */}
+        <div className="mt-12 pt-8 border-t border-border">
+          <div className="flex flex-wrap items-center justify-center gap-6">
+            <span className="text-sm text-muted-foreground">Sikker betaling med:</span>
+            {["Visa", "Mastercard", "MobilePay", "PayPal", "Apple Pay"].map((method) => (
+              <div key={method} className="flex items-center gap-2 px-4 py-2 rounded-lg bg-muted">
+                <CreditCard className="w-4 h-4 text-muted-foreground" />
+                <span className="text-sm font-medium text-foreground">{method}</span>
               </div>
-            </motion.div>
-          ))}
+            ))}
+          </div>
         </div>
       </div>
     </section>
