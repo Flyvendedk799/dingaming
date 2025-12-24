@@ -73,8 +73,8 @@ const Header = () => {
                 <Zap className="w-5 h-5 text-success-foreground" />
               </motion.div>
               <div className="hidden sm:block">
-                <span className="font-heading text-xl font-bold text-foreground">GameKeys</span>
-                <span className="text-success font-bold">.dk</span>
+                <span className="font-heading text-xl font-bold text-foreground">Din</span>
+                <span className="text-success font-bold">Gaming</span>
               </div>
             </motion.a>
 
