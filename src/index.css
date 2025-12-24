@@ -9,7 +9,7 @@
     --background: 220 20% 4%;
     --foreground: 0 0% 98%;
 
-    --card: 220 20% 7%;
+    --card: 220 20% 8%;
     --card-foreground: 0 0% 98%;
 
     --popover: 220 20% 7%;
@@ -18,8 +18,8 @@
     --primary: 142 70% 45%;
     --primary-foreground: 0 0% 98%;
 
-    --secondary: 220 15% 18%;
-    --secondary-foreground: 0 0% 98%;
+    --secondary: 220 15% 15%;
+    --secondary-foreground: 0 0% 90%;
 
     --muted: 220 15% 12%;
     --muted-foreground: 220 10% 55%;
@@ -33,11 +33,18 @@
     --success: 142 70% 45%;
     --success-foreground: 0 0% 98%;
 
-    --border: 220 15% 15%;
+    --border: 220 15% 18%;
     --input: 220 15% 15%;
     --ring: 142 70% 45%;
 
-    --radius: 0.5rem;
+    --radius: 0.625rem;
+
+    /* Premium effects */
+    --glow-success: 142 70% 45%;
+    --glow-accent: 45 100% 51%;
+    --gradient-hero: linear-gradient(135deg, hsl(142 70% 45% / 0.08) 0%, hsl(220 20% 4%) 50%, hsl(45 100% 51% / 0.05) 100%);
+    --gradient-card: linear-gradient(145deg, hsl(220 20% 10%) 0%, hsl(220 20% 6%) 100%);
+    --gradient-premium: linear-gradient(135deg, hsl(142 70% 45% / 0.15), hsl(160 70% 40% / 0.1));
 
     --sidebar-background: 220 20% 4%;
     --sidebar-foreground: 0 0% 98%;
@@ -90,50 +97,115 @@
 }
 
 @layer components {
+  /* Enhanced trust badge */
   .trust-badge {
-    @apply inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold transition-all duration-200;
-    background-color: hsl(var(--success) / 0.1);
+    @apply inline-flex items-center gap-2 px-4 py-2 rounded-full text-sm font-semibold transition-all duration-300;
+    background: linear-gradient(135deg, hsl(var(--success) / 0.12), hsl(var(--success) / 0.06));
     color: hsl(var(--success));
-    border: 1px solid hsl(var(--success) / 0.2);
+    border: 1px solid hsl(var(--success) / 0.25);
+    box-shadow: 0 2px 8px hsl(var(--success) / 0.1);
   }
 
   .trust-badge:hover {
-    background-color: hsl(var(--success) / 0.15);
-    transform: translateY(-1px);
+    background: linear-gradient(135deg, hsl(var(--success) / 0.18), hsl(var(--success) / 0.1));
+    transform: translateY(-2px);
+    box-shadow: 0 4px 16px hsl(var(--success) / 0.2);
+  }
+
+  /* Trustpilot specific badge */
+  .trustpilot-badge {
+    @apply inline-flex items-center gap-2 px-4 py-2 rounded-full text-sm font-bold transition-all duration-300;
+    background: linear-gradient(135deg, hsl(var(--accent) / 0.15), hsl(var(--accent) / 0.08));
+    color: hsl(var(--accent));
+    border: 1px solid hsl(var(--accent) / 0.3);
+    box-shadow: 0 2px 8px hsl(var(--accent) / 0.15);
+  }
+
+  .trustpilot-badge:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 16px hsl(var(--accent) / 0.25);
   }
 
   .urgency-badge {
-    @apply inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold;
-    background-color: hsl(var(--destructive) / 0.1);
+    @apply inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold;
+    background: linear-gradient(135deg, hsl(var(--destructive) / 0.15), hsl(var(--destructive) / 0.1));
     color: hsl(var(--destructive));
-    border: 1px solid hsl(var(--destructive) / 0.2);
-    animation: pulse-subtle 2s ease-in-out infinite;
+    border: 1px solid hsl(var(--destructive) / 0.25);
+    animation: pulse-glow 2s ease-in-out infinite;
   }
 
-  @keyframes pulse-subtle {
-    0%, 100% { opacity: 1; }
-    50% { opacity: 0.8; }
+  @keyframes pulse-glow {
+    0%, 100% { 
+      opacity: 1;
+      box-shadow: 0 0 8px hsl(var(--destructive) / 0.2);
+    }
+    50% { 
+      opacity: 0.9;
+      box-shadow: 0 0 16px hsl(var(--destructive) / 0.3);
+    }
+  }
+
+  /* Premium featured card */
+  .featured-card {
+    @apply relative rounded-2xl overflow-hidden;
+    background: var(--gradient-card);
+    border: 1px solid hsl(var(--border));
+    box-shadow: 
+      0 24px 64px -16px hsl(0 0% 0% / 0.6),
+      0 0 0 1px hsl(var(--success) / 0.1),
+      inset 0 1px 0 hsl(0 0% 100% / 0.03);
+  }
+
+  .featured-card::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    padding: 1px;
+    background: linear-gradient(135deg, hsl(var(--success) / 0.3), transparent 50%, hsl(var(--accent) / 0.2));
+    -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+    mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+    -webkit-mask-composite: xor;
+    mask-composite: exclude;
+    pointer-events: none;
   }
 
   /* Premium card styling */
   .game-card {
-    @apply relative bg-card rounded-xl border border-border overflow-hidden transition-all duration-300;
+    @apply relative bg-card rounded-xl overflow-hidden transition-all duration-300;
+    border: 1px solid hsl(var(--border));
+    box-shadow: 0 4px 24px -8px hsl(0 0% 0% / 0.4);
   }
 
   .game-card:hover {
-    @apply border-success/30;
-    transform: translateY(-6px);
+    border-color: hsl(var(--success) / 0.4);
+    transform: translateY(-8px);
     box-shadow: 
-      0 20px 40px -12px hsl(0 0% 0% / 0.5),
-      0 0 0 1px hsl(var(--success) / 0.1);
+      0 24px 48px -16px hsl(0 0% 0% / 0.6),
+      0 0 32px hsl(var(--success) / 0.1);
   }
 
   .game-card:hover .game-card-image {
-    transform: scale(1.05);
+    transform: scale(1.08);
   }
 
   .game-card-image {
     @apply transition-transform duration-500 ease-out;
+  }
+
+  /* Price hero styling */
+  .price-hero {
+    @apply relative inline-block;
+    font-size: 2.5rem;
+    font-weight: 800;
+    color: hsl(var(--success));
+    text-shadow: 0 0 24px hsl(var(--success) / 0.4);
+    letter-spacing: -0.02em;
+  }
+
+  .price-hero-lg {
+    font-size: 3rem;
+    text-shadow: 0 0 32px hsl(var(--success) / 0.5);
   }
 
   /* Button enhancements */
@@ -148,12 +220,27 @@
     left: -100%;
     width: 100%;
     height: 100%;
-    background: linear-gradient(90deg, transparent, hsl(0 0% 100% / 0.1), transparent);
+    background: linear-gradient(90deg, transparent, hsl(0 0% 100% / 0.15), transparent);
     transition: left 0.5s ease;
   }
 
   .btn-primary:hover::before {
     left: 100%;
+  }
+
+  /* Secondary CTA enhancement */
+  .btn-secondary-cta {
+    @apply relative px-6 py-3 rounded-xl font-semibold transition-all duration-300;
+    background: linear-gradient(135deg, hsl(var(--secondary)), hsl(220 15% 12%));
+    border: 1px solid hsl(var(--border));
+    color: hsl(var(--foreground));
+  }
+
+  .btn-secondary-cta:hover {
+    background: linear-gradient(135deg, hsl(220 15% 18%), hsl(220 15% 14%));
+    border-color: hsl(var(--success) / 0.3);
+    transform: translateY(-2px);
+    box-shadow: 0 8px 24px -8px hsl(0 0% 0% / 0.4);
   }
 }
 
