@@ -11,14 +11,14 @@ const Hero = () => {
   const [tickingUnit, setTickingUnit] = useState<'seconds' | 'minutes' | 'hours' | null>(null);
   const heroRef = useRef<HTMLDivElement>(null);
 
-  // Mouse parallax
+  // Mouse parallax - optimized with higher damping for smoother motion
   const mouseX = useMotionValue(0);
   const mouseY = useMotionValue(0);
-  const springConfig = { damping: 25, stiffness: 150 };
-  const orbX = useSpring(useTransform(mouseX, [0, 1], [-30, 30]), springConfig);
-  const orbY = useSpring(useTransform(mouseY, [0, 1], [-20, 20]), springConfig);
-  const cardX = useSpring(useTransform(mouseX, [0, 1], [-10, 10]), springConfig);
-  const cardY = useSpring(useTransform(mouseY, [0, 1], [-8, 8]), springConfig);
+  const springConfig = { damping: 50, stiffness: 100, mass: 0.5 };
+  const orbX = useSpring(useTransform(mouseX, [0, 1], [-15, 15]), springConfig);
+  const orbY = useSpring(useTransform(mouseY, [0, 1], [-10, 10]), springConfig);
+  const cardX = useSpring(useTransform(mouseX, [0, 1], [-5, 5]), springConfig);
+  const cardY = useSpring(useTransform(mouseY, [0, 1], [-4, 4]), springConfig);
 
   useEffect(() => {
     const handleMouseMove = (e: MouseEvent) => {
@@ -77,56 +77,52 @@ const Hero = () => {
     return () => clearInterval(timer);
   }, []);
 
-  // Animation variants
+  // Animation variants - optimized for GPU, no blur filters
   const containerVariants = {
     hidden: { opacity: 0 },
     visible: {
       opacity: 1,
       transition: {
-        staggerChildren: 0.12,
-        delayChildren: 0.2,
+        staggerChildren: 0.08,
+        delayChildren: 0.1,
       },
     },
   };
 
   const itemVariants = {
-    hidden: { opacity: 0, y: 40, filter: 'blur(10px)' },
+    hidden: { opacity: 0, y: 20 },
     visible: {
       opacity: 1,
       y: 0,
-      filter: 'blur(0px)',
       transition: {
-        duration: 0.8,
+        duration: 0.5,
         ease: "easeOut" as const,
       },
     },
   };
 
   const cardVariants = {
-    hidden: { opacity: 0, scale: 0.9, y: 60 },
+    hidden: { opacity: 0, y: 30 },
     visible: {
       opacity: 1,
-      scale: 1,
       y: 0,
       transition: {
-        duration: 1,
+        duration: 0.6,
         ease: "easeOut" as const,
-        delay: 0.4,
+        delay: 0.2,
       },
     },
   };
 
   const badgeVariants = {
-    hidden: { opacity: 0, scale: 0.8, y: 20 },
+    hidden: { opacity: 0, y: 10 },
     visible: (i: number) => ({
       opacity: 1,
-      scale: 1,
       y: 0,
       transition: {
-        duration: 0.5,
-        type: "spring" as const,
-        stiffness: 300,
-        delay: 0.3 + i * 0.1,
+        duration: 0.4,
+        ease: "easeOut" as const,
+        delay: 0.15 + i * 0.05,
       },
     }),
   };
