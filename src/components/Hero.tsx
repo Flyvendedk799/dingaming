@@ -23,30 +23,41 @@ const Hero = () => {
 
   return (
     <section className="relative min-h-[90vh] flex items-center overflow-hidden pt-20">
-      {/* Background */}
+      {/* Enhanced Background with ambient glow */}
       <div className="absolute inset-0 z-0">
-        <img src={heroBg} alt="" className="w-full h-full object-cover opacity-20" />
-        <div className="absolute inset-0 bg-gradient-to-r from-background via-background/98 to-background/90" />
-        <div className="absolute inset-0 bg-gradient-to-t from-background via-transparent to-background/50" />
+        <img src={heroBg} alt="" className="w-full h-full object-cover opacity-15" />
+        <div className="absolute inset-0 bg-gradient-to-r from-background via-background/95 to-background/85" />
+        <div className="absolute inset-0 bg-gradient-to-t from-background via-transparent to-background/60" />
+        
+        {/* Ambient glow orbs */}
+        <div className="absolute top-1/4 left-1/4 w-[600px] h-[600px] rounded-full opacity-30 blur-[120px]" 
+          style={{ background: 'radial-gradient(circle, hsl(142 70% 45% / 0.3), transparent 70%)' }} />
+        <div className="absolute bottom-1/4 right-1/4 w-[500px] h-[500px] rounded-full opacity-20 blur-[100px]" 
+          style={{ background: 'radial-gradient(circle, hsl(45 100% 51% / 0.25), transparent 70%)' }} />
       </div>
 
       <div className="relative z-10 container mx-auto px-4">
         <div className="grid lg:grid-cols-2 gap-16 items-center">
           {/* Left Content */}
           <div className="stagger-children">
-            {/* Trust indicators */}
+            {/* Enhanced Trust indicators */}
             <div className="flex flex-wrap items-center gap-3 mb-8">
               <div className="trust-badge">
-                <CheckCircle2 className="w-3.5 h-3.5" />
+                <CheckCircle2 className="w-4 h-4" />
                 Officielle Keys
               </div>
               <div className="trust-badge">
-                <Zap className="w-3.5 h-3.5" />
+                <Zap className="w-4 h-4" />
                 30 sek levering
               </div>
-              <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold" style={{ background: 'hsl(45 100% 51% / 0.1)', color: 'hsl(45 100% 51%)', border: '1px solid hsl(45 100% 51% / 0.2)' }}>
-                <Star className="w-3.5 h-3.5 fill-current" />
-                4.9 Trustpilot
+              <div className="trustpilot-badge">
+                <div className="flex gap-0.5">
+                  {[...Array(5)].map((_, i) => (
+                    <Star key={i} className="w-3.5 h-3.5 fill-current" />
+                  ))}
+                </div>
+                <span>4.9</span>
+                <span className="opacity-70">Trustpilot</span>
               </div>
             </div>
 
@@ -63,19 +74,20 @@ const Hero = () => {
               Leveret til din email <span className="text-success font-medium">øjeblikkeligt</span>.
             </p>
 
-            {/* CTAs */}
+            {/* Enhanced CTAs */}
             <div className="flex flex-col sm:flex-row items-start gap-4 mb-10">
-              <Button variant="success" size="xl" className="group text-base">
+              <Button variant="success" size="xl" className="group text-base shadow-glow-success btn-primary">
                 <Zap className="w-5 h-5 transition-transform group-hover:scale-110" />
                 Se Alle Spil
                 <ChevronRight className="w-5 h-5 transition-transform group-hover:translate-x-1" />
               </Button>
-              <Button variant="outline" size="xl" className="text-base group">
-                Dagens Tilbud
-                <span className="ml-2 px-2 py-0.5 rounded bg-destructive text-destructive-foreground text-xs font-bold animate-pulse">
+              <button className="btn-secondary-cta flex items-center gap-2 group">
+                <span>Dagens Tilbud</span>
+                <span className="px-2.5 py-1 rounded-lg bg-destructive text-destructive-foreground text-xs font-bold shadow-lg" 
+                  style={{ boxShadow: '0 0 16px hsl(0 85% 60% / 0.4)' }}>
                   -70%
                 </span>
-              </Button>
+              </button>
             </div>
 
             {/* Guarantees */}
@@ -95,22 +107,25 @@ const Hero = () => {
             </div>
           </div>
 
-          {/* Right: Featured Deal Card */}
+          {/* Right: Premium Featured Deal Card */}
           <div className="hidden lg:block animate-slide-up" style={{ animationDelay: '0.2s' }}>
-            <div className="relative bg-card rounded-2xl border border-border overflow-hidden shadow-elevated">
+            <div className="featured-card">
               {/* Urgency banner with countdown */}
-              <div className="bg-gradient-to-r from-destructive to-destructive/80 text-destructive-foreground py-3 px-6">
-                <div className="flex items-center justify-between">
+              <div className="relative py-4 px-6 overflow-hidden" 
+                style={{ background: 'linear-gradient(135deg, hsl(0 85% 55%), hsl(0 85% 45%))' }}>
+                <div className="absolute inset-0 opacity-20" 
+                  style={{ background: 'repeating-linear-gradient(45deg, transparent, transparent 10px, hsl(0 0% 0% / 0.1) 10px, hsl(0 0% 0% / 0.1) 20px)' }} />
+                <div className="relative flex items-center justify-between">
                   <div className="flex items-center gap-2">
-                    <TrendingUp className="w-4 h-4" />
-                    <span className="font-semibold text-sm">Ugens Bedste Tilbud</span>
+                    <TrendingUp className="w-5 h-5" />
+                    <span className="font-bold text-sm tracking-wide">Ugens Bedste Tilbud</span>
                   </div>
-                  <div className="flex items-center gap-1 font-mono text-sm font-bold">
-                    <span className="bg-background/20 px-2 py-1 rounded">{String(timeLeft.hours).padStart(2, '0')}</span>
-                    <span>:</span>
-                    <span className="bg-background/20 px-2 py-1 rounded">{String(timeLeft.minutes).padStart(2, '0')}</span>
-                    <span>:</span>
-                    <span className="bg-background/20 px-2 py-1 rounded">{String(timeLeft.seconds).padStart(2, '0')}</span>
+                  <div className="flex items-center gap-1.5 font-mono text-sm font-bold">
+                    <span className="bg-background/25 backdrop-blur-sm px-2.5 py-1.5 rounded-lg">{String(timeLeft.hours).padStart(2, '0')}</span>
+                    <span className="text-background/60">:</span>
+                    <span className="bg-background/25 backdrop-blur-sm px-2.5 py-1.5 rounded-lg">{String(timeLeft.minutes).padStart(2, '0')}</span>
+                    <span className="text-background/60">:</span>
+                    <span className="bg-background/25 backdrop-blur-sm px-2.5 py-1.5 rounded-lg">{String(timeLeft.seconds).padStart(2, '0')}</span>
                   </div>
                 </div>
               </div>
@@ -149,13 +164,15 @@ const Hero = () => {
                       Episk action-eventyr med intens sværdkamp og magiske evner.
                     </p>
 
-                    {/* Price */}
-                    <div className="mb-4">
-                      <div className="flex items-baseline gap-3">
-                        <span className="text-3xl font-bold text-success">299 kr</span>
-                        <span className="text-lg text-muted-foreground line-through">449 kr</span>
+                    {/* Enhanced Price - THE HERO */}
+                    <div className="mb-5 p-3 -mx-3 rounded-xl" style={{ background: 'linear-gradient(135deg, hsl(142 70% 45% / 0.08), transparent)' }}>
+                      <div className="flex items-baseline gap-3 mb-1">
+                        <span className="price-hero-lg">299 kr</span>
+                        <span className="text-lg text-muted-foreground line-through opacity-60">449 kr</span>
                       </div>
-                      <span className="text-sm font-medium text-destructive">Du sparer 150 kr</span>
+                      <div className="flex items-center gap-2">
+                        <span className="px-2 py-0.5 rounded bg-success/20 text-success text-sm font-bold">Du sparer 150 kr</span>
+                      </div>
                     </div>
 
                     {/* Stock indicator */}
