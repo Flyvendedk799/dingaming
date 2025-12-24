@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import Header from "@/components/Header";
 import Hero from "@/components/Hero";
 import TrustBanner from "@/components/TrustBanner";
-import GameCatalog from "@/components/GameCatalog";
+import ShopifyProductGrid from "@/components/ShopifyProductGrid";
 import Platforms from "@/components/Platforms";
 import Testimonials from "@/components/Testimonials";
 import HowItWorks from "@/components/HowItWorks";
@@ -11,8 +11,10 @@ import IntroAnimation from "@/components/IntroAnimation";
 import MobileNav from "@/components/MobileNav";
 import MobileHome from "@/components/MobileHome";
 import MobileGameCard from "@/components/MobileGameCard";
+import { CartDrawer } from "@/components/CartDrawer";
 import { AnimatePresence } from "framer-motion";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { useCartStore } from "@/stores/cartStore";
 
 const Index = () => {
   const [showIntro, setShowIntro] = useState(true);
@@ -20,6 +22,7 @@ const Index = () => {
   const [activeTab, setActiveTab] = useState('home');
   const [selectedGame, setSelectedGame] = useState<any>(null);
   const isMobile = useIsMobile();
+  const cartItems = useCartStore(state => state.items);
 
   const handleIntroComplete = () => {
     setShowIntro(false);
@@ -55,7 +58,7 @@ const Index = () => {
             <MobileNav 
               activeTab={activeTab} 
               onTabChange={setActiveTab}
-              cartCount={2}
+              cartCount={cartItems.length}
             />
 
             {/* Game Detail Sheet */}
@@ -69,13 +72,19 @@ const Index = () => {
             </AnimatePresence>
           </>
         ) : (
-          /* Desktop Layout - Unchanged */
+          /* Desktop Layout */
           <>
             <Header />
+            
+            {/* Fixed Cart Drawer */}
+            <div className="fixed top-24 right-4 z-50">
+              <CartDrawer />
+            </div>
+            
             <main>
               <Hero />
               <TrustBanner />
-              <GameCatalog />
+              <ShopifyProductGrid />
               <Platforms />
               <Testimonials />
               <HowItWorks />
