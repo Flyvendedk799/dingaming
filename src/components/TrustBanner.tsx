@@ -37,7 +37,7 @@ const TrustBanner = () => {
       scale: 1,
       transition: {
         duration: 0.6,
-        ease: [0.16, 1, 0.3, 1]
+        ease: "easeOut" as const
       }
     }
   };
@@ -88,7 +88,7 @@ const TrustBanner = () => {
           className="flex flex-col sm:flex-row items-center justify-center gap-4 mb-12 p-6 rounded-xl bg-muted/30 border border-border"
           initial={{ opacity: 0, y: 30 }}
           animate={trustpilotVisible ? { opacity: 1, y: 0 } : {}}
-          transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
+          transition={{ duration: 0.6, ease: "easeOut" }}
           whileHover={{ borderColor: "hsl(45 100% 51% / 0.3)" }}
         >
           <div className="flex items-center gap-2">
