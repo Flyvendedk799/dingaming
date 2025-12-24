@@ -1,58 +1,71 @@
-import { Shield, Zap, RefreshCw, Headphones, CreditCard, Star } from "lucide-react";
+import { Shield, Zap, RefreshCw, Headphones, Star, Users, ShoppingBag, Clock } from "lucide-react";
+
+const stats = [
+  { icon: Users, value: "50.000+", label: "Kunder" },
+  { icon: ShoppingBag, value: "200K+", label: "Solgte keys" },
+  { icon: Star, value: "4.9/5", label: "Trustpilot" },
+  { icon: Clock, value: "<30 sek", label: "Levering" },
+];
 
 const trustPoints = [
-  { icon: Zap, title: "Øjeblikkelig Levering", description: "Din key sendes automatisk til din email inden for 30 sekunder" },
-  { icon: Shield, title: "100% Officielle Keys", description: "Alle keys er købt direkte fra udgivere og distributører" },
-  { icon: RefreshCw, title: "Pengene Tilbage", description: "Fuld refundering inden for 14 dage hvis key ikke virker" },
-  { icon: Headphones, title: "Dansk Support", description: "Vores team sidder klar til at hjælpe dig 24/7" },
+  { icon: Zap, title: "Øjeblikkelig Levering", description: "Key sendes automatisk til din email inden for 30 sekunder efter køb" },
+  { icon: Shield, title: "100% Officielle Keys", description: "Alle keys er købt direkte fra udgivere og autoriserede distributører" },
+  { icon: RefreshCw, title: "Pengene Tilbage Garanti", description: "Fuld refundering inden for 14 dage hvis din key ikke virker" },
+  { icon: Headphones, title: "Dansk Kundeservice", description: "Vores danske support team er klar til at hjælpe dig 24/7" },
 ];
 
 const TrustBanner = () => {
   return (
-    <section className="py-12 bg-card border-y border-border">
+    <section className="py-16 bg-card border-y border-border">
       <div className="container mx-auto px-4">
-        {/* Trust score header */}
-        <div className="flex flex-col sm:flex-row items-center justify-center gap-4 mb-10">
-          <div className="flex items-center gap-2">
-            <div className="flex">
-              {[...Array(5)].map((_, i) => (
-                <Star key={i} className="w-5 h-5 text-accent fill-accent" />
-              ))}
-            </div>
-            <span className="text-lg font-bold text-foreground">4.9/5</span>
-          </div>
-          <span className="text-muted-foreground">baseret på 12.847 anmeldelser på</span>
-          <span className="font-semibold text-foreground">Trustpilot</span>
-        </div>
-
-        {/* Trust points */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">
-          {trustPoints.map((point) => (
-            <div key={point.title} className="text-center">
-              <div className="inline-flex items-center justify-center w-14 h-14 rounded-xl bg-success/10 mb-4">
-                <point.icon className="w-7 h-7 text-success" />
+        {/* Stats row */}
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-6 mb-16">
+          {stats.map((stat, index) => (
+            <div 
+              key={stat.label} 
+              className="text-center p-6 rounded-xl bg-muted/50 border border-border hover:border-success/30 transition-colors group"
+            >
+              <div className="inline-flex items-center justify-center w-12 h-12 rounded-xl bg-success/10 mb-4 group-hover:bg-success/20 transition-colors">
+                <stat.icon className="w-6 h-6 text-success" />
               </div>
-              <h3 className="font-heading text-lg font-semibold text-foreground mb-2">
-                {point.title}
-              </h3>
-              <p className="text-sm text-muted-foreground">
-                {point.description}
-              </p>
+              <div className="text-3xl font-bold text-foreground mb-1">{stat.value}</div>
+              <div className="text-sm text-muted-foreground">{stat.label}</div>
             </div>
           ))}
         </div>
 
-        {/* Payment methods - trust signals */}
-        <div className="mt-12 pt-8 border-t border-border">
-          <div className="flex flex-wrap items-center justify-center gap-6">
-            <span className="text-sm text-muted-foreground">Sikker betaling med:</span>
-            {["Visa", "Mastercard", "MobilePay", "PayPal", "Apple Pay"].map((method) => (
-              <div key={method} className="flex items-center gap-2 px-4 py-2 rounded-lg bg-muted">
-                <CreditCard className="w-4 h-4 text-muted-foreground" />
-                <span className="text-sm font-medium text-foreground">{method}</span>
-              </div>
-            ))}
+        {/* Trustpilot highlight */}
+        <div className="flex flex-col sm:flex-row items-center justify-center gap-4 mb-12 p-6 rounded-xl bg-muted/30 border border-border">
+          <div className="flex items-center gap-2">
+            <div className="flex">
+              {[...Array(5)].map((_, i) => (
+                <Star key={i} className="w-6 h-6 text-accent fill-accent" />
+              ))}
+            </div>
+            <span className="text-2xl font-bold text-foreground">4.9/5</span>
           </div>
+          <div className="h-8 w-px bg-border hidden sm:block" />
+          <span className="text-muted-foreground">baseret på <span className="text-foreground font-semibold">12.847 anmeldelser</span> på Trustpilot</span>
+        </div>
+
+        {/* Trust points */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+          {trustPoints.map((point) => (
+            <div 
+              key={point.title} 
+              className="p-6 rounded-xl bg-background border border-border hover:border-success/30 hover:shadow-soft transition-all duration-300 group"
+            >
+              <div className="inline-flex items-center justify-center w-12 h-12 rounded-xl bg-success/10 mb-4 group-hover:bg-success/15 transition-colors">
+                <point.icon className="w-6 h-6 text-success" />
+              </div>
+              <h3 className="font-heading text-lg font-semibold text-foreground mb-2">
+                {point.title}
+              </h3>
+              <p className="text-sm text-muted-foreground leading-relaxed">
+                {point.description}
+              </p>
+            </div>
+          ))}
         </div>
       </div>
     </section>

@@ -1,76 +1,99 @@
-import { Zap, HelpCircle, FileText, Mail, ChevronRight } from "lucide-react";
+import { Search, ShoppingCart, Zap, CheckCircle2, ArrowRight } from "lucide-react";
 import { Button } from "./ui/button";
 
-const HowItWorks = () => {
-  const steps = [
-    { number: "1", title: "Vælg dit spil", description: "Find spillet du vil have fra vores katalog" },
-    { number: "2", title: "Betal sikkert", description: "Betal med MobilePay, kort eller PayPal" },
-    { number: "3", title: "Modtag key", description: "Din game key sendes til din email på 30 sek" },
-    { number: "4", title: "Aktiver & spil", description: "Aktiver key på Steam/PSN/Xbox og start med at spille" },
-  ];
+const steps = [
+  { 
+    number: "1", 
+    title: "Find dit spil", 
+    description: "Søg eller browse i vores katalog med over 2.800 spil",
+    icon: Search
+  },
+  { 
+    number: "2", 
+    title: "Tilføj til kurv", 
+    description: "Vælg dit spil og tilføj det til din indkøbskurv",
+    icon: ShoppingCart
+  },
+  { 
+    number: "3", 
+    title: "Betal sikkert", 
+    description: "Betal med MobilePay, kort, PayPal eller andre metoder",
+    icon: CheckCircle2
+  },
+  { 
+    number: "4", 
+    title: "Modtag key", 
+    description: "Din game key sendes til din email på under 30 sekunder",
+    icon: Zap
+  },
+];
 
+const HowItWorks = () => {
   return (
-    <section className="py-16 bg-background">
+    <section className="py-20 bg-background">
       <div className="container mx-auto px-4">
-        <div className="text-center mb-12">
-          <h2 className="font-heading text-3xl font-bold text-foreground mb-4">
-            Sådan virker det
+        {/* Header */}
+        <div className="text-center mb-16">
+          <h2 className="font-heading text-3xl sm:text-4xl font-bold text-foreground mb-4">
+            Sådan køber du et spil
           </h2>
-          <p className="text-muted-foreground">
-            Fra køb til spil på under 2 minutter
+          <p className="text-muted-foreground text-lg">
+            Fra søgning til spil på under 2 minutter
           </p>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8 mb-12">
+        {/* Steps */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8 mb-16">
           {steps.map((step, index) => (
-            <div key={step.number} className="relative text-center">
-              {/* Connector line */}
+            <div key={step.number} className="relative text-center group">
+              {/* Connector */}
               {index < steps.length - 1 && (
-                <div className="hidden lg:block absolute top-8 left-[60%] w-full h-px bg-border" />
+                <div className="hidden lg:block absolute top-12 left-[60%] w-full">
+                  <ArrowRight className="w-6 h-6 text-border" />
+                </div>
               )}
               
-              {/* Step number */}
-              <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-success text-success-foreground text-2xl font-bold mb-4 relative z-10">
-                {step.number}
+              {/* Step number with icon */}
+              <div className="inline-flex items-center justify-center w-24 h-24 rounded-2xl bg-success/10 text-success mb-6 relative group-hover:bg-success/15 transition-colors">
+                <step.icon className="w-10 h-10" />
+                <span className="absolute -top-2 -right-2 w-8 h-8 rounded-full bg-success text-success-foreground text-sm font-bold flex items-center justify-center">
+                  {step.number}
+                </span>
               </div>
               
-              <h3 className="font-heading text-lg font-semibold text-foreground mb-2">
+              <h3 className="font-heading text-xl font-semibold text-foreground mb-3">
                 {step.title}
               </h3>
-              <p className="text-sm text-muted-foreground">
+              <p className="text-muted-foreground leading-relaxed">
                 {step.description}
               </p>
             </div>
           ))}
         </div>
 
-        {/* FAQ quick links */}
-        <div className="bg-card rounded-xl border border-border p-8">
-          <div className="flex flex-col lg:flex-row items-center justify-between gap-6">
-            <div className="flex items-center gap-4">
-              <div className="w-12 h-12 rounded-xl bg-muted flex items-center justify-center">
-                <HelpCircle className="w-6 h-6 text-muted-foreground" />
-              </div>
-              <div>
-                <h3 className="font-heading text-lg font-semibold text-foreground">
-                  Har du spørgsmål?
-                </h3>
-                <p className="text-sm text-muted-foreground">
-                  Se vores FAQ eller kontakt vores danske support team
-                </p>
-              </div>
+        {/* CTA Banner */}
+        <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-success/10 via-success/5 to-transparent border border-success/20 p-8 sm:p-12">
+          <div className="relative z-10 flex flex-col lg:flex-row items-center justify-between gap-8">
+            <div>
+              <h3 className="font-heading text-2xl sm:text-3xl font-bold text-foreground mb-3">
+                Klar til at spare på dine spil?
+              </h3>
+              <p className="text-muted-foreground text-lg">
+                Opret en gratis konto og få <span className="text-success font-semibold">10% rabat</span> på din første ordre
+              </p>
             </div>
-            <div className="flex items-center gap-3">
-              <Button variant="outline">
-                <FileText className="w-4 h-4" />
-                Læs FAQ
+            <div className="flex flex-col sm:flex-row items-center gap-4">
+              <Button variant="success" size="xl" className="whitespace-nowrap group">
+                <Zap className="w-5 h-5" />
+                Opret Gratis Konto
+                <ArrowRight className="w-5 h-5 transition-transform group-hover:translate-x-1" />
               </Button>
-              <Button>
-                <Mail className="w-4 h-4" />
-                Kontakt Support
-              </Button>
+              <span className="text-sm text-muted-foreground">Ingen kreditkort påkrævet</span>
             </div>
           </div>
+          
+          {/* Decorative element */}
+          <div className="absolute right-0 top-1/2 -translate-y-1/2 w-64 h-64 bg-success/10 rounded-full blur-3xl" />
         </div>
       </div>
     </section>
