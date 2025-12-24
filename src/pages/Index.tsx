@@ -2,6 +2,7 @@ import Header from "@/components/Header";
 import Hero from "@/components/Hero";
 import TrustBanner from "@/components/TrustBanner";
 import GameCatalog from "@/components/GameCatalog";
+import Platforms from "@/components/Platforms";
 import Testimonials from "@/components/Testimonials";
 import HowItWorks from "@/components/HowItWorks";
 import Footer from "@/components/Footer";
@@ -14,6 +15,7 @@ const Index = () => {
         <Hero />
         <TrustBanner />
         <GameCatalog />
+        <Platforms />
         <Testimonials />
         <HowItWorks />
       </main>
