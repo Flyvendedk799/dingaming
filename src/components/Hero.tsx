@@ -1,5 +1,6 @@
+import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
-import { Zap, Shield, Clock, ChevronRight, Sparkles } from "lucide-react";
+import { Zap, ChevronRight, Sparkles, Play } from "lucide-react";
 import heroBg from "@/assets/hero-bg.jpg";
 import game1 from "@/assets/game-1.jpg";
 import game2 from "@/assets/game-2.jpg";
@@ -7,166 +8,260 @@ import game3 from "@/assets/game-3.jpg";
 
 const Hero = () => {
   return (
-    <section className="relative min-h-screen flex items-center justify-center overflow-hidden">
-      {/* Animated Background */}
+    <section className="relative min-h-screen flex items-center overflow-hidden bg-noise">
+      {/* Multi-layer background */}
       <div className="absolute inset-0 z-0">
-        <img
-          src={heroBg}
-          alt="Gaming baggrund"
-          className="w-full h-full object-cover scale-105 animate-pulse-slow"
+        {/* Base image */}
+        <motion.div 
+          initial={{ scale: 1.1 }}
+          animate={{ scale: 1 }}
+          transition={{ duration: 20, repeat: Infinity, repeatType: "reverse" }}
+          className="absolute inset-0"
+        >
+          <img
+            src={heroBg}
+            alt=""
+            className="w-full h-full object-cover"
+          />
+        </motion.div>
+        
+        {/* Gradient overlays */}
+        <div className="absolute inset-0 bg-gradient-to-b from-background via-background/80 to-background" />
+        <div className="absolute inset-0 bg-gradient-to-r from-background via-transparent to-background/90" />
+        <div className="absolute inset-0 bg-mesh" />
+        <div className="absolute inset-0 bg-glow" />
+        
+        {/* Animated orbs */}
+        <motion.div 
+          animate={{ 
+            x: [0, 100, 0],
+            y: [0, -50, 0],
+            scale: [1, 1.2, 1],
+          }}
+          transition={{ duration: 15, repeat: Infinity }}
+          className="absolute top-1/4 left-1/4 w-[600px] h-[600px] rounded-full bg-primary/10 blur-[120px]"
         />
-        <div className="absolute inset-0 bg-gradient-to-b from-background/80 via-background/60 to-background" />
-        <div className="absolute inset-0 bg-gradient-to-r from-background via-transparent to-background/70" />
-        
-        {/* Animated gradient overlay */}
-        <div className="absolute inset-0 bg-gradient-radial opacity-50" />
-        
-        {/* Animated particles/dots effect */}
-        <div className="absolute inset-0 overflow-hidden">
-          <div className="absolute top-1/4 left-1/4 w-2 h-2 rounded-full bg-primary/60 animate-float shadow-neon" style={{ animationDelay: '0s' }} />
-          <div className="absolute top-1/3 right-1/3 w-3 h-3 rounded-full bg-secondary/60 animate-float shadow-purple" style={{ animationDelay: '1s' }} />
-          <div className="absolute bottom-1/3 left-1/3 w-2 h-2 rounded-full bg-accent/60 animate-float shadow-gold" style={{ animationDelay: '2s' }} />
-          <div className="absolute top-2/3 right-1/4 w-4 h-4 rounded-full bg-primary/40 animate-float shadow-neon" style={{ animationDelay: '0.5s' }} />
-        </div>
-      </div>
-
-      {/* Decorative grid pattern */}
-      <div className="absolute inset-0 z-0 opacity-10">
-        <div className="absolute inset-0" style={{ 
-          backgroundImage: 'linear-gradient(hsl(var(--primary) / 0.1) 1px, transparent 1px), linear-gradient(90deg, hsl(var(--primary) / 0.1) 1px, transparent 1px)',
-          backgroundSize: '50px 50px'
-        }} />
+        <motion.div 
+          animate={{ 
+            x: [0, -80, 0],
+            y: [0, 80, 0],
+            scale: [1, 1.3, 1],
+          }}
+          transition={{ duration: 18, repeat: Infinity }}
+          className="absolute bottom-1/4 right-1/4 w-[500px] h-[500px] rounded-full bg-secondary/15 blur-[100px]"
+        />
+        <motion.div 
+          animate={{ 
+            x: [0, 60, 0],
+            y: [0, -60, 0],
+          }}
+          transition={{ duration: 12, repeat: Infinity }}
+          className="absolute top-1/2 right-1/3 w-[300px] h-[300px] rounded-full bg-neon-magenta/10 blur-[80px]"
+        />
       </div>
 
       {/* Content */}
       <div className="relative z-10 container mx-auto px-4 pt-32 pb-20">
-        <div className="grid lg:grid-cols-2 gap-12 items-center">
-          {/* Left: Text Content */}
-          <div className="text-left">
-            {/* Badge */}
-            <div className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full glass border border-primary/30 mb-8 animate-glow">
-              <Sparkles className="w-4 h-4 text-accent" />
-              <span className="text-sm font-semibold text-gradient">100% Digitale Game Keys</span>
+        <div className="grid lg:grid-cols-12 gap-8 items-center">
+          {/* Left: Text Content - 7 columns */}
+          <div className="lg:col-span-7 text-left">
+            {/* Animated badge */}
+            <motion.div 
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.6 }}
+              className="inline-flex items-center gap-3 px-5 py-2.5 rounded-full glass border border-primary/30 mb-10 holographic"
+            >
+              <span className="relative flex h-3 w-3">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-accent opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-3 w-3 bg-accent"></span>
+              </span>
+              <span className="text-sm font-semibold text-foreground tracking-wide">ØJEBLIKKELIG LEVERING</span>
               <ChevronRight className="w-4 h-4 text-primary" />
+            </motion.div>
+
+            {/* Cinematic Heading */}
+            <div className="overflow-hidden mb-8">
+              <motion.h1 
+                initial={{ y: 100 }}
+                animate={{ y: 0 }}
+                transition={{ duration: 0.8, ease: [0.33, 1, 0.68, 1] }}
+                className="font-display text-[4rem] sm:text-[6rem] lg:text-[8rem] xl:text-[10rem] font-normal leading-[0.85] tracking-tight"
+              >
+                <span className="block text-foreground">DINE</span>
+              </motion.h1>
+            </div>
+            <div className="overflow-hidden mb-8">
+              <motion.h1 
+                initial={{ y: 100 }}
+                animate={{ y: 0 }}
+                transition={{ duration: 0.8, delay: 0.1, ease: [0.33, 1, 0.68, 1] }}
+                className="font-display text-[4rem] sm:text-[6rem] lg:text-[8rem] xl:text-[10rem] font-normal leading-[0.85] tracking-tight"
+              >
+                <span className="text-gradient glow-text-strong">GAME</span>
+              </motion.h1>
+            </div>
+            <div className="overflow-hidden mb-12">
+              <motion.h1 
+                initial={{ y: 100 }}
+                animate={{ y: 0 }}
+                transition={{ duration: 0.8, delay: 0.2, ease: [0.33, 1, 0.68, 1] }}
+                className="font-display text-[4rem] sm:text-[6rem] lg:text-[8rem] xl:text-[10rem] font-normal leading-[0.85] tracking-tight"
+              >
+                <span className="block text-foreground">KEYS</span>
+              </motion.h1>
             </div>
 
-            {/* Heading */}
-            <h1 className="font-display text-5xl sm:text-6xl lg:text-7xl font-bold mb-8 leading-[1.1]">
-              <span className="text-foreground block animate-fade-up" style={{ animationDelay: '0.1s' }}>
-                Dine spil.
-              </span>
-              <span className="text-gradient glow-text block animate-fade-up" style={{ animationDelay: '0.2s' }}>
-                Øjeblikkeligt.
-              </span>
-              <span className="text-foreground block animate-fade-up" style={{ animationDelay: '0.3s' }}>
-                Altid billigst.
-              </span>
-            </h1>
-
-            {/* Subtitle */}
-            <p className="text-xl text-muted-foreground mb-10 max-w-xl leading-relaxed animate-fade-up" style={{ animationDelay: '0.4s' }}>
-              Oplev den hurtigste måde at købe game keys i Danmark. 
-              Fra køb til spil på <span className="text-primary font-semibold">under 60 sekunder</span>.
-            </p>
+            {/* Subtitle with accent line */}
+            <motion.div 
+              initial={{ opacity: 0, x: -30 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ duration: 0.6, delay: 0.4 }}
+              className="flex items-start gap-4 mb-12 max-w-xl"
+            >
+              <div className="w-1 h-20 bg-gradient-to-b from-primary via-secondary to-transparent rounded-full mt-1" />
+              <p className="text-xl text-muted-foreground leading-relaxed font-body">
+                Danmarks hurtigste digitale spilbutik. Fra køb til spil på 
+                <span className="text-primary font-semibold"> under 60 sekunder</span>. 
+                Ægte keys, sikker betaling, altid.
+              </p>
+            </motion.div>
 
             {/* CTA Buttons */}
-            <div className="flex flex-col sm:flex-row items-start gap-4 mb-12 animate-fade-up" style={{ animationDelay: '0.5s' }}>
-              <Button variant="hero" size="xl" className="group">
-                <Zap className="w-5 h-5 group-hover:animate-pulse" />
-                Udforsk Spil
-                <ChevronRight className="w-5 h-5 transition-transform group-hover:translate-x-1" />
+            <motion.div 
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.6, delay: 0.5 }}
+              className="flex flex-col sm:flex-row items-start gap-4"
+            >
+              <Button variant="hero" size="xl" className="group relative overflow-hidden">
+                <span className="relative z-10 flex items-center gap-2">
+                  <Zap className="w-5 h-5" />
+                  UDFORSK SPIL
+                  <ChevronRight className="w-5 h-5 transition-transform group-hover:translate-x-1" />
+                </span>
               </Button>
-              <Button variant="outline" size="xl" className="group">
-                Se Dagens Tilbud
-                <span className="ml-2 px-2 py-0.5 rounded-full bg-destructive text-destructive-foreground text-xs font-bold">-70%</span>
+              <Button variant="outline" size="xl" className="group border-2">
+                <Play className="w-5 h-5 mr-2" />
+                SE HVORDAN DET VIRKER
               </Button>
-            </div>
-
-            {/* Features */}
-            <div className="flex flex-wrap items-center gap-6 animate-fade-up" style={{ animationDelay: '0.6s' }}>
-              <div className="flex items-center gap-2">
-                <div className="w-10 h-10 rounded-full bg-primary/20 flex items-center justify-center">
-                  <Clock className="w-5 h-5 text-primary" />
-                </div>
-                <span className="text-sm font-medium text-foreground">60 sek levering</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <div className="w-10 h-10 rounded-full bg-primary/20 flex items-center justify-center">
-                  <Shield className="w-5 h-5 text-primary" />
-                </div>
-                <span className="text-sm font-medium text-foreground">100% Sikker</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <div className="w-10 h-10 rounded-full bg-accent/20 flex items-center justify-center">
-                  <Zap className="w-5 h-5 text-accent" />
-                </div>
-                <span className="text-sm font-medium text-foreground">Ægte Keys</span>
-              </div>
-            </div>
+            </motion.div>
           </div>
 
-          {/* Right: Featured Games Visual */}
-          <div className="relative hidden lg:block">
-            {/* Main featured game */}
-            <div className="relative z-20 animate-scale-in" style={{ animationDelay: '0.3s' }}>
-              <div className="relative rounded-2xl overflow-hidden shadow-card border border-border group game-card-hover">
-                <img
-                  src={game1}
-                  alt="Featured Game"
-                  className="w-full aspect-[3/4] object-cover card-image transition-transform duration-700"
-                />
-                <div className="absolute inset-0 bg-gradient-to-t from-background via-transparent to-transparent" />
-                
-                {/* Overlay content */}
-                <div className="absolute bottom-0 left-0 right-0 p-6">
-                  <div className="flex items-center gap-2 mb-3">
-                    <span className="px-3 py-1 rounded-full bg-destructive text-destructive-foreground text-xs font-bold">-33%</span>
-                    <span className="px-3 py-1 rounded-full bg-primary/20 text-primary text-xs font-semibold">Steam</span>
-                  </div>
-                  <h3 className="font-display text-2xl font-bold text-foreground mb-2">Shadow Warrior: Legends</h3>
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-baseline gap-2">
-                      <span className="text-3xl font-bold text-primary">299 kr</span>
-                      <span className="text-lg text-muted-foreground line-through">449 kr</span>
+          {/* Right: Featured Games Stack - 5 columns */}
+          <div className="lg:col-span-5 relative hidden lg:block h-[700px]">
+            {/* Spotlight effect */}
+            <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,_hsl(var(--primary)/0.2)_0%,_transparent_60%)]" />
+            
+            {/* Main featured card */}
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.8, rotateY: -15 }}
+              animate={{ opacity: 1, scale: 1, rotateY: 0 }}
+              transition={{ duration: 0.8, delay: 0.3, ease: [0.33, 1, 0.68, 1] }}
+              className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-30 w-[320px]"
+            >
+              <div className="card-3d group">
+                <div className="card-3d-inner relative rounded-2xl overflow-hidden border-2 border-primary/30 shadow-glow-md">
+                  {/* Holographic overlay */}
+                  <div className="absolute inset-0 z-10 holographic opacity-50 group-hover:opacity-100 transition-opacity" />
+                  
+                  <img
+                    src={game1}
+                    alt="Featured Game"
+                    className="w-full aspect-[3/4] object-cover transition-transform duration-700 group-hover:scale-110"
+                  />
+                  
+                  {/* Bottom gradient */}
+                  <div className="absolute inset-0 bg-gradient-to-t from-background via-background/50 to-transparent" />
+                  
+                  {/* Content overlay */}
+                  <div className="absolute bottom-0 left-0 right-0 p-6 z-20">
+                    <div className="flex items-center gap-2 mb-3">
+                      <span className="px-3 py-1 rounded-full bg-destructive text-destructive-foreground text-xs font-bold shadow-lg">
+                        -33%
+                      </span>
+                      <span className="px-3 py-1 rounded-full glass text-primary text-xs font-bold border border-primary/30">
+                        STEAM
+                      </span>
                     </div>
-                    <Button variant="hero" size="lg">
-                      <Zap className="w-4 h-4" />
-                      Køb Nu
-                    </Button>
+                    <h3 className="font-display text-2xl text-foreground mb-3">SHADOW WARRIOR</h3>
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <span className="text-3xl font-bold text-gradient glow-text">299 kr</span>
+                        <span className="text-muted-foreground line-through ml-2">449 kr</span>
+                      </div>
+                      <Button variant="hero" size="sm">
+                        <Zap className="w-4 h-4" />
+                        KØB
+                      </Button>
+                    </div>
                   </div>
-                </div>
-
-                {/* Glow effect on hover */}
-                <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none">
-                  <div className="absolute inset-0 shadow-neon-strong rounded-2xl" />
+                  
+                  {/* Animated border glow */}
+                  <div className="absolute inset-0 rounded-2xl border-2 border-primary/50 opacity-0 group-hover:opacity-100 shadow-glow-lg transition-opacity duration-500" />
                 </div>
               </div>
-            </div>
+            </motion.div>
 
-            {/* Floating secondary games */}
-            <div className="absolute -left-16 top-1/4 z-10 animate-float" style={{ animationDelay: '0s' }}>
-              <div className="w-32 h-44 rounded-xl overflow-hidden shadow-card border border-border/50 rotate-[-8deg] hover:rotate-0 transition-transform duration-500">
-                <img src={game2} alt="Game" className="w-full h-full object-cover" />
-                <div className="absolute inset-0 bg-gradient-to-t from-background/80 to-transparent" />
+            {/* Secondary cards - floating behind */}
+            <motion.div 
+              initial={{ opacity: 0, x: -50, rotate: -15 }}
+              animate={{ opacity: 0.8, x: 0, rotate: -12 }}
+              transition={{ duration: 0.8, delay: 0.5 }}
+              className="absolute top-1/3 -left-4 z-20 float"
+            >
+              <div className="w-[180px] rounded-xl overflow-hidden border border-border/50 shadow-elevation">
+                <img src={game2} alt="" className="w-full aspect-[3/4] object-cover" />
+                <div className="absolute inset-0 bg-gradient-to-t from-background/90 to-transparent" />
               </div>
-            </div>
+            </motion.div>
 
-            <div className="absolute -right-8 bottom-1/4 z-10 animate-float" style={{ animationDelay: '1s' }}>
-              <div className="w-28 h-40 rounded-xl overflow-hidden shadow-card border border-border/50 rotate-[12deg] hover:rotate-0 transition-transform duration-500">
-                <img src={game3} alt="Game" className="w-full h-full object-cover" />
-                <div className="absolute inset-0 bg-gradient-to-t from-background/80 to-transparent" />
+            <motion.div 
+              initial={{ opacity: 0, x: 50, rotate: 15 }}
+              animate={{ opacity: 0.7, x: 0, rotate: 8 }}
+              transition={{ duration: 0.8, delay: 0.6 }}
+              className="absolute bottom-1/4 -right-4 z-10 float-delayed"
+            >
+              <div className="w-[160px] rounded-xl overflow-hidden border border-border/50 shadow-elevation">
+                <img src={game3} alt="" className="w-full aspect-[3/4] object-cover" />
+                <div className="absolute inset-0 bg-gradient-to-t from-background/90 to-transparent" />
               </div>
-            </div>
+            </motion.div>
 
             {/* Decorative elements */}
-            <div className="absolute -top-8 -right-8 w-64 h-64 bg-primary/20 rounded-full blur-3xl animate-pulse-slow" />
-            <div className="absolute -bottom-8 -left-8 w-48 h-48 bg-secondary/20 rounded-full blur-3xl animate-pulse-slow" style={{ animationDelay: '1s' }} />
+            <motion.div 
+              animate={{ rotate: 360 }}
+              transition={{ duration: 30, repeat: Infinity, ease: "linear" }}
+              className="absolute top-10 right-10 w-32 h-32 border border-primary/20 rounded-full"
+            />
+            <motion.div 
+              animate={{ rotate: -360 }}
+              transition={{ duration: 25, repeat: Infinity, ease: "linear" }}
+              className="absolute bottom-20 left-10 w-20 h-20 border border-secondary/20 rounded-full"
+            />
           </div>
         </div>
+
+        {/* Scroll indicator */}
+        <motion.div 
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ delay: 1 }}
+          className="absolute bottom-10 left-1/2 -translate-x-1/2 flex flex-col items-center gap-2"
+        >
+          <span className="text-xs text-muted-foreground uppercase tracking-widest">Scroll</span>
+          <motion.div 
+            animate={{ y: [0, 8, 0] }}
+            transition={{ duration: 1.5, repeat: Infinity }}
+            className="w-6 h-10 rounded-full border-2 border-muted-foreground/30 flex justify-center pt-2"
+          >
+            <div className="w-1.5 h-3 rounded-full bg-primary" />
+          </motion.div>
+        </motion.div>
       </div>
 
       {/* Bottom decorative line */}
-      <div className="absolute bottom-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-primary/50 to-transparent" />
+      <div className="absolute bottom-0 left-0 right-0 h-px line-glow" />
     </section>
   );
 };
