@@ -1,3 +1,4 @@
+import { useState } from "react";
 import Header from "@/components/Header";
 import Hero from "@/components/Hero";
 import TrustBanner from "@/components/TrustBanner";
@@ -6,21 +7,39 @@ import Platforms from "@/components/Platforms";
 import Testimonials from "@/components/Testimonials";
 import HowItWorks from "@/components/HowItWorks";
 import Footer from "@/components/Footer";
+import IntroAnimation from "@/components/IntroAnimation";
 
 const Index = () => {
+  const [showIntro, setShowIntro] = useState(true);
+  const [siteReady, setSiteReady] = useState(false);
+
+  const handleIntroComplete = () => {
+    setShowIntro(false);
+    // Small delay before showing content for smooth transition
+    setTimeout(() => setSiteReady(true), 100);
+  };
+
   return (
-    <div className="min-h-screen bg-background">
-      <Header />
-      <main>
-        <Hero />
-        <TrustBanner />
-        <GameCatalog />
-        <Platforms />
-        <Testimonials />
-        <HowItWorks />
-      </main>
-      <Footer />
-    </div>
+    <>
+      {showIntro && <IntroAnimation onComplete={handleIntroComplete} />}
+      
+      <div 
+        className={`min-h-screen bg-background transition-opacity duration-500 ${
+          siteReady ? 'opacity-100' : 'opacity-0'
+        }`}
+      >
+        <Header />
+        <main>
+          <Hero />
+          <TrustBanner />
+          <GameCatalog />
+          <Platforms />
+          <Testimonials />
+          <HowItWorks />
+        </main>
+        <Footer />
+      </div>
+    </>
   );
 };
 
