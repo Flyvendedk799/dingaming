@@ -133,36 +133,77 @@ const Hero = () => {
 
   return (
     <section ref={heroRef} className="relative min-h-[90vh] flex items-center overflow-hidden pt-20">
-      {/* Enhanced Background with animated parallax orbs */}
+      {/* Cinematic Background with layered depth */}
       <div className="absolute inset-0 z-0">
+        {/* Base image with zoom reveal */}
         <motion.img 
           src={heroBg} 
           alt="" 
           className="w-full h-full object-cover"
-          initial={{ opacity: 0, scale: 1.1 }}
-          animate={{ opacity: 0.15, scale: 1 }}
-          transition={{ duration: 1.5, ease: "easeOut" }}
+          initial={{ opacity: 0, scale: 1.2, filter: 'blur(20px)' }}
+          animate={{ opacity: 0.2, scale: 1, filter: 'blur(0px)' }}
+          transition={{ duration: 2.5, ease: "easeOut" }}
         />
-        <div className="absolute inset-0 bg-gradient-to-r from-background via-background/95 to-background/85" />
-        <div className="absolute inset-0 bg-gradient-to-t from-background via-transparent to-background/60" />
         
-        {/* Animated ambient glow orbs with parallax */}
+        {/* Layered gradients for depth */}
         <motion.div 
-          className="absolute top-1/4 left-1/4 w-[600px] h-[600px] rounded-full blur-[120px] ambient-orb" 
+          className="absolute inset-0"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ duration: 1.5, delay: 0.3 }}
+        >
+          <div className="absolute inset-0 bg-gradient-to-r from-background via-background/95 to-background/80" />
+          <div className="absolute inset-0 bg-gradient-to-t from-background via-transparent to-background/40" />
+          <div className="absolute inset-0 bg-gradient-to-b from-background/50 via-transparent to-background" />
+        </motion.div>
+        
+        {/* Animated ambient glow orbs with smooth parallax */}
+        <motion.div 
+          className="absolute top-1/4 left-1/4 w-[700px] h-[700px] rounded-full blur-[150px]" 
+          initial={{ opacity: 0, scale: 0.5 }}
+          animate={{ opacity: 0.4, scale: 1 }}
+          transition={{ duration: 2, delay: 0.5, ease: "easeOut" }}
           style={{ 
             x: orbX,
             y: orbY,
-            background: 'radial-gradient(circle, hsl(142 70% 45% / 0.35), transparent 70%)' 
+            background: 'radial-gradient(circle, hsl(142 70% 45% / 0.3), transparent 70%)' 
           }} 
         />
         <motion.div 
-          className="absolute bottom-1/4 right-1/4 w-[500px] h-[500px] rounded-full blur-[100px] ambient-orb-delayed" 
+          className="absolute bottom-1/3 right-1/4 w-[600px] h-[600px] rounded-full blur-[130px]" 
+          initial={{ opacity: 0, scale: 0.5 }}
+          animate={{ opacity: 0.25, scale: 1 }}
+          transition={{ duration: 2, delay: 0.8, ease: "easeOut" }}
           style={{ 
             x: useTransform(orbX, v => -v * 0.7),
             y: useTransform(orbY, v => -v * 0.7),
-            background: 'radial-gradient(circle, hsl(45 100% 51% / 0.25), transparent 70%)' 
+            background: 'radial-gradient(circle, hsl(45 100% 51% / 0.2), transparent 70%)' 
           }} 
         />
+        
+        {/* Subtle particle effect - floating dots */}
+        <div className="absolute inset-0 overflow-hidden pointer-events-none">
+          {[...Array(6)].map((_, i) => (
+            <motion.div
+              key={i}
+              className="absolute w-1 h-1 rounded-full bg-success/30"
+              style={{
+                left: `${15 + i * 15}%`,
+                top: `${20 + (i % 3) * 25}%`,
+              }}
+              animate={{
+                y: [0, -30, 0],
+                opacity: [0.2, 0.5, 0.2],
+              }}
+              transition={{
+                duration: 4 + i * 0.5,
+                repeat: Infinity,
+                delay: i * 0.8,
+                ease: "easeInOut",
+              }}
+            />
+          ))}
+        </div>
       </div>
 
       <div className="relative z-10 container mx-auto px-4">
@@ -214,26 +255,41 @@ const Hero = () => {
               </motion.div>
             </motion.div>
 
-            {/* Headline with text reveal */}
+            {/* Headline with elegant text reveal */}
             <motion.h1 
               className="font-heading text-4xl sm:text-5xl lg:text-6xl xl:text-7xl font-bold text-foreground mb-6 leading-[1.05] text-balance"
               variants={itemVariants}
             >
               <motion.span
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.6, delay: 0.3 }}
+                className="inline-block overflow-hidden"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={{ duration: 0.1, delay: 0.3 }}
               >
-                Køb Game Keys.
+                <motion.span
+                  className="inline-block"
+                  initial={{ y: '100%' }}
+                  animate={{ y: 0 }}
+                  transition={{ duration: 0.8, delay: 0.3, ease: "easeOut" }}
+                >
+                  Køb Game Keys.
+                </motion.span>
               </motion.span>
               <br />
               <motion.span 
-                className="text-gradient-success inline-block"
-                initial={{ opacity: 0, y: 20, scale: 0.95 }}
-                animate={{ opacity: 1, y: 0, scale: 1 }}
-                transition={{ duration: 0.8, delay: 0.5, ease: [0.16, 1, 0.3, 1] }}
+                className="text-gradient-success inline-block overflow-hidden"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={{ duration: 0.1, delay: 0.5 }}
               >
-                Spar op til 70%.
+                <motion.span
+                  className="inline-block"
+                  initial={{ y: '100%' }}
+                  animate={{ y: 0 }}
+                  transition={{ duration: 0.8, delay: 0.5, ease: "easeOut" }}
+                >
+                  Spar op til 70%.
+                </motion.span>
               </motion.span>
             </motion.h1>
 
@@ -244,34 +300,23 @@ const Hero = () => {
             >
               Danmarks største udvalg af digitale game keys. 
               Leveret til din email{" "}
-              <motion.span 
-                className="text-success font-medium inline-block"
-                animate={{ 
-                  textShadow: [
-                    "0 0 0px hsl(142 70% 45% / 0)",
-                    "0 0 20px hsl(142 70% 45% / 0.5)",
-                    "0 0 0px hsl(142 70% 45% / 0)",
-                  ]
-                }}
-                transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
-              >
-                øjeblikkeligt
-              </motion.span>.
+              <span className="text-success font-medium">øjeblikkeligt</span>.
             </motion.p>
 
-            {/* Enhanced CTAs with glow pulse */}
+            {/* Enhanced CTAs - refined, no aggressive glow */}
             <motion.div 
               className="flex flex-col sm:flex-row items-start gap-4 mb-10"
               variants={itemVariants}
             >
               <motion.div
-                whileHover={{ scale: 1.03 }}
+                whileHover={{ scale: 1.03, y: -2 }}
                 whileTap={{ scale: 0.98 }}
+                transition={{ duration: 0.2 }}
               >
                 <Button 
                   variant="success" 
                   size="xl" 
-                  className="group text-base shadow-glow-success btn-primary glow-pulse ripple"
+                  className="group text-base shadow-lg hover:shadow-xl hover:shadow-success/20 btn-primary transition-shadow duration-300"
                 >
                   <Zap className="w-5 h-5 transition-all group-hover:scale-110 group-hover:rotate-12" />
                   Se Alle Spil
@@ -279,24 +324,15 @@ const Hero = () => {
                 </Button>
               </motion.div>
               <motion.button 
-                className="btn-secondary-cta flex items-center gap-2 group magnetic-hover"
-                whileHover={{ scale: 1.02 }}
+                className="btn-secondary-cta flex items-center gap-2 group"
+                whileHover={{ scale: 1.02, y: -2 }}
                 whileTap={{ scale: 0.98 }}
+                transition={{ duration: 0.2 }}
               >
                 <span>Dagens Tilbud</span>
-                <motion.span 
-                  className="px-2.5 py-1 rounded-lg bg-destructive text-destructive-foreground text-xs font-bold" 
-                  animate={{ 
-                    boxShadow: [
-                      "0 0 8px hsl(0 85% 60% / 0.3)",
-                      "0 0 20px hsl(0 85% 60% / 0.5)",
-                      "0 0 8px hsl(0 85% 60% / 0.3)",
-                    ]
-                  }}
-                  transition={{ duration: 1.5, repeat: Infinity }}
-                >
+                <span className="px-2.5 py-1 rounded-lg bg-destructive text-destructive-foreground text-xs font-bold shadow-md">
                   -70%
-                </motion.span>
+                </span>
               </motion.button>
             </motion.div>
 
