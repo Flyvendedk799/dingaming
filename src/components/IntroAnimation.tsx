@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { motion, AnimatePresence, useAnimation } from "framer-motion";
+import { useIsMobile } from "@/hooks/use-mobile";
 import game1 from "@/assets/game-1.jpg";
 import game2 from "@/assets/game-2.jpg";
 import game3 from "@/assets/game-3.jpg";
@@ -44,10 +45,15 @@ const IntroAnimation = ({ onComplete }: IntroAnimationProps) => {
   const [spinOffset, setSpinOffset] = useState(0);
   const [screenShake, setScreenShake] = useState(false);
   const [nearMiss, setNearMiss] = useState(false);
+  const [windowWidth, setWindowWidth] = useState(typeof window !== 'undefined' ? window.innerWidth : 1024);
+  const isMobile = useIsMobile();
   const speedRef = useRef(80);
   const spinRef = useRef(0);
-  const cardWidth = 190;
-  const targetOffset = cardWidth * 45; // Land on specific position
+  
+  // Responsive card sizing
+  const cardWidth = isMobile ? 130 : 190;
+  const cardHeight = isMobile ? 170 : 220;
+  const targetOffset = cardWidth * 45;
 
   // Countdown phase
   useEffect(() => {
@@ -299,29 +305,34 @@ const IntroAnimation = ({ onComplete }: IntroAnimationProps) => {
               <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-30 pointer-events-none">
                 {/* Top arrow */}
                 <motion.div
-                  className="absolute -top-16 left-1/2 -translate-x-1/2"
+                  className={`absolute left-1/2 -translate-x-1/2 ${isMobile ? '-top-10' : '-top-16'}`}
                   animate={{ y: [0, 8, 0] }}
                   transition={{ duration: 0.4, repeat: Infinity }}
                 >
-                  <div className="w-0 h-0 border-l-[20px] border-l-transparent border-r-[20px] border-r-transparent border-t-[28px] border-t-success"
-                    style={{ filter: 'drop-shadow(0 0 15px hsl(142 70% 50%))' }} />
+                  <div 
+                    className={`w-0 h-0 ${isMobile ? 'border-l-[12px] border-r-[12px] border-t-[16px]' : 'border-l-[20px] border-r-[20px] border-t-[28px]'} border-l-transparent border-r-transparent border-t-success`}
+                    style={{ filter: 'drop-shadow(0 0 15px hsl(142 70% 50%))' }} 
+                  />
                 </motion.div>
 
                 {/* Bottom arrow */}
                 <motion.div
-                  className="absolute -bottom-16 left-1/2 -translate-x-1/2"
+                  className={`absolute left-1/2 -translate-x-1/2 ${isMobile ? '-bottom-10' : '-bottom-16'}`}
                   animate={{ y: [0, -8, 0] }}
                   transition={{ duration: 0.4, repeat: Infinity }}
                 >
-                  <div className="w-0 h-0 border-l-[20px] border-l-transparent border-r-[20px] border-r-transparent border-b-[28px] border-b-success"
-                    style={{ filter: 'drop-shadow(0 0 15px hsl(142 70% 50%))' }} />
+                  <div 
+                    className={`w-0 h-0 ${isMobile ? 'border-l-[12px] border-r-[12px] border-b-[16px]' : 'border-l-[20px] border-r-[20px] border-b-[28px]'} border-l-transparent border-r-transparent border-b-success`}
+                    style={{ filter: 'drop-shadow(0 0 15px hsl(142 70% 50%))' }} 
+                  />
                 </motion.div>
 
                 {/* Selection box */}
                 <motion.div
-                  className="w-[180px] h-[240px] border-4 rounded-2xl"
+                  className={`${isMobile ? 'w-[130px] h-[175px] border-3' : 'w-[180px] h-[240px] border-4'} rounded-2xl`}
                   style={{
                     borderColor: 'hsl(142 70% 50%)',
+                    borderWidth: isMobile ? 3 : 4,
                     boxShadow: '0 0 30px hsl(142 70% 50% / 0.6), inset 0 0 30px hsl(142 70% 50% / 0.1)',
                   }}
                   animate={{
@@ -337,9 +348,9 @@ const IntroAnimation = ({ onComplete }: IntroAnimationProps) => {
 
               {/* Cards container with 3D effect */}
               <div 
-                className="flex items-center gap-3 will-change-transform"
+                className="flex items-center gap-2 md:gap-3 will-change-transform"
                 style={{ 
-                  transform: `translateX(${-spinOffset + window.innerWidth / 2 - 85}px)`,
+                  transform: `translateX(${-spinOffset + (typeof window !== 'undefined' ? window.innerWidth : 1024) / 2 - (isMobile ? 60 : 85)}px)`,
                 }}
               >
                 {spinGames.map((game, index) => {
@@ -347,11 +358,13 @@ const IntroAnimation = ({ onComplete }: IntroAnimationProps) => {
                   return (
                     <motion.div
                       key={index}
-                      className="flex-shrink-0 w-[170px] h-[220px] rounded-xl overflow-hidden relative"
+                      className="flex-shrink-0 rounded-xl overflow-hidden relative"
                       style={{
+                        width: isMobile ? 120 : 170,
+                        height: isMobile ? 160 : 220,
                         background: `linear-gradient(145deg, hsl(220 20% 15%), hsl(220 20% 8%))`,
-                        border: `3px solid ${rarity.border}`,
-                        boxShadow: `0 0 20px ${rarity.glow}, 0 10px 40px hsl(0 0% 0% / 0.5)`,
+                        border: `${isMobile ? 2 : 3}px solid ${rarity.border}`,
+                        boxShadow: `0 0 ${isMobile ? 10 : 20}px ${rarity.glow}, 0 10px 40px hsl(0 0% 0% / 0.5)`,
                       }}
                     >
                       {/* Rarity glow overlay */}
@@ -363,12 +376,13 @@ const IntroAnimation = ({ onComplete }: IntroAnimationProps) => {
                       <img
                         src={game.image}
                         alt={game.name}
-                        className="w-full h-[160px] object-cover"
+                        className="w-full object-cover"
+                        style={{ height: isMobile ? 110 : 160 }}
                       />
                       
-                      <div className="absolute bottom-0 left-0 right-0 p-3 bg-gradient-to-t from-black/90 to-transparent">
-                        <p className="text-sm font-bold text-foreground truncate text-center">{game.name}</p>
-                        <p className="text-xs text-center capitalize" style={{ color: rarity.border }}>{game.rarity}</p>
+                      <div className="absolute bottom-0 left-0 right-0 p-2 md:p-3 bg-gradient-to-t from-black/90 to-transparent">
+                        <p className="text-xs md:text-sm font-bold text-foreground truncate text-center">{game.name}</p>
+                        <p className="text-[10px] md:text-xs text-center capitalize" style={{ color: rarity.border }}>{game.rarity}</p>
                       </div>
 
                       {/* Shine effect */}
@@ -384,10 +398,12 @@ const IntroAnimation = ({ onComplete }: IntroAnimationProps) => {
 
                 {/* THE WINNING CARD - DinGaming */}
                 <motion.div
-                  className="flex-shrink-0 w-[170px] h-[220px] rounded-xl overflow-hidden relative"
+                  className="flex-shrink-0 rounded-xl overflow-hidden relative"
                   style={{
+                    width: isMobile ? 120 : 170,
+                    height: isMobile ? 160 : 220,
                     background: 'linear-gradient(145deg, hsl(142 70% 15%), hsl(142 70% 8%))',
-                    border: '4px solid hsl(142 70% 50%)',
+                    border: `${isMobile ? 3 : 4}px solid hsl(142 70% 50%)`,
                     boxShadow: '0 0 40px hsl(142 70% 50% / 0.7), 0 0 80px hsl(142 70% 50% / 0.3), 0 10px 40px hsl(0 0% 0% / 0.5)',
                   }}
                   animate={phase === 'landed' ? {
@@ -406,13 +422,13 @@ const IntroAnimation = ({ onComplete }: IntroAnimationProps) => {
                   {/* Logo */}
                   <div className="absolute inset-0 flex flex-col items-center justify-center">
                     <motion.div
-                      className="text-3xl font-heading font-bold mb-2"
+                      className={`font-heading font-bold mb-1 md:mb-2 ${isMobile ? 'text-xl' : 'text-3xl'}`}
                       animate={phase === 'landed' ? { scale: [1, 1.15, 1] } : {}}
                     >
                       <span className="text-foreground">Din</span>
                       <span className="text-success">Gaming</span>
                     </motion.div>
-                    <div className="flex items-center gap-2 text-success/80 text-xs">
+                    <div className={`flex items-center gap-2 text-success/80 ${isMobile ? 'text-[8px]' : 'text-xs'}`}>
                       <span>★ LEGENDARY ★</span>
                     </div>
                   </div>
