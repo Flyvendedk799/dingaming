@@ -31,6 +31,10 @@ const AdminPage = () => {
   const [saving, setSaving] = useState(false);
   const [syncing, setSyncing] = useState(false);
   const [syncingShopify, setSyncingShopify] = useState(false);
+  const [syncingDbToShopify, setSyncingDbToShopify] = useState(false);
+  const [dbToShopifyProgress, setDbToShopifyProgress] = useState<
+    { synced: number; failed: number; remaining?: number | null } | null
+  >(null);
   const [backfilling, setBackfilling] = useState(false);
   const [backfillProgress, setBackfillProgress] = useState<{ page: number; synced: number } | null>(null);
 
@@ -70,8 +74,7 @@ const AdminPage = () => {
       const { count: notSyncedToShopify } = await supabase
         .from('kinguin_products')
         .select('*', { count: 'exact', head: true })
-        .is('shopify_product_id', null)
-        .eq('is_available', true);
+        .is('shopify_product_id', null);
 
       setStats({
         totalProducts: totalProducts || 0,
@@ -247,6 +250,76 @@ const AdminPage = () => {
       toast.error('Kunne ikke starte bulk synk');
     } finally {
       setSyncingShopify(false);
+    }
+  };
+
+  const triggerDbToShopifySyncAll = async () => {
+    setSyncingDbToShopify(true);
+    setDbToShopifyProgress({ synced: 0, failed: 0, remaining: stats?.notSyncedToShopify ?? null });
+
+    let totalSynced = 0;
+    let totalFailed = 0;
+
+    try {
+      toast.info('Starter DB → Shopify synk (sikker metode)...');
+
+      const limit = 50;
+      let noProgressStreak = 0;
+
+      while (true) {
+        const response = await fetch(
+          `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/sync-db-to-shopify?limit=${limit}`,
+          {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+              'Content-Type': 'application/json'
+            }
+          }
+        );
+
+        const result = await response.json();
+
+        if (!response.ok || result.error) {
+          toast.error(result.error || `Synk fejlede (HTTP ${response.status})`);
+          break;
+        }
+
+        const synced = Number(result.synced ?? 0);
+        const failed = Number(result.failed ?? 0);
+        const remaining = typeof result.remaining === 'number' ? result.remaining : null;
+
+        totalSynced += synced;
+        totalFailed += failed;
+
+        setDbToShopifyProgress({ synced: totalSynced, failed: totalFailed, remaining });
+
+        if (remaining === 0 || result.done === true) {
+          toast.success(`Færdig! ${totalSynced.toLocaleString()} produkter synkroniseret.`);
+          break;
+        }
+
+        if (synced === 0) {
+          noProgressStreak++;
+        } else {
+          noProgressStreak = 0;
+        }
+
+        if (noProgressStreak >= 3) {
+          toast.error('Synk kan ikke komme videre (ingen fremskridt i 3 batches). Tjek token/scopes eller produkter med fejl.');
+          break;
+        }
+
+        await new Promise(resolve => setTimeout(resolve, 500));
+      }
+
+      await loadData();
+    } catch (error) {
+      console.error('DB→Shopify sync error:', error);
+      toast.error('Kunne ikke synkronisere til Shopify');
+    } finally {
+      setSyncingDbToShopify(false);
+      setDbToShopifyProgress(null);
     }
   };
 
@@ -648,10 +721,24 @@ const AdminPage = () => {
                       {stats?.notSyncedToShopify === 0 ? 'Synkroniseret' : 'Mangler synk'}
                     </Badge>
                   </div>
+                  {syncingDbToShopify && dbToShopifyProgress && (
+                    <div className="space-y-2 rounded-lg border border-border/50 p-3">
+                      <div className="flex items-center justify-between text-sm">
+                        <span>Synk kører (sikker)...</span>
+                        <span>{dbToShopifyProgress.synced.toLocaleString()} synk</span>
+                      </div>
+                      <p className="text-xs text-muted-foreground">
+                        Fejl: {dbToShopifyProgress.failed.toLocaleString()} • Resterende:{" "}
+                        {dbToShopifyProgress.remaining?.toLocaleString() ?? '...'}
+                      </p>
+                      <Progress value={undefined} className="animate-pulse" />
+                    </div>
+                  )}
+
                   <div className="grid grid-cols-3 gap-2">
                     <Button 
                       onClick={triggerShopifySync} 
-                      disabled={syncingShopify || stats?.notSyncedToShopify === 0}
+                      disabled={syncingShopify || syncingDbToShopify || stats?.notSyncedToShopify === 0}
                       variant="default"
                     >
                       <ShoppingBag className={`w-4 h-4 mr-2 ${syncingShopify ? 'animate-pulse' : ''}`} />
@@ -660,6 +747,7 @@ const AdminPage = () => {
                     <Button 
                       onClick={checkBulkStatus} 
                       variant="outline"
+                      disabled={syncingDbToShopify}
                     >
                       <RefreshCw className="w-4 h-4 mr-2" />
                       Tjek Status
@@ -667,7 +755,7 @@ const AdminPage = () => {
                     <Button 
                       onClick={triggerReconcile} 
                       variant="secondary"
-                      disabled={!!reconcilingProgress}
+                      disabled={!!reconcilingProgress || syncingDbToShopify}
                     >
                       <Download className={`w-4 h-4 mr-2 ${reconcilingProgress ? 'animate-pulse' : ''}`} />
                       {reconcilingProgress 
@@ -679,6 +767,16 @@ const AdminPage = () => {
                         : 'Hent Eksisterende'}
                     </Button>
                   </div>
+
+                  <Button
+                    onClick={triggerDbToShopifySyncAll}
+                    disabled={syncingDbToShopify || syncingShopify || stats?.notSyncedToShopify === 0}
+                    variant="outline"
+                    className="w-full"
+                  >
+                    <Package className={`w-4 h-4 mr-2 ${syncingDbToShopify ? 'animate-pulse' : ''}`} />
+                    {syncingDbToShopify ? 'Synkroniserer...' : 'Synk resten (Sikker)'}
+                  </Button>
                 </CardContent>
               </Card>
             </div>
