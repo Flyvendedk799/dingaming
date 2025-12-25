@@ -18,6 +18,10 @@ const games = [
   { image: game6, name: "Baldur's Gate 3", price: "549" },
 ];
 
+// Smooth easing curves - typed as tuples for framer-motion
+const smoothEase: [number, number, number, number] = [0.25, 0.1, 0.25, 1];
+const snapEase: [number, number, number, number] = [0.34, 1.56, 0.64, 1];
+
 interface IntroAnimationProps {
   onComplete: () => void;
 }
@@ -28,30 +32,27 @@ const IntroAnimation = ({ onComplete }: IntroAnimationProps) => {
   const selectedGame = games[selectedIndex];
   const [generatedKey, setGeneratedKey] = useState('');
   const [paymentProgress, setPaymentProgress] = useState(0);
+  const [hoveredGame, setHoveredGame] = useState(-1);
   const isMobile = useIsMobile();
 
-  // Positions for floating game cards (pre-calculated for smooth animation)
+  // Positions for floating game cards
   const gamePositions = useMemo(() => {
-    const radius = isMobile ? 90 : 130;
+    const radius = isMobile ? 95 : 140;
     return games.map((_, i) => {
       const angle = (i / games.length) * Math.PI * 2 - Math.PI / 2;
       return {
         x: Math.cos(angle) * radius,
         y: Math.sin(angle) * radius,
-        rotation: (Math.random() - 0.5) * 10,
+        baseRotation: (i - 3) * 2,
       };
     });
   }, [isMobile]);
 
-  // Smooth scope position with spring physics
+  // Buttery smooth scope movement
   const scopeX = useMotionValue(0);
   const scopeY = useMotionValue(0);
-  const smoothX = useSpring(scopeX, { stiffness: 40, damping: 20, mass: 1 });
-  const smoothY = useSpring(scopeY, { stiffness: 40, damping: 20, mass: 1 });
-  
-  // Rotation for scanning effect
-  const scanRotation = useMotionValue(0);
-  const smoothRotation = useSpring(scanRotation, { stiffness: 20, damping: 15 });
+  const smoothX = useSpring(scopeX, { stiffness: 60, damping: 25, mass: 0.8 });
+  const smoothY = useSpring(scopeY, { stiffness: 60, damping: 25, mass: 0.8 });
 
   // Generate key on mount
   useEffect(() => {
@@ -63,101 +64,105 @@ const IntroAnimation = ({ onComplete }: IntroAnimationProps) => {
     );
   }, []);
 
-  // Phase: Init -> Scanning
+  // Phase: Init -> Scanning with delay for card entrance
   useEffect(() => {
-    const timer = setTimeout(() => setPhase('scanning'), 300);
+    const timer = setTimeout(() => setPhase('scanning'), 600);
     return () => clearTimeout(timer);
   }, []);
 
-  // Smooth scanning movement - scope moves between game cards
+  // Smooth scanning movement
   useEffect(() => {
     if (phase !== 'scanning') return;
 
     let frame = 0;
-    const totalFrames = 160;
+    const totalFrames = 180; // Slightly longer for smoother feel
     const gamesCount = games.length;
+    let rafId: number;
     
     const animate = () => {
       frame++;
       const progress = frame / totalFrames;
       
-      // Move through each game position, spending time on each
-      const cycleProgress = progress * 2; // Cycle through twice for more scanning feel
+      // Eased progress for natural deceleration
+      const easedProgress = 1 - Math.pow(1 - progress, 2);
+      
+      // Scan through games with smooth sine interpolation
+      const cycleProgress = easedProgress * 1.8;
       const currentGameFloat = (cycleProgress * gamesCount) % gamesCount;
       const currentGame = Math.floor(currentGameFloat);
       const nextGame = (currentGame + 1) % gamesCount;
-      const lerpFactor = currentGameFloat - currentGame;
       
-      // Smooth interpolation between game positions
+      // Smooth step interpolation
+      const t = currentGameFloat - currentGame;
+      const smoothT = t * t * (3 - 2 * t); // Smoothstep
+      
       const currentPos = gamePositions[currentGame];
       const nextPos = gamePositions[nextGame];
       
-      // Add some organic wobble
-      const wobbleX = Math.sin(frame * 0.08) * 8;
-      const wobbleY = Math.cos(frame * 0.06) * 6;
+      // Organic micro-movement
+      const microX = Math.sin(frame * 0.05) * 4 * (1 - easedProgress);
+      const microY = Math.cos(frame * 0.04) * 3 * (1 - easedProgress);
       
-      // As we get closer to end, converge toward selected game
-      const convergeFactor = Math.max(0, (progress - 0.7) / 0.3);
+      // Converge toward selected game in final phase
+      const convergeFactor = Math.max(0, (progress - 0.75) / 0.25);
+      const convergeEased = convergeFactor * convergeFactor;
       const selectedPos = gamePositions[selectedIndex];
       
-      const targetX = currentPos.x + (nextPos.x - currentPos.x) * lerpFactor;
-      const targetY = currentPos.y + (nextPos.y - currentPos.y) * lerpFactor;
+      const scanX = currentPos.x + (nextPos.x - currentPos.x) * smoothT;
+      const scanY = currentPos.y + (nextPos.y - currentPos.y) * smoothT;
       
-      scopeX.set(
-        targetX * (1 - convergeFactor) + selectedPos.x * convergeFactor + wobbleX * (1 - convergeFactor)
-      );
-      scopeY.set(
-        targetY * (1 - convergeFactor) + selectedPos.y * convergeFactor + wobbleY * (1 - convergeFactor)
-      );
-      scanRotation.set(Math.sin(frame * 0.02) * 2 * (1 - convergeFactor));
+      scopeX.set(scanX * (1 - convergeEased) + selectedPos.x * convergeEased + microX);
+      scopeY.set(scanY * (1 - convergeEased) + selectedPos.y * convergeEased + microY);
+      
+      // Update hovered game for highlight effect
+      if (!convergeEased) {
+        setHoveredGame(currentGame);
+      }
 
       if (frame < totalFrames) {
-        requestAnimationFrame(animate);
+        rafId = requestAnimationFrame(animate);
       } else {
-        // Lock onto selected game
         scopeX.set(selectedPos.x);
         scopeY.set(selectedPos.y);
-        scanRotation.set(0);
-        setTimeout(() => setPhase('locked'), 150);
+        setHoveredGame(selectedIndex);
+        setTimeout(() => setPhase('locked'), 100);
       }
     };
 
-    const raf = requestAnimationFrame(animate);
-    return () => cancelAnimationFrame(raf);
-  }, [phase, scopeX, scopeY, scanRotation, gamePositions, selectedIndex]);
+    rafId = requestAnimationFrame(animate);
+    return () => cancelAnimationFrame(rafId);
+  }, [phase, scopeX, scopeY, gamePositions, selectedIndex]);
 
-  // Phase progression
+  // Phase progression with refined timing
   useEffect(() => {
     if (phase === 'locked') {
-      const timer = setTimeout(() => setPhase('payment'), 1000);
+      const timer = setTimeout(() => setPhase('payment'), 1200);
       return () => clearTimeout(timer);
     }
     if (phase === 'payment') {
-      // Animate payment progress
       let progress = 0;
       const interval = setInterval(() => {
-        progress += 2;
-        setPaymentProgress(Math.min(progress, 100));
+        // Eased progress for more natural feel
+        progress += 1.5 + (progress / 100) * 0.5;
+        setPaymentProgress(Math.min(Math.round(progress), 100));
         if (progress >= 100) {
           clearInterval(interval);
-          setTimeout(() => setPhase('delivery'), 300);
+          setTimeout(() => setPhase('delivery'), 400);
         }
-      }, 30);
+      }, 25);
       return () => clearInterval(interval);
     }
     if (phase === 'delivery') {
-      const timer = setTimeout(() => setPhase('exit'), 3000);
+      const timer = setTimeout(() => setPhase('exit'), 3200);
       return () => clearTimeout(timer);
     }
     if (phase === 'exit') {
-      const timer = setTimeout(() => onComplete(), 800);
+      const timer = setTimeout(onComplete, 700);
       return () => clearTimeout(timer);
     }
   }, [phase, onComplete]);
 
-  const handleSkip = useCallback(() => {
-    setPhase('exit');
-  }, []);
+  const handleSkip = useCallback(() => setPhase('exit'), []);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -167,7 +172,7 @@ const IntroAnimation = ({ onComplete }: IntroAnimationProps) => {
     return () => window.removeEventListener('keydown', onKey);
   }, [handleSkip]);
 
-  // Step config
+  // Step config with smooth transitions
   const steps = useMemo(() => {
     const p = phase;
     return [
@@ -177,75 +182,110 @@ const IntroAnimation = ({ onComplete }: IntroAnimationProps) => {
     ];
   }, [phase]);
 
-  const scopeSize = isMobile ? 280 : 380;
+  const scopeSize = isMobile ? 300 : 420;
 
   return (
-    <AnimatePresence>
+    <AnimatePresence mode="wait">
       {phase !== 'exit' ? (
         <motion.div
-          className="fixed inset-0 z-[100] overflow-hidden bg-[#07070a]"
+          className="fixed inset-0 z-[100] overflow-hidden"
+          style={{ background: '#050508' }}
           exit={{ opacity: 0 }}
-          transition={{ duration: 0.6, ease: [0.4, 0, 0.2, 1] }}
+          transition={{ duration: 0.5, ease: smoothEase }}
         >
-          {/* Ambient light */}
-          <div 
+          {/* Subtle ambient gradient */}
+          <motion.div 
             className="absolute inset-0 pointer-events-none"
-            style={{
-              background: 'radial-gradient(ellipse 100% 100% at 50% 30%, rgba(16, 185, 129, 0.04) 0%, transparent 60%)',
+            animate={{
+              background: phase === 'locked' 
+                ? 'radial-gradient(ellipse 80% 60% at 50% 50%, rgba(16, 185, 129, 0.06) 0%, transparent 60%)'
+                : 'radial-gradient(ellipse 100% 80% at 50% 40%, rgba(16, 185, 129, 0.03) 0%, transparent 50%)',
             }}
+            transition={{ duration: 0.8 }}
           />
 
-          {/* Skip */}
+          {/* Floating particles */}
+          <div className="absolute inset-0 pointer-events-none overflow-hidden">
+            {[...Array(15)].map((_, i) => (
+              <motion.div
+                key={i}
+                className="absolute w-0.5 h-0.5 rounded-full bg-emerald-400/40"
+                style={{
+                  left: `${10 + (i * 6) % 80}%`,
+                  bottom: '-5%',
+                }}
+                animate={{
+                  y: [0, -window.innerHeight * 1.1],
+                  opacity: [0, 0.6, 0.6, 0],
+                  x: [0, Math.sin(i) * 30],
+                }}
+                transition={{
+                  duration: 8 + i * 0.5,
+                  repeat: Infinity,
+                  delay: i * 0.4,
+                  ease: 'linear',
+                }}
+              />
+            ))}
+          </div>
+
+          {/* Skip button */}
           <motion.button
-            className="absolute top-5 right-5 z-50 px-3 py-1.5 text-[10px] tracking-[0.2em] text-white/25 hover:text-white/50 transition-colors uppercase font-medium"
+            className="absolute top-5 right-5 z-50 px-3 py-1.5 text-[10px] tracking-[0.2em] text-white/20 hover:text-white/50 transition-all duration-300 uppercase font-medium rounded-full border border-transparent hover:border-white/10"
             onClick={handleSkip}
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
-            transition={{ delay: 1 }}
+            transition={{ delay: 1.5 }}
           >
             Spring over
           </motion.button>
 
-          {/* Steps */}
+          {/* Step indicators */}
           <motion.div
-            className="absolute top-6 left-1/2 -translate-x-1/2 z-50 flex items-center gap-3"
-            initial={{ opacity: 0, y: -10 }}
+            className="absolute top-7 left-1/2 -translate-x-1/2 z-50 flex items-center gap-2.5"
+            initial={{ opacity: 0, y: -15 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.2, duration: 0.4 }}
+            transition={{ delay: 0.3, duration: 0.5, ease: smoothEase }}
           >
             {steps.map((step, i) => (
-              <div key={i} className="flex items-center gap-3">
+              <div key={i} className="flex items-center gap-2.5">
                 <div className="flex flex-col items-center">
                   <motion.div
-                    className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-semibold border transition-all duration-500 ${
-                      step.done
-                        ? 'bg-emerald-500 border-emerald-500 text-black'
-                        : step.active
-                        ? 'bg-emerald-500/10 border-emerald-500/60 text-emerald-400'
-                        : 'bg-white/5 border-white/10 text-white/25'
-                    }`}
-                    animate={step.active && !step.done ? { 
-                      boxShadow: ['0 0 0 0 rgba(16, 185, 129, 0.3)', '0 0 0 8px rgba(16, 185, 129, 0)', '0 0 0 0 rgba(16, 185, 129, 0.3)'],
+                    className="w-7 h-7 md:w-8 md:h-8 rounded-full flex items-center justify-center text-[11px] font-semibold transition-all duration-500"
+                    style={{
+                      background: step.done 
+                        ? 'linear-gradient(135deg, #10b981 0%, #059669 100%)'
+                        : step.active 
+                          ? 'rgba(16, 185, 129, 0.15)'
+                          : 'rgba(255, 255, 255, 0.03)',
+                      border: step.done 
+                        ? 'none'
+                        : step.active 
+                          ? '1.5px solid rgba(16, 185, 129, 0.5)'
+                          : '1px solid rgba(255, 255, 255, 0.08)',
+                      color: step.done ? '#000' : step.active ? '#10b981' : 'rgba(255,255,255,0.25)',
+                      boxShadow: step.active && !step.done ? '0 0 20px rgba(16, 185, 129, 0.2)' : 'none',
+                    }}
+                    animate={step.active && !step.done ? {
+                      boxShadow: ['0 0 15px rgba(16, 185, 129, 0.15)', '0 0 25px rgba(16, 185, 129, 0.3)', '0 0 15px rgba(16, 185, 129, 0.15)'],
                     } : {}}
-                    transition={{ duration: 1.5, repeat: step.active && !step.done ? Infinity : 0 }}
+                    transition={{ duration: 2, repeat: Infinity, ease: 'easeInOut' }}
                   >
-                    {step.done ? <Check className="w-4 h-4" strokeWidth={3} /> : i + 1}
+                    {step.done ? <Check className="w-3.5 h-3.5" strokeWidth={3} /> : i + 1}
                   </motion.div>
-                  <span className={`text-[10px] mt-1.5 tracking-wider font-medium transition-colors duration-300 ${
-                    step.active || step.done ? 'text-white/70' : 'text-white/20'
+                  <span className={`text-[9px] mt-1.5 tracking-wider font-medium transition-all duration-500 ${
+                    step.active || step.done ? 'text-white/60' : 'text-white/20'
                   }`}>{step.label}</span>
                 </div>
                 {i < 2 && (
-                  <motion.div 
-                    className="w-8 h-[2px] rounded-full bg-white/10 overflow-hidden"
-                  >
+                  <div className="w-6 md:w-8 h-[1.5px] rounded-full bg-white/5 overflow-hidden">
                     <motion.div
-                      className="h-full bg-emerald-500"
+                      className="h-full bg-gradient-to-r from-emerald-500 to-emerald-400"
                       initial={{ width: 0 }}
                       animate={{ width: step.done ? '100%' : 0 }}
-                      transition={{ duration: 0.4 }}
+                      transition={{ duration: 0.5, ease: smoothEase }}
                     />
-                  </motion.div>
+                  </div>
                 )}
               </div>
             ))}
@@ -256,182 +296,197 @@ const IntroAnimation = ({ onComplete }: IntroAnimationProps) => {
             {['init', 'scanning', 'locked'].includes(phase) && (
               <motion.div
                 className="absolute inset-0 flex items-center justify-center"
-                initial={{ opacity: 0, scale: 0.9 }}
+                initial={{ opacity: 0, scale: 0.95 }}
                 animate={{ opacity: 1, scale: 1 }}
-                exit={{ opacity: 0, scale: 1.1, filter: 'blur(20px)' }}
-                transition={{ duration: 0.5, ease: [0.4, 0, 0.2, 1] }}
+                exit={{ opacity: 0, scale: 1.08 }}
+                transition={{ duration: 0.6, ease: smoothEase }}
               >
-                <motion.div
-                  className="relative"
-                  style={{ 
-                    width: scopeSize, 
-                    height: scopeSize,
-                    rotateZ: smoothRotation,
-                  }}
-                >
-                  {/* Outer scope ring with glow */}
+                <div className="relative" style={{ width: scopeSize, height: scopeSize }}>
+                  
+                  {/* Outer scope ring */}
                   <motion.div
                     className="absolute inset-0 rounded-full"
                     style={{
-                      border: '3px solid rgba(16, 185, 129, 0.4)',
-                      boxShadow: phase === 'locked' 
-                        ? '0 0 40px rgba(16, 185, 129, 0.4), inset 0 0 60px rgba(16, 185, 129, 0.1)'
-                        : '0 0 20px rgba(16, 185, 129, 0.2), inset 0 0 40px rgba(0, 0, 0, 0.5)',
+                      background: 'radial-gradient(circle, transparent 65%, rgba(0,0,0,0.85) 100%)',
                     }}
-                    animate={phase === 'locked' ? {
-                      borderColor: 'rgba(16, 185, 129, 0.8)',
-                    } : {}}
+                    animate={{
+                      boxShadow: phase === 'locked'
+                        ? 'inset 0 0 80px rgba(16, 185, 129, 0.15), 0 0 50px rgba(16, 185, 129, 0.2)'
+                        : 'inset 0 0 60px rgba(0, 0, 0, 0.4)',
+                    }}
+                    transition={{ duration: 0.4 }}
+                  />
+                  
+                  {/* Scope border rings */}
+                  <motion.div
+                    className="absolute inset-0 rounded-full"
+                    style={{ border: '2px solid rgba(16, 185, 129, 0.25)' }}
+                    animate={{
+                      borderColor: phase === 'locked' ? 'rgba(16, 185, 129, 0.6)' : 'rgba(16, 185, 129, 0.25)',
+                    }}
                     transition={{ duration: 0.3 }}
                   />
-
-                  {/* Inner ring */}
                   <div 
-                    className="absolute rounded-full border border-emerald-500/20"
-                    style={{
-                      top: '10%', left: '10%', right: '10%', bottom: '10%',
-                    }}
+                    className="absolute rounded-full border border-emerald-500/10"
+                    style={{ inset: '8%' }}
+                  />
+                  <div 
+                    className="absolute rounded-full border border-emerald-500/5"
+                    style={{ inset: '15%' }}
                   />
 
-                  {/* Scope vignette */}
-                  <div
-                    className="absolute inset-0 rounded-full pointer-events-none"
-                    style={{
-                      background: 'radial-gradient(circle, transparent 50%, rgba(0,0,0,0.7) 80%, rgba(0,0,0,0.95) 100%)',
-                    }}
-                  />
-
-                  {/* Crosshair lines */}
-                  <svg className="absolute inset-0 w-full h-full">
-                    {/* Horizontal */}
-                    <line x1="8%" y1="50%" x2="40%" y2="50%" stroke="rgba(16, 185, 129, 0.5)" strokeWidth="1" />
-                    <line x1="60%" y1="50%" x2="92%" y2="50%" stroke="rgba(16, 185, 129, 0.5)" strokeWidth="1" />
-                    {/* Vertical */}
-                    <line x1="50%" y1="8%" x2="50%" y2="40%" stroke="rgba(16, 185, 129, 0.5)" strokeWidth="1" />
-                    <line x1="50%" y1="60%" x2="50%" y2="92%" stroke="rgba(16, 185, 129, 0.5)" strokeWidth="1" />
+                  {/* Crosshair SVG */}
+                  <svg className="absolute inset-0 w-full h-full" style={{ opacity: 0.5 }}>
+                    {/* Main crosshair lines */}
+                    <line x1="10%" y1="50%" x2="42%" y2="50%" stroke="rgba(16, 185, 129, 0.4)" strokeWidth="1" />
+                    <line x1="58%" y1="50%" x2="90%" y2="50%" stroke="rgba(16, 185, 129, 0.4)" strokeWidth="1" />
+                    <line x1="50%" y1="10%" x2="50%" y2="42%" stroke="rgba(16, 185, 129, 0.4)" strokeWidth="1" />
+                    <line x1="50%" y1="58%" x2="50%" y2="90%" stroke="rgba(16, 185, 129, 0.4)" strokeWidth="1" />
                     
-                    {/* Tick marks */}
-                    {[25, 35, 65, 75].map((pos) => (
-                      <g key={`h-${pos}`}>
-                        <line x1={`${pos}%`} y1="48%" x2={`${pos}%`} y2="52%" stroke="rgba(16, 185, 129, 0.3)" strokeWidth="1" />
+                    {/* Measurement ticks */}
+                    {[20, 30, 70, 80].map((pos) => (
+                      <g key={pos}>
+                        <line x1={`${pos}%`} y1="48.5%" x2={`${pos}%`} y2="51.5%" stroke="rgba(16, 185, 129, 0.25)" strokeWidth="1" />
+                        <line x1="48.5%" y1={`${pos}%`} x2="51.5%" y2={`${pos}%`} stroke="rgba(16, 185, 129, 0.25)" strokeWidth="1" />
                       </g>
                     ))}
-                    {[25, 35, 65, 75].map((pos) => (
-                      <g key={`v-${pos}`}>
-                        <line x1="48%" y1={`${pos}%`} x2="52%" y2={`${pos}%`} stroke="rgba(16, 185, 129, 0.3)" strokeWidth="1" />
-                      </g>
-                    ))}
+                    
+                    {/* Center circle */}
+                    <circle cx="50%" cy="50%" r="3%" fill="none" stroke="rgba(16, 185, 129, 0.3)" strokeWidth="1" />
                   </svg>
 
-                  {/* Center reticle */}
-                  <motion.div
-                    className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2"
-                    animate={phase === 'locked' ? { scale: [1, 0.8, 1] } : {}}
-                    transition={{ duration: 0.3 }}
-                  >
-                    <motion.div
-                      className="w-6 h-6 border-2 border-emerald-400 rotate-45"
-                      animate={phase === 'locked' ? {
-                        borderColor: '#10b981',
-                        boxShadow: '0 0 20px rgba(16, 185, 129, 0.8)',
-                      } : {}}
-                      transition={{ duration: 0.2 }}
-                    />
-                  </motion.div>
-
-                  {/* Corner brackets */}
+                  {/* Corner brackets with animation */}
                   {[
-                    { top: '15%', left: '15%', rotate: 0 },
-                    { top: '15%', right: '15%', rotate: 90 },
-                    { bottom: '15%', right: '15%', rotate: 180 },
-                    { bottom: '15%', left: '15%', rotate: 270 },
+                    { top: '12%', left: '12%', rotate: 0 },
+                    { top: '12%', right: '12%', rotate: 90 },
+                    { bottom: '12%', right: '12%', rotate: 180 },
+                    { bottom: '12%', left: '12%', rotate: 270 },
                   ].map((pos, i) => (
                     <motion.div
                       key={i}
-                      className="absolute w-6 h-6"
+                      className="absolute"
                       style={{ 
-                        ...pos, 
+                        ...pos,
+                        width: isMobile ? 16 : 20,
+                        height: isMobile ? 16 : 20,
                         transform: `rotate(${pos.rotate}deg)`,
                       }}
-                      animate={phase === 'locked' ? { opacity: 1, scale: 1 } : { opacity: 0.4, scale: 0.9 }}
-                      transition={{ duration: 0.3, delay: i * 0.05 }}
+                      animate={{
+                        opacity: phase === 'locked' ? 1 : 0.35,
+                        scale: phase === 'locked' ? 1.1 : 1,
+                      }}
+                      transition={{ duration: 0.25, delay: phase === 'locked' ? i * 0.04 : 0 }}
                     >
-                      <div className="absolute top-0 left-0 w-full h-[2px] bg-emerald-400" />
-                      <div className="absolute top-0 left-0 w-[2px] h-full bg-emerald-400" />
+                      <motion.div 
+                        className="absolute top-0 left-0 h-[2px] bg-emerald-400"
+                        style={{ width: '100%' }}
+                        animate={{ 
+                          boxShadow: phase === 'locked' ? '0 0 8px rgba(16, 185, 129, 0.8)' : 'none' 
+                        }}
+                      />
+                      <motion.div 
+                        className="absolute top-0 left-0 w-[2px] bg-emerald-400"
+                        style={{ height: '100%' }}
+                        animate={{ 
+                          boxShadow: phase === 'locked' ? '0 0 8px rgba(16, 185, 129, 0.8)' : 'none' 
+                        }}
+                      />
                     </motion.div>
                   ))}
 
-                  {/* All game cards floating in circle */}
+                  {/* Game cards */}
                   {games.map((game, i) => {
                     const pos = gamePositions[i];
                     const isSelected = i === selectedIndex;
-                    const cardWidth = isMobile ? 70 : 95;
-                    const cardHeight = isMobile ? 95 : 130;
+                    const isHovered = i === hoveredGame && phase === 'scanning';
+                    const cardW = isMobile ? 60 : 80;
+                    const cardH = isMobile ? 80 : 110;
                     
                     return (
                       <motion.div
                         key={i}
                         className="absolute top-1/2 left-1/2 rounded-lg overflow-hidden"
                         style={{
-                          width: cardWidth,
-                          height: cardHeight,
-                          marginLeft: -cardWidth / 2,
-                          marginTop: -cardHeight / 2,
-                          boxShadow: isSelected && phase === 'locked' 
-                            ? '0 0 30px rgba(16, 185, 129, 0.6), 0 10px 30px rgba(0,0,0,0.4)'
-                            : '0 8px 25px rgba(0,0,0,0.4)',
+                          width: cardW,
+                          height: cardH,
+                          marginLeft: -cardW / 2,
+                          marginTop: -cardH / 2,
                         }}
                         initial={{ 
                           x: pos.x, 
                           y: pos.y, 
-                          rotate: pos.rotation,
+                          rotate: pos.baseRotation,
                           opacity: 0,
-                          scale: 0.8,
+                          scale: 0.6,
                         }}
                         animate={{ 
                           x: pos.x, 
                           y: pos.y, 
-                          rotate: phase === 'locked' ? 0 : pos.rotation,
-                          opacity: phase === 'locked' ? (isSelected ? 1 : 0.3) : 1,
-                          scale: phase === 'locked' ? (isSelected ? 1.15 : 0.85) : 1,
-                          filter: phase === 'locked' && !isSelected ? 'grayscale(0.5) brightness(0.6)' : 'none',
+                          rotate: phase === 'locked' ? 0 : pos.baseRotation,
+                          opacity: phase === 'locked' ? (isSelected ? 1 : 0.15) : (isHovered ? 1 : 0.7),
+                          scale: phase === 'locked' 
+                            ? (isSelected ? 1.25 : 0.7) 
+                            : (isHovered ? 1.08 : 0.95),
+                          filter: phase === 'locked' && !isSelected 
+                            ? 'grayscale(0.7) brightness(0.4)' 
+                            : 'none',
                         }}
                         transition={{ 
-                          duration: 0.4,
-                          delay: phase === 'init' ? i * 0.08 : 0,
+                          duration: phase === 'locked' ? 0.5 : 0.2,
+                          delay: phase === 'init' ? 0.1 + i * 0.06 : 0,
+                          ease: phase === 'locked' ? snapEase : smoothEase,
                         }}
                       >
+                        {/* Card glow */}
+                        <motion.div
+                          className="absolute -inset-2 rounded-xl pointer-events-none"
+                          animate={{
+                            boxShadow: isSelected && phase === 'locked'
+                              ? '0 0 40px rgba(16, 185, 129, 0.5), 0 15px 40px rgba(0,0,0,0.4)'
+                              : isHovered
+                                ? '0 0 20px rgba(16, 185, 129, 0.25), 0 10px 30px rgba(0,0,0,0.3)'
+                                : '0 8px 20px rgba(0,0,0,0.4)',
+                          }}
+                          transition={{ duration: 0.2 }}
+                        />
+                        
                         <img
                           src={game.image}
                           alt={game.name}
-                          className="w-full h-full object-cover"
+                          className="w-full h-full object-cover rounded-lg"
                         />
                         
-                        {/* Border highlight for selected */}
-                        {isSelected && phase === 'locked' && (
-                          <motion.div
-                            className="absolute inset-0 border-2 border-emerald-400 rounded-lg"
-                            initial={{ opacity: 0 }}
-                            animate={{ opacity: 1 }}
-                          />
-                        )}
+                        {/* Selection border */}
+                        <motion.div
+                          className="absolute inset-0 rounded-lg pointer-events-none"
+                          animate={{
+                            boxShadow: isSelected && phase === 'locked'
+                              ? 'inset 0 0 0 2px rgba(16, 185, 129, 0.9)'
+                              : isHovered
+                                ? 'inset 0 0 0 1px rgba(16, 185, 129, 0.4)'
+                                : 'inset 0 0 0 0px transparent',
+                          }}
+                          transition={{ duration: 0.2 }}
+                        />
                         
-                        {/* Lock overlay for selected */}
+                        {/* Lock overlay */}
                         <AnimatePresence>
                           {isSelected && phase === 'locked' && (
                             <motion.div
-                              className="absolute inset-0 flex items-center justify-center"
-                              style={{ background: 'rgba(16, 185, 129, 0.25)' }}
+                              className="absolute inset-0 flex items-center justify-center rounded-lg"
+                              style={{ background: 'rgba(16, 185, 129, 0.2)' }}
                               initial={{ opacity: 0 }}
                               animate={{ opacity: 1 }}
                               exit={{ opacity: 0 }}
+                              transition={{ duration: 0.3 }}
                             >
                               <motion.div
-                                className="w-10 h-10 md:w-12 md:h-12 rounded-full bg-emerald-500 flex items-center justify-center"
-                                initial={{ scale: 0 }}
-                                animate={{ scale: 1 }}
-                                transition={{ type: 'spring', stiffness: 400, damping: 15, delay: 0.1 }}
+                                className="w-9 h-9 md:w-11 md:h-11 rounded-full bg-emerald-500 flex items-center justify-center shadow-lg"
+                                initial={{ scale: 0, rotate: -180 }}
+                                animate={{ scale: 1, rotate: 0 }}
+                                transition={{ delay: 0.15, type: 'spring', stiffness: 300, damping: 15 }}
                               >
-                                <Check className="w-5 h-5 md:w-6 md:h-6 text-black" strokeWidth={3} />
+                                <Check className="w-4 h-4 md:w-5 md:h-5 text-black" strokeWidth={3} />
                               </motion.div>
                             </motion.div>
                           )}
@@ -440,55 +495,85 @@ const IntroAnimation = ({ onComplete }: IntroAnimationProps) => {
                     );
                   })}
 
-                  {/* Scope crosshair that follows the scan */}
+                  {/* Scanning crosshair overlay */}
                   <motion.div
-                    className="absolute top-1/2 left-1/2 w-16 h-16 -ml-8 -mt-8 pointer-events-none"
-                    style={{ x: smoothX, y: smoothY }}
+                    className="absolute top-1/2 left-1/2 pointer-events-none"
+                    style={{ 
+                      x: smoothX, 
+                      y: smoothY,
+                      marginLeft: -20,
+                      marginTop: -20,
+                    }}
                   >
-                    <div className="absolute top-1/2 left-0 right-0 h-[1px] bg-emerald-400/60" />
-                    <div className="absolute left-1/2 top-0 bottom-0 w-[1px] bg-emerald-400/60" />
                     <motion.div
-                      className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-3 h-3 border border-emerald-400 rotate-45"
-                      animate={phase === 'locked' ? {
-                        scale: [1, 1.3, 1],
-                        borderColor: '#10b981',
-                      } : {}}
+                      className="w-10 h-10 relative"
+                      animate={{ 
+                        opacity: phase === 'locked' ? 0 : 1,
+                        scale: phase === 'locked' ? 0.5 : 1,
+                      }}
                       transition={{ duration: 0.2 }}
-                    />
+                    >
+                      {/* Scanning reticle */}
+                      <div className="absolute top-1/2 left-0 right-0 h-px bg-gradient-to-r from-transparent via-emerald-400/80 to-transparent" />
+                      <div className="absolute left-1/2 top-0 bottom-0 w-px bg-gradient-to-b from-transparent via-emerald-400/80 to-transparent" />
+                      <motion.div
+                        className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-2 h-2 border border-emerald-400/80 rotate-45"
+                        animate={{ scale: [1, 1.2, 1] }}
+                        transition={{ duration: 0.6, repeat: Infinity, ease: 'easeInOut' }}
+                      />
+                    </motion.div>
                   </motion.div>
 
                   {/* Status text */}
-                  <motion.div
-                    className="absolute -bottom-14 left-1/2 -translate-x-1/2 flex items-center gap-2"
-                  >
-                    {phase === 'scanning' && (
-                      <motion.div
-                        className="flex items-center gap-2"
-                        initial={{ opacity: 0 }}
-                        animate={{ opacity: 1 }}
-                      >
+                  <motion.div className="absolute -bottom-12 left-1/2 -translate-x-1/2">
+                    <AnimatePresence mode="wait">
+                      {phase === 'scanning' && (
                         <motion.div
-                          className="w-1.5 h-1.5 rounded-full bg-emerald-400"
-                          animate={{ opacity: [1, 0.3, 1] }}
-                          transition={{ duration: 0.8, repeat: Infinity }}
-                        />
-                        <span className="text-xs tracking-[0.25em] text-emerald-400/80 font-medium uppercase">
-                          Scanner
-                        </span>
-                      </motion.div>
-                    )}
-                    {phase === 'locked' && (
-                      <motion.span
-                        className="text-sm tracking-[0.2em] text-emerald-400 font-bold uppercase"
-                        initial={{ opacity: 0, y: 5 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        style={{ textShadow: '0 0 20px rgba(16, 185, 129, 0.6)' }}
-                      >
-                        Mål låst
-                      </motion.span>
-                    )}
+                          key="scanning"
+                          className="flex items-center gap-2"
+                          initial={{ opacity: 0, y: 5 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          exit={{ opacity: 0, y: -5 }}
+                          transition={{ duration: 0.2 }}
+                        >
+                          <motion.div
+                            className="w-1.5 h-1.5 rounded-full bg-emerald-400"
+                            animate={{ opacity: [1, 0.3, 1], scale: [1, 0.8, 1] }}
+                            transition={{ duration: 0.8, repeat: Infinity, ease: 'easeInOut' }}
+                          />
+                          <span className="text-[11px] tracking-[0.3em] text-emerald-400/70 font-medium uppercase">
+                            Scanner
+                          </span>
+                        </motion.div>
+                      )}
+                      {phase === 'locked' && (
+                        <motion.div
+                          key="locked"
+                          className="flex items-center gap-2"
+                          initial={{ opacity: 0, scale: 0.9 }}
+                          animate={{ opacity: 1, scale: 1 }}
+                          exit={{ opacity: 0 }}
+                          transition={{ duration: 0.3, ease: snapEase }}
+                        >
+                          <motion.div
+                            className="w-4 h-4 rounded-full bg-emerald-500 flex items-center justify-center"
+                            initial={{ scale: 0 }}
+                            animate={{ scale: 1 }}
+                            transition={{ delay: 0.1, type: 'spring', stiffness: 400 }}
+                          >
+                            <Check className="w-2.5 h-2.5 text-black" strokeWidth={3} />
+                          </motion.div>
+                          <span 
+                            className="text-xs tracking-[0.2em] text-emerald-400 font-semibold uppercase"
+                            style={{ textShadow: '0 0 15px rgba(16, 185, 129, 0.5)' }}
+                          >
+                            Mål låst
+                          </span>
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
                   </motion.div>
-                </motion.div>
+                </div>
               </motion.div>
             )}
           </AnimatePresence>
@@ -498,48 +583,73 @@ const IntroAnimation = ({ onComplete }: IntroAnimationProps) => {
             {phase === 'payment' && (
               <motion.div
                 className="absolute inset-0 flex items-center justify-center px-6"
-                initial={{ opacity: 0, y: 30 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -30, scale: 0.95 }}
-                transition={{ duration: 0.4, ease: [0.4, 0, 0.2, 1] }}
+                initial={{ opacity: 0, y: 25, scale: 0.98 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                exit={{ opacity: 0, y: -20, scale: 0.98 }}
+                transition={{ duration: 0.45, ease: smoothEase }}
               >
                 <motion.div
-                  className="w-full max-w-sm rounded-2xl p-6"
+                  className="w-full max-w-sm rounded-2xl p-5 md:p-6"
                   style={{
-                    background: 'linear-gradient(145deg, rgba(20, 20, 28, 0.95) 0%, rgba(12, 12, 18, 0.95) 100%)',
-                    border: '1px solid rgba(16, 185, 129, 0.15)',
-                    boxShadow: '0 30px 60px rgba(0, 0, 0, 0.4)',
+                    background: 'linear-gradient(165deg, rgba(18, 18, 25, 0.98) 0%, rgba(10, 10, 14, 0.98) 100%)',
+                    border: '1px solid rgba(16, 185, 129, 0.12)',
+                    boxShadow: '0 30px 70px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(255,255,255,0.02)',
                   }}
                 >
-                  {/* Game row */}
+                  {/* Game preview */}
                   <div className="flex items-center gap-4 mb-5">
-                    <div className="w-14 h-18 rounded-lg overflow-hidden flex-shrink-0 shadow-lg">
+                    <motion.div 
+                      className="w-14 h-[72px] rounded-lg overflow-hidden flex-shrink-0 shadow-lg"
+                      initial={{ opacity: 0, x: -10 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      transition={{ delay: 0.1 }}
+                    >
                       <img src={selectedGame.image} alt="" className="w-full h-full object-cover" />
-                    </div>
-                    <div className="flex-1 min-w-0">
+                    </motion.div>
+                    <motion.div 
+                      className="flex-1 min-w-0"
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      transition={{ delay: 0.15 }}
+                    >
                       <p className="text-white font-semibold truncate">{selectedGame.name}</p>
-                      <p className="text-white/40 text-sm">Digital nøgle</p>
-                    </div>
-                    <p className="text-emerald-400 font-bold text-lg">{selectedGame.price} kr</p>
+                      <p className="text-white/35 text-sm">Digital nøgle</p>
+                    </motion.div>
+                    <motion.p 
+                      className="text-emerald-400 font-bold text-lg"
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      transition={{ delay: 0.2 }}
+                    >
+                      {selectedGame.price} kr
+                    </motion.p>
                   </div>
 
-                  {/* Progress section */}
-                  <div className="rounded-xl p-4" style={{ background: 'rgba(16, 185, 129, 0.08)' }}>
+                  {/* Progress */}
+                  <motion.div 
+                    className="rounded-xl p-4"
+                    style={{ background: 'rgba(16, 185, 129, 0.06)' }}
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: 0.25 }}
+                  >
                     <div className="flex items-center justify-between mb-3">
-                      <span className="text-sm text-white/60">Behandler betaling</span>
-                      <span className="text-sm text-emerald-400 font-medium">{paymentProgress}%</span>
+                      <span className="text-sm text-white/50">Behandler betaling</span>
+                      <span className="text-sm text-emerald-400 font-medium tabular-nums">{paymentProgress}%</span>
                     </div>
-                    <div className="h-2 bg-black/30 rounded-full overflow-hidden">
+                    <div className="h-1.5 bg-black/40 rounded-full overflow-hidden">
                       <motion.div
                         className="h-full rounded-full"
                         style={{
                           width: `${paymentProgress}%`,
-                          background: 'linear-gradient(90deg, #10b981, #34d399)',
-                          boxShadow: '0 0 20px rgba(16, 185, 129, 0.5)',
+                          background: 'linear-gradient(90deg, #059669, #10b981, #34d399)',
+                        }}
+                        animate={{
+                          boxShadow: paymentProgress > 0 ? '0 0 15px rgba(16, 185, 129, 0.4)' : 'none',
                         }}
                       />
                     </div>
-                  </div>
+                  </motion.div>
                 </motion.div>
               </motion.div>
             )}
@@ -550,27 +660,28 @@ const IntroAnimation = ({ onComplete }: IntroAnimationProps) => {
             {phase === 'delivery' && (
               <motion.div
                 className="absolute inset-0 flex items-center justify-center px-6"
-                initial={{ opacity: 0, scale: 0.95 }}
+                initial={{ opacity: 0, scale: 0.96 }}
                 animate={{ opacity: 1, scale: 1 }}
-                exit={{ opacity: 0, scale: 1.05, filter: 'blur(10px)' }}
-                transition={{ duration: 0.4, ease: [0.4, 0, 0.2, 1] }}
+                exit={{ opacity: 0, scale: 1.04 }}
+                transition={{ duration: 0.5, ease: smoothEase }}
               >
                 {/* Success glow */}
                 <motion.div
                   className="absolute inset-0 pointer-events-none"
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
+                  transition={{ duration: 0.8 }}
                   style={{
-                    background: 'radial-gradient(ellipse 60% 50% at 50% 50%, rgba(16, 185, 129, 0.1) 0%, transparent 70%)',
+                    background: 'radial-gradient(ellipse 70% 50% at 50% 50%, rgba(16, 185, 129, 0.08) 0%, transparent 60%)',
                   }}
                 />
 
                 <motion.div
-                  className="w-full max-w-sm rounded-2xl p-6"
+                  className="w-full max-w-sm rounded-2xl p-5 md:p-6"
                   style={{
-                    background: 'linear-gradient(145deg, rgba(20, 20, 28, 0.95) 0%, rgba(12, 12, 18, 0.95) 100%)',
-                    border: '1px solid rgba(16, 185, 129, 0.25)',
-                    boxShadow: '0 30px 60px rgba(0, 0, 0, 0.4), 0 0 80px rgba(16, 185, 129, 0.08)',
+                    background: 'linear-gradient(165deg, rgba(18, 18, 25, 0.98) 0%, rgba(10, 10, 14, 0.98) 100%)',
+                    border: '1px solid rgba(16, 185, 129, 0.2)',
+                    boxShadow: '0 30px 70px rgba(0, 0, 0, 0.5), 0 0 60px rgba(16, 185, 129, 0.06)',
                   }}
                 >
                   {/* Success header */}
@@ -578,61 +689,69 @@ const IntroAnimation = ({ onComplete }: IntroAnimationProps) => {
                     className="flex items-center gap-3 mb-5"
                     initial={{ opacity: 0, x: -10 }}
                     animate={{ opacity: 1, x: 0 }}
-                    transition={{ delay: 0.1 }}
+                    transition={{ delay: 0.1, duration: 0.4 }}
                   >
                     <motion.div
-                      className="w-11 h-11 rounded-full bg-emerald-500 flex items-center justify-center"
-                      initial={{ scale: 0 }}
-                      animate={{ scale: 1 }}
-                      transition={{ delay: 0.2, type: 'spring', stiffness: 300 }}
+                      className="w-11 h-11 rounded-full flex items-center justify-center"
+                      style={{ background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)' }}
+                      initial={{ scale: 0, rotate: -180 }}
+                      animate={{ scale: 1, rotate: 0 }}
+                      transition={{ delay: 0.2, type: 'spring', stiffness: 250, damping: 15 }}
                     >
                       <Zap className="w-5 h-5 text-black" strokeWidth={2.5} />
                     </motion.div>
                     <div>
                       <p className="text-white font-bold">Øjeblikkelig levering!</p>
-                      <p className="text-white/40 text-xs">Din nøgle er klar</p>
+                      <p className="text-white/35 text-xs">Din nøgle er klar</p>
                     </div>
                   </motion.div>
 
                   {/* Game info */}
                   <motion.div
-                    className="flex items-center gap-3 pb-4 mb-4 border-b border-white/10"
+                    className="flex items-center gap-3 pb-4 mb-4 border-b border-white/8"
                     initial={{ opacity: 0 }}
                     animate={{ opacity: 1 }}
                     transition={{ delay: 0.3 }}
                   >
-                    <div className="w-12 h-16 rounded-lg overflow-hidden flex-shrink-0">
+                    <div className="w-11 h-14 rounded-lg overflow-hidden flex-shrink-0 shadow-md">
                       <img src={selectedGame.image} alt="" className="w-full h-full object-cover" />
                     </div>
                     <div>
                       <p className="text-white font-medium text-sm">{selectedGame.name}</p>
-                      <p className="text-emerald-400 text-xs">{selectedGame.price} kr</p>
+                      <p className="text-emerald-400/80 text-xs">{selectedGame.price} kr</p>
                     </div>
                   </motion.div>
 
-                  {/* Key */}
+                  {/* Key display */}
                   <motion.div
                     className="rounded-xl p-4"
                     style={{
-                      background: 'linear-gradient(145deg, rgba(16, 185, 129, 0.08) 0%, rgba(16, 185, 129, 0.03) 100%)',
-                      border: '1px solid rgba(16, 185, 129, 0.15)',
+                      background: 'linear-gradient(145deg, rgba(16, 185, 129, 0.08) 0%, rgba(16, 185, 129, 0.02) 100%)',
+                      border: '1px solid rgba(16, 185, 129, 0.12)',
                     }}
                     initial={{ opacity: 0, y: 10 }}
                     animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: 0.4 }}
+                    transition={{ delay: 0.4, duration: 0.4 }}
                   >
-                    <div className="flex items-center gap-2 mb-2">
-                      <Key className="w-3.5 h-3.5 text-emerald-400" />
-                      <span className="text-[10px] text-white/40 uppercase tracking-wider font-medium">Aktiveringsnøgle</span>
+                    <div className="flex items-center gap-2 mb-2.5">
+                      <Key className="w-3.5 h-3.5 text-emerald-400/70" />
+                      <span className="text-[10px] text-white/35 uppercase tracking-[0.15em] font-medium">Aktiveringsnøgle</span>
                     </div>
-                    <div className="font-mono text-emerald-400 tracking-widest text-center py-1.5" style={{ fontSize: isMobile ? 14 : 16 }}>
+                    <div 
+                      className="font-mono text-emerald-400 tracking-[0.15em] text-center py-1"
+                      style={{ fontSize: isMobile ? 13 : 15 }}
+                    >
                       {generatedKey.split('').map((char, i) => (
                         <motion.span
                           key={i}
-                          initial={{ opacity: 0, y: 8 }}
+                          initial={{ opacity: 0, y: 6 }}
                           animate={{ opacity: 1, y: 0 }}
-                          transition={{ delay: 0.5 + i * 0.015 }}
-                          style={{ textShadow: '0 0 12px rgba(16, 185, 129, 0.4)' }}
+                          transition={{ 
+                            delay: 0.55 + i * 0.012,
+                            duration: 0.2,
+                            ease: smoothEase,
+                          }}
+                          style={{ textShadow: '0 0 10px rgba(16, 185, 129, 0.35)' }}
                         >
                           {char}
                         </motion.span>
@@ -641,10 +760,10 @@ const IntroAnimation = ({ onComplete }: IntroAnimationProps) => {
                   </motion.div>
 
                   <motion.p
-                    className="text-center text-white/30 text-xs mt-4"
+                    className="text-center text-white/25 text-xs mt-4"
                     initial={{ opacity: 0 }}
                     animate={{ opacity: 1 }}
-                    transition={{ delay: 1.2 }}
+                    transition={{ delay: 1.3 }}
                   >
                     Også sendt til din email ✨
                   </motion.p>
@@ -654,12 +773,12 @@ const IntroAnimation = ({ onComplete }: IntroAnimationProps) => {
           </AnimatePresence>
         </motion.div>
       ) : (
-        // Smooth exit - empty div that fades out
         <motion.div
-          className="fixed inset-0 z-[100] bg-[#07070a]"
+          className="fixed inset-0 z-[100]"
+          style={{ background: '#050508' }}
           initial={{ opacity: 1 }}
           animate={{ opacity: 0 }}
-          transition={{ duration: 0.6, ease: [0.4, 0, 0.2, 1] }}
+          transition={{ duration: 0.6, ease: smoothEase }}
           onAnimationComplete={onComplete}
         />
       )}
