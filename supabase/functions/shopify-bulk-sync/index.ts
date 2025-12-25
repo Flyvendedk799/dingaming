@@ -656,27 +656,16 @@ async function startReconcileBulkQuery(accessToken: string): Promise<any> {
       status: existingOp.status
     }
   }
-  
-  // If completed with URL, return it directly
-  if (existingOp?.status === 'COMPLETED' && existingOp?.url) {
-    return {
-      success: true,
-      status: 'COMPLETED',
-      operationId: existingOp.id,
-      resultUrl: existingOp.url,
-      objectCount: existingOp.objectCount,
-      message: 'Previous query completed. Ready to process.'
-    }
-  }
-  
+
+  // Always start a fresh bulk query so we pick up newly created products
   console.log('Starting bulk query for reconciliation...')
-  
+
   const bulkQueryMutation = `
     mutation {
       bulkOperationRunQuery(
         query: """
         {
-          products(query: "handle:kinguin-*") {
+          products(query: "handle:kinguin-") {
             edges {
               node {
                 id
@@ -698,7 +687,7 @@ async function startReconcileBulkQuery(accessToken: string): Promise<any> {
       }
     }
   `
-  
+
   const startResponse = await fetch(shopifyAdminUrl, {
     method: 'POST',
     headers: {
@@ -707,17 +696,17 @@ async function startReconcileBulkQuery(accessToken: string): Promise<any> {
     },
     body: JSON.stringify({ query: bulkQueryMutation })
   })
-  
+
   const startData = await startResponse.json()
-  
+
   if (startData.errors || startData.data?.bulkOperationRunQuery?.userErrors?.length > 0) {
     const error = startData.errors?.[0]?.message || startData.data?.bulkOperationRunQuery?.userErrors?.[0]?.message
     return { success: false, error: `Failed to start bulk query: ${error}` }
   }
-  
+
   const operationId = startData.data?.bulkOperationRunQuery?.bulkOperation?.id
   console.log('Bulk query started:', operationId)
-  
+
   return {
     success: true,
     status: 'CREATED',
