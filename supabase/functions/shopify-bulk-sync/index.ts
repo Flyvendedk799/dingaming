@@ -660,12 +660,13 @@ async function startReconcileBulkQuery(accessToken: string): Promise<any> {
   // Always start a fresh bulk query so we pick up newly created products
   console.log('Starting bulk query for reconciliation...')
 
+  // Query all products - we'll filter by handle prefix in code
   const bulkQueryMutation = `
     mutation {
       bulkOperationRunQuery(
         query: """
         {
-          products(query: "handle:kinguin-*") {
+          products {
             edges {
               node {
                 id
