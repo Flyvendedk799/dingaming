@@ -56,10 +56,14 @@ export async function fetchKinguinProductById(kinguinId: number): Promise<Kingui
   return data as KinguinProduct;
 }
 
-export async function syncProducts(syncToShopify = true): Promise<{ success: boolean; synced: number; shopifySynced: number }> {
+export async function syncProducts(
+  syncToShopify = true,
+  startPage = 1,
+  onProgress?: (page: number, totalSynced: number) => void
+): Promise<{ success: boolean; synced: number; shopifySynced: number }> {
   let totalSynced = 0;
   let totalShopifySynced = 0;
-  let page = 1;
+  let page = startPage;
   const limit = 100;
   
   // Sync ALL pages until Kinguin returns fewer products than requested
@@ -86,6 +90,9 @@ export async function syncProducts(syncToShopify = true): Promise<{ success: boo
     totalShopifySynced += result.shopifySynced || 0;
     
     console.log(`Page ${page}: synced ${syncedThisPage} products (total: ${totalSynced})`);
+    
+    // Report progress
+    onProgress?.(page, totalSynced);
     
     // Stop if we got fewer products than requested (no more pages)
     if (syncedThisPage < limit) {

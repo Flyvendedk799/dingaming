@@ -9,6 +9,7 @@ const KinguinProductGrid = () => {
   const [products, setProducts] = useState<KinguinProduct[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isSyncing, setIsSyncing] = useState(false);
+  const [syncProgress, setSyncProgress] = useState<{ page: number; total: number } | null>(null);
 
   const loadProducts = async () => {
     setIsLoading(true);
@@ -23,11 +24,14 @@ const KinguinProductGrid = () => {
     }
   };
 
-  const handleSync = async () => {
+  const handleSync = async (startPage = 1) => {
     setIsSyncing(true);
+    setSyncProgress({ page: startPage, total: 0 });
     try {
-      toast.info('Synkroniserer produkter... Dette kan tage et øjeblik.');
-      const result = await syncProducts(true);
+      toast.info(`Synkroniserer produkter fra side ${startPage}...`);
+      const result = await syncProducts(true, startPage, (page, total) => {
+        setSyncProgress({ page, total });
+      });
       toast.success(`Synkroniserede ${result.synced} produkter til DB, ${result.shopifySynced} til Shopify`);
       await loadProducts();
     } catch (error) {
@@ -35,6 +39,7 @@ const KinguinProductGrid = () => {
       toast.error('Kunne ikke synkronisere produkter');
     } finally {
       setIsSyncing(false);
+      setSyncProgress(null);
     }
   };
 
@@ -74,12 +79,12 @@ const KinguinProductGrid = () => {
               </p>
             </div>
             <Button 
-              onClick={handleSync} 
+              onClick={() => handleSync()} 
               disabled={isSyncing}
               variant="outline"
             >
               <RefreshCw className={`w-4 h-4 mr-2 ${isSyncing ? 'animate-spin' : ''}`} />
-              {isSyncing ? 'Synkroniserer...' : 'Synkroniser fra Kinguin'}
+              {isSyncing && syncProgress ? `Side ${syncProgress.page} (${syncProgress.total} produkter)` : 'Synkroniser fra Kinguin'}
             </Button>
           </div>
 
@@ -89,9 +94,9 @@ const KinguinProductGrid = () => {
             <p className="text-muted-foreground max-w-md mb-6">
               Klik på "Synkroniser fra Kinguin" for at hente spil fra Kinguin API
             </p>
-            <Button onClick={handleSync} disabled={isSyncing}>
+            <Button onClick={() => handleSync()} disabled={isSyncing}>
               <RefreshCw className={`w-4 h-4 mr-2 ${isSyncing ? 'animate-spin' : ''}`} />
-              {isSyncing ? 'Synkroniserer...' : 'Synkroniser nu'}
+              {isSyncing && syncProgress ? `Side ${syncProgress.page} (${syncProgress.total} produkter)` : 'Synkroniser nu'}
             </Button>
           </div>
         </div>
@@ -118,15 +123,25 @@ const KinguinProductGrid = () => {
               Game keys til alle platforme • 30% rabat
             </p>
           </div>
-          <Button 
-            onClick={handleSync} 
-            disabled={isSyncing}
-            variant="outline"
-            className="shrink-0"
-          >
-            <RefreshCw className={`w-4 h-4 mr-2 ${isSyncing ? 'animate-spin' : ''}`} />
-            {isSyncing ? 'Synkroniserer...' : 'Synkroniser fra Kinguin'}
-          </Button>
+          <div className="flex gap-2">
+            <Button 
+              onClick={() => handleSync()} 
+              disabled={isSyncing}
+              variant="outline"
+              className="shrink-0"
+            >
+              <RefreshCw className={`w-4 h-4 mr-2 ${isSyncing ? 'animate-spin' : ''}`} />
+              {isSyncing && syncProgress ? `Side ${syncProgress.page} (${syncProgress.total})` : 'Synkroniser'}
+            </Button>
+            <Button 
+              onClick={() => handleSync(33)} 
+              disabled={isSyncing}
+              variant="secondary"
+              className="shrink-0"
+            >
+              Fortsæt fra side 33
+            </Button>
+          </div>
         </div>
 
         {/* Products Grid */}
