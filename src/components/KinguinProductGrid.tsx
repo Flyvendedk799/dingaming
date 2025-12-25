@@ -1,15 +1,17 @@
 import { useEffect, useState } from "react";
-import { fetchKinguinProducts, KinguinProduct, syncProducts } from "@/lib/kinguin";
+import { fetchKinguinProducts, KinguinProduct, syncProducts, syncDbToShopify } from "@/lib/kinguin";
 import KinguinProductCard from "./KinguinProductCard";
 import { Button } from "@/components/ui/button";
-import { ArrowRight, Flame, Loader2, Package, RefreshCw } from "lucide-react";
+import { ArrowRight, Flame, Loader2, Package, RefreshCw, ShoppingBag } from "lucide-react";
 import { toast } from "sonner";
 
 const KinguinProductGrid = () => {
   const [products, setProducts] = useState<KinguinProduct[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isSyncing, setIsSyncing] = useState(false);
+  const [isSyncingToShopify, setIsSyncingToShopify] = useState(false);
   const [syncProgress, setSyncProgress] = useState<{ page: number; total: number } | null>(null);
+  const [shopifyProgress, setShopifyProgress] = useState<{ offset: number; total: number } | null>(null);
 
   const loadProducts = async () => {
     setIsLoading(true);
@@ -40,6 +42,24 @@ const KinguinProductGrid = () => {
     } finally {
       setIsSyncing(false);
       setSyncProgress(null);
+    }
+  };
+
+  const handleSyncToShopify = async (startOffset = 0) => {
+    setIsSyncingToShopify(true);
+    setShopifyProgress({ offset: startOffset, total: 0 });
+    try {
+      toast.info(`Synkroniserer DB produkter til Shopify fra offset ${startOffset}...`);
+      const result = await syncDbToShopify(startOffset, (offset, total) => {
+        setShopifyProgress({ offset, total });
+      });
+      toast.success(`Synkroniserede ${result.synced} produkter til Shopify`);
+    } catch (error) {
+      console.error('Shopify sync error:', error);
+      toast.error('Kunne ikke synkronisere til Shopify');
+    } finally {
+      setIsSyncingToShopify(false);
+      setShopifyProgress(null);
     }
   };
 
@@ -123,23 +143,24 @@ const KinguinProductGrid = () => {
               Game keys til alle platforme • 30% rabat
             </p>
           </div>
-          <div className="flex gap-2">
+          <div className="flex flex-wrap gap-2">
             <Button 
               onClick={() => handleSync()} 
-              disabled={isSyncing}
+              disabled={isSyncing || isSyncingToShopify}
               variant="outline"
               className="shrink-0"
             >
               <RefreshCw className={`w-4 h-4 mr-2 ${isSyncing ? 'animate-spin' : ''}`} />
-              {isSyncing && syncProgress ? `Side ${syncProgress.page} (${syncProgress.total})` : 'Synkroniser'}
+              {isSyncing && syncProgress ? `Side ${syncProgress.page} (${syncProgress.total})` : 'Synk fra Kinguin'}
             </Button>
             <Button 
-              onClick={() => handleSync(333)} 
-              disabled={isSyncing}
-              variant="secondary"
+              onClick={() => handleSyncToShopify(0)} 
+              disabled={isSyncing || isSyncingToShopify}
+              variant="default"
               className="shrink-0"
             >
-              Fortsæt fra side 333
+              <ShoppingBag className={`w-4 h-4 mr-2 ${isSyncingToShopify ? 'animate-pulse' : ''}`} />
+              {isSyncingToShopify && shopifyProgress ? `${shopifyProgress.total} til Shopify` : 'Synk alle til Shopify'}
             </Button>
           </div>
         </div>

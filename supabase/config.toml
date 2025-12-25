@@ -1,5 +1,8 @@
 project_id = "fqwyfpnxyvlrofswosfm"
 
+[functions.sync-db-to-shopify]
+verify_jwt = false
+
 [api]
 enabled = true
 port = 54321
