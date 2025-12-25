@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import Header from "@/components/Header";
 import Hero from "@/components/Hero";
 import TrustBanner from "@/components/TrustBanner";
-import ShopifyProductGrid from "@/components/ShopifyProductGrid";
+import KinguinProductGrid from "@/components/KinguinProductGrid";
 import Platforms from "@/components/Platforms";
 import Testimonials from "@/components/Testimonials";
 import HowItWorks from "@/components/HowItWorks";
@@ -84,7 +84,7 @@ const Index = () => {
             <main>
               <Hero />
               <TrustBanner />
-              <ShopifyProductGrid />
+              <KinguinProductGrid />
               <Platforms />
               <Testimonials />
               <HowItWorks />
