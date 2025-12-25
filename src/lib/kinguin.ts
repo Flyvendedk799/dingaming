@@ -17,6 +17,9 @@ export interface KinguinProduct {
   region_name: string | null;
   is_available: boolean;
   qty: number;
+  margin_percent: number | null;
+  shopify_product_id: string | null;
+  last_synced_to_shopify: string | null;
 }
 
 export async function fetchKinguinProducts(limit = 20, searchQuery?: string): Promise<KinguinProduct[]> {
