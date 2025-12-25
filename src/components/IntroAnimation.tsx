@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion, AnimatePresence, useMotionValue, useSpring, useTransform } from "framer-motion";
 import { useIsMobile } from "@/hooks/use-mobile";
-import { CreditCard, Check, Key, Zap } from "lucide-react";
+import { Check, Key, Zap } from "lucide-react";
 import game1 from "@/assets/game-1.jpg";
 import game2 from "@/assets/game-2.jpg";
 import game3 from "@/assets/game-3.jpg";
@@ -10,12 +10,12 @@ import game5 from "@/assets/game-5.jpg";
 import game6 from "@/assets/game-6.jpg";
 
 const games = [
-  { image: game1, name: "Elden Ring", price: "49.99" },
-  { image: game2, name: "Cyberpunk 2077", price: "39.99" },
-  { image: game3, name: "God of War", price: "44.99" },
-  { image: game4, name: "Hogwarts Legacy", price: "54.99" },
-  { image: game5, name: "Red Dead 2", price: "34.99" },
-  { image: game6, name: "Baldur's Gate 3", price: "59.99" },
+  { image: game1, name: "Elden Ring", price: "449" },
+  { image: game2, name: "Cyberpunk 2077", price: "349" },
+  { image: game3, name: "God of War", price: "399" },
+  { image: game4, name: "Hogwarts Legacy", price: "499" },
+  { image: game5, name: "Red Dead 2", price: "299" },
+  { image: game6, name: "Baldur's Gate 3", price: "549" },
 ];
 
 interface IntroAnimationProps {
@@ -23,486 +23,520 @@ interface IntroAnimationProps {
 }
 
 const IntroAnimation = ({ onComplete }: IntroAnimationProps) => {
-  const [phase, setPhase] = useState<'scanning' | 'locking' | 'locked' | 'payment' | 'delivery' | 'transition' | 'complete'>('scanning');
+  const [phase, setPhase] = useState<'init' | 'scanning' | 'locked' | 'payment' | 'delivery' | 'exit'>('init');
   const [selectedGame] = useState(() => games[Math.floor(Math.random() * games.length)]);
-  const [scanPosition, setScanPosition] = useState({ x: 0, y: 0 });
   const [generatedKey, setGeneratedKey] = useState('');
+  const [paymentProgress, setPaymentProgress] = useState(0);
   const isMobile = useIsMobile();
 
-  // Generate random game key
+  // Smooth scope position with spring physics
+  const scopeX = useMotionValue(0);
+  const scopeY = useMotionValue(0);
+  const smoothX = useSpring(scopeX, { stiffness: 40, damping: 20, mass: 1 });
+  const smoothY = useSpring(scopeY, { stiffness: 40, damping: 20, mass: 1 });
+  
+  // Rotation for scanning effect
+  const scanRotation = useMotionValue(0);
+  const smoothRotation = useSpring(scanRotation, { stiffness: 20, damping: 15 });
+
+  // Generate key on mount
   useEffect(() => {
-    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
-    const segments = [];
-    for (let s = 0; s < 4; s++) {
-      let segment = '';
-      for (let i = 0; i < 5; i++) {
-        segment += chars[Math.floor(Math.random() * chars.length)];
-      }
-      segments.push(segment);
-    }
-    setGeneratedKey(segments.join('-'));
+    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+    setGeneratedKey(
+      Array.from({ length: 4 }, () =>
+        Array.from({ length: 5 }, () => chars[Math.floor(Math.random() * chars.length)]).join('')
+      ).join('-')
+    );
   }, []);
 
-  // Scanning animation - moving the scope around
+  // Phase: Init -> Scanning
+  useEffect(() => {
+    const timer = setTimeout(() => setPhase('scanning'), 300);
+    return () => clearTimeout(timer);
+  }, []);
+
+  // Smooth scanning movement
   useEffect(() => {
     if (phase !== 'scanning') return;
-    
-    const interval = setInterval(() => {
-      setScanPosition({
-        x: (Math.random() - 0.5) * 150,
-        y: (Math.random() - 0.5) * 100,
-      });
-    }, 400);
 
-    const lockTimer = setTimeout(() => setPhase('locking'), 2000);
-    
-    return () => {
-      clearInterval(interval);
-      clearTimeout(lockTimer);
+    let frame = 0;
+    const animate = () => {
+      frame++;
+      // Smooth figure-8 / infinity pattern that converges to center
+      const progress = Math.min(frame / 120, 1);
+      const decay = 1 - progress * 0.9;
+      const speed = 0.02;
+      
+      scopeX.set(Math.sin(frame * speed) * 80 * decay + Math.sin(frame * speed * 2.3) * 30 * decay);
+      scopeY.set(Math.cos(frame * speed * 1.7) * 50 * decay + Math.cos(frame * speed * 0.7) * 20 * decay);
+      scanRotation.set(Math.sin(frame * 0.01) * 3);
+
+      if (frame < 140) {
+        requestAnimationFrame(animate);
+      } else {
+        // Converge to center
+        scopeX.set(0);
+        scopeY.set(0);
+        scanRotation.set(0);
+        setTimeout(() => setPhase('locked'), 200);
+      }
     };
-  }, [phase]);
+
+    const raf = requestAnimationFrame(animate);
+    return () => cancelAnimationFrame(raf);
+  }, [phase, scopeX, scopeY, scanRotation]);
 
   // Phase progression
   useEffect(() => {
-    if (phase === 'locking') {
-      const timer = setTimeout(() => setPhase('locked'), 800);
-      return () => clearTimeout(timer);
-    }
     if (phase === 'locked') {
-      const timer = setTimeout(() => setPhase('payment'), 600);
+      const timer = setTimeout(() => setPhase('payment'), 1000);
       return () => clearTimeout(timer);
     }
     if (phase === 'payment') {
-      const timer = setTimeout(() => setPhase('delivery'), 2000);
-      return () => clearTimeout(timer);
+      // Animate payment progress
+      let progress = 0;
+      const interval = setInterval(() => {
+        progress += 2;
+        setPaymentProgress(Math.min(progress, 100));
+        if (progress >= 100) {
+          clearInterval(interval);
+          setTimeout(() => setPhase('delivery'), 300);
+        }
+      }, 30);
+      return () => clearInterval(interval);
     }
     if (phase === 'delivery') {
-      const timer = setTimeout(() => setPhase('transition'), 2500);
+      const timer = setTimeout(() => setPhase('exit'), 3000);
       return () => clearTimeout(timer);
     }
-    if (phase === 'transition') {
-      const timer = setTimeout(() => setPhase('complete'), 1000);
+    if (phase === 'exit') {
+      const timer = setTimeout(() => onComplete(), 800);
       return () => clearTimeout(timer);
-    }
-    if (phase === 'complete') {
-      onComplete();
     }
   }, [phase, onComplete]);
 
   const handleSkip = useCallback(() => {
-    setPhase('transition');
+    setPhase('exit');
   }, []);
 
   useEffect(() => {
-    const onKey = (e: KeyboardEvent) => { 
-      if (e.key === 'Escape' || e.key === ' ') handleSkip(); 
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' || e.key === ' ') handleSkip();
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
   }, [handleSkip]);
 
-  // Step indicator logic
-  const stepConfig = useMemo(() => {
-    const phaseStr = phase as string;
-    return ['Choose', 'Pay', 'Play'].map((step, i) => ({
-      label: step,
-      isActive: 
-        (i === 0 && ['scanning', 'locking', 'locked'].includes(phaseStr)) ||
-        (i === 1 && phaseStr === 'payment') ||
-        (i === 2 && ['delivery', 'transition', 'complete'].includes(phaseStr)),
-      isPast: 
-        (i === 0 && ['payment', 'delivery', 'transition', 'complete'].includes(phaseStr)) ||
-        (i === 1 && ['delivery', 'transition', 'complete'].includes(phaseStr)),
-    }));
+  // Step config
+  const steps = useMemo(() => {
+    const p = phase;
+    return [
+      { label: 'Vælg', active: ['init', 'scanning', 'locked'].includes(p), done: ['payment', 'delivery', 'exit'].includes(p) },
+      { label: 'Betal', active: p === 'payment', done: ['delivery', 'exit'].includes(p) },
+      { label: 'Spil', active: ['delivery', 'exit'].includes(p), done: false },
+    ];
   }, [phase]);
 
+  const scopeSize = isMobile ? 280 : 380;
+
   return (
-    <AnimatePresence mode="wait">
-      {phase !== 'complete' && (
+    <AnimatePresence>
+      {phase !== 'exit' ? (
         <motion.div
-          className="fixed inset-0 z-[100] overflow-hidden"
-          initial={{ opacity: 1 }}
-          exit={{ 
-            opacity: 0,
-            scale: 1.1,
-            filter: 'blur(10px)',
-          }}
-          transition={{ duration: 0.8, ease: [0.4, 0, 0.2, 1] }}
-          style={{ 
-            background: 'linear-gradient(180deg, #0a0a0f 0%, #0f1015 50%, #0a0a0f 100%)',
-          }}
+          className="fixed inset-0 z-[100] overflow-hidden bg-[#07070a]"
+          exit={{ opacity: 0 }}
+          transition={{ duration: 0.6, ease: [0.4, 0, 0.2, 1] }}
         >
-          {/* Subtle grid background */}
+          {/* Ambient light */}
           <div 
-            className="absolute inset-0 opacity-[0.03]"
+            className="absolute inset-0 pointer-events-none"
             style={{
-              backgroundImage: `
-                linear-gradient(rgba(16, 185, 129, 0.5) 1px, transparent 1px),
-                linear-gradient(90deg, rgba(16, 185, 129, 0.5) 1px, transparent 1px)
-              `,
-              backgroundSize: '50px 50px',
+              background: 'radial-gradient(ellipse 100% 100% at 50% 30%, rgba(16, 185, 129, 0.04) 0%, transparent 60%)',
             }}
           />
 
-          {/* Skip hint */}
+          {/* Skip */}
           <motion.button
-            className="absolute top-6 right-6 z-50 text-xs tracking-widest text-white/30 hover:text-white/60 transition-colors font-mono"
+            className="absolute top-5 right-5 z-50 px-3 py-1.5 text-[10px] tracking-[0.2em] text-white/25 hover:text-white/50 transition-colors uppercase font-medium"
             onClick={handleSkip}
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
-            transition={{ delay: 0.5 }}
+            transition={{ delay: 1 }}
           >
-            SKIP
+            Spring over
           </motion.button>
 
-          {/* Step indicators */}
-          <motion.div 
-            className="absolute top-8 left-1/2 -translate-x-1/2 z-50 flex items-center gap-2 md:gap-3"
-            initial={{ opacity: 0, y: -20 }}
+          {/* Steps */}
+          <motion.div
+            className="absolute top-6 left-1/2 -translate-x-1/2 z-50 flex items-center gap-3"
+            initial={{ opacity: 0, y: -10 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.3 }}
+            transition={{ delay: 0.2, duration: 0.4 }}
           >
-            {stepConfig.map((step, i) => (
-              <div key={step.label} className="flex items-center gap-2 md:gap-3">
-                <motion.div className="flex flex-col items-center">
-                  <motion.div 
-                    className={`w-7 h-7 md:w-8 md:h-8 rounded-full flex items-center justify-center text-xs font-bold transition-all duration-300 ${
-                      step.isPast 
-                        ? 'bg-emerald-500 text-black' 
-                        : step.isActive 
-                          ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500' 
-                          : 'bg-white/5 text-white/30 border border-white/10'
+            {steps.map((step, i) => (
+              <div key={i} className="flex items-center gap-3">
+                <div className="flex flex-col items-center">
+                  <motion.div
+                    className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-semibold border transition-all duration-500 ${
+                      step.done
+                        ? 'bg-emerald-500 border-emerald-500 text-black'
+                        : step.active
+                        ? 'bg-emerald-500/10 border-emerald-500/60 text-emerald-400'
+                        : 'bg-white/5 border-white/10 text-white/25'
                     }`}
-                    animate={step.isActive && !step.isPast ? { scale: [1, 1.1, 1] } : {}}
-                    transition={{ duration: 1, repeat: step.isActive ? Infinity : 0 }}
+                    animate={step.active && !step.done ? { 
+                      boxShadow: ['0 0 0 0 rgba(16, 185, 129, 0.3)', '0 0 0 8px rgba(16, 185, 129, 0)', '0 0 0 0 rgba(16, 185, 129, 0.3)'],
+                    } : {}}
+                    transition={{ duration: 1.5, repeat: step.active && !step.done ? Infinity : 0 }}
                   >
-                    {step.isPast ? <Check className="w-4 h-4" /> : i + 1}
+                    {step.done ? <Check className="w-4 h-4" strokeWidth={3} /> : i + 1}
                   </motion.div>
-                  <span className={`text-[9px] md:text-[10px] mt-1 tracking-wider transition-colors ${
-                    step.isActive || step.isPast ? 'text-white/60' : 'text-white/20'
+                  <span className={`text-[10px] mt-1.5 tracking-wider font-medium transition-colors duration-300 ${
+                    step.active || step.done ? 'text-white/70' : 'text-white/20'
                   }`}>{step.label}</span>
-                </motion.div>
+                </div>
                 {i < 2 && (
-                  <div className={`w-6 md:w-8 h-[2px] rounded-full transition-colors ${
-                    step.isPast ? 'bg-emerald-500' : 'bg-white/10'
-                  }`} />
+                  <motion.div 
+                    className="w-8 h-[2px] rounded-full bg-white/10 overflow-hidden"
+                  >
+                    <motion.div
+                      className="h-full bg-emerald-500"
+                      initial={{ width: 0 }}
+                      animate={{ width: step.done ? '100%' : 0 }}
+                      transition={{ duration: 0.4 }}
+                    />
+                  </motion.div>
                 )}
               </div>
             ))}
           </motion.div>
 
-          {/* SCANNING & LOCKING PHASE - Scope View */}
-          <AnimatePresence>
-            {['scanning', 'locking', 'locked'].includes(phase) && (
+          {/* SCOPE VIEW */}
+          <AnimatePresence mode="wait">
+            {['init', 'scanning', 'locked'].includes(phase) && (
               <motion.div
                 className="absolute inset-0 flex items-center justify-center"
-                exit={{ opacity: 0, scale: 1.5 }}
-                transition={{ duration: 0.5 }}
+                initial={{ opacity: 0, scale: 0.9 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 1.1, filter: 'blur(20px)' }}
+                transition={{ duration: 0.5, ease: [0.4, 0, 0.2, 1] }}
               >
-                {/* Scope overlay */}
-                <div className="relative" style={{ width: isMobile ? 280 : 400, height: isMobile ? 280 : 400 }}>
-                  {/* Outer scope ring */}
+                <motion.div
+                  className="relative"
+                  style={{ 
+                    width: scopeSize, 
+                    height: scopeSize,
+                    rotateZ: smoothRotation,
+                  }}
+                >
+                  {/* Outer scope ring with glow */}
                   <motion.div
-                    className="absolute inset-0 rounded-full border-2 border-emerald-500/30"
-                    animate={phase === 'scanning' ? { 
-                      borderColor: ['rgba(16, 185, 129, 0.3)', 'rgba(16, 185, 129, 0.5)', 'rgba(16, 185, 129, 0.3)'],
-                    } : {
-                      borderColor: 'rgba(16, 185, 129, 0.8)',
-                      boxShadow: '0 0 30px rgba(16, 185, 129, 0.3)',
+                    className="absolute inset-0 rounded-full"
+                    style={{
+                      border: '3px solid rgba(16, 185, 129, 0.4)',
+                      boxShadow: phase === 'locked' 
+                        ? '0 0 40px rgba(16, 185, 129, 0.4), inset 0 0 60px rgba(16, 185, 129, 0.1)'
+                        : '0 0 20px rgba(16, 185, 129, 0.2), inset 0 0 40px rgba(0, 0, 0, 0.5)',
                     }}
-                    transition={{ duration: 1, repeat: phase === 'scanning' ? Infinity : 0 }}
+                    animate={phase === 'locked' ? {
+                      borderColor: 'rgba(16, 185, 129, 0.8)',
+                    } : {}}
+                    transition={{ duration: 0.3 }}
+                  />
+
+                  {/* Inner ring */}
+                  <div 
+                    className="absolute rounded-full border border-emerald-500/20"
+                    style={{
+                      top: '10%', left: '10%', right: '10%', bottom: '10%',
+                    }}
                   />
 
                   {/* Scope vignette */}
-                  <div 
-                    className="absolute inset-0 rounded-full"
+                  <div
+                    className="absolute inset-0 rounded-full pointer-events-none"
                     style={{
-                      background: 'radial-gradient(circle, transparent 60%, rgba(0,0,0,0.8) 100%)',
+                      background: 'radial-gradient(circle, transparent 50%, rgba(0,0,0,0.7) 80%, rgba(0,0,0,0.95) 100%)',
                     }}
                   />
 
-                  {/* Crosshair */}
+                  {/* Crosshair lines */}
+                  <svg className="absolute inset-0 w-full h-full">
+                    {/* Horizontal */}
+                    <line x1="8%" y1="50%" x2="40%" y2="50%" stroke="rgba(16, 185, 129, 0.5)" strokeWidth="1" />
+                    <line x1="60%" y1="50%" x2="92%" y2="50%" stroke="rgba(16, 185, 129, 0.5)" strokeWidth="1" />
+                    {/* Vertical */}
+                    <line x1="50%" y1="8%" x2="50%" y2="40%" stroke="rgba(16, 185, 129, 0.5)" strokeWidth="1" />
+                    <line x1="50%" y1="60%" x2="50%" y2="92%" stroke="rgba(16, 185, 129, 0.5)" strokeWidth="1" />
+                    
+                    {/* Tick marks */}
+                    {[25, 35, 65, 75].map((pos) => (
+                      <g key={`h-${pos}`}>
+                        <line x1={`${pos}%`} y1="48%" x2={`${pos}%`} y2="52%" stroke="rgba(16, 185, 129, 0.3)" strokeWidth="1" />
+                      </g>
+                    ))}
+                    {[25, 35, 65, 75].map((pos) => (
+                      <g key={`v-${pos}`}>
+                        <line x1="48%" y1={`${pos}%`} x2="52%" y2={`${pos}%`} stroke="rgba(16, 185, 129, 0.3)" strokeWidth="1" />
+                      </g>
+                    ))}
+                  </svg>
+
+                  {/* Center reticle */}
                   <motion.div
-                    className="absolute inset-0"
-                    animate={phase === 'locking' || phase === 'locked' ? { scale: 0.9 } : {}}
+                    className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2"
+                    animate={phase === 'locked' ? { scale: [1, 0.8, 1] } : {}}
                     transition={{ duration: 0.3 }}
                   >
-                    {/* Horizontal line */}
-                    <div className="absolute top-1/2 left-4 right-4 h-[1px] bg-emerald-500/50" />
-                    {/* Vertical line */}
-                    <div className="absolute left-1/2 top-4 bottom-4 w-[1px] bg-emerald-500/50" />
-                    
-                    {/* Center diamond */}
                     <motion.div
-                      className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-4 h-4 border border-emerald-400 rotate-45"
+                      className="w-6 h-6 border-2 border-emerald-400 rotate-45"
                       animate={phase === 'locked' ? {
                         borderColor: '#10b981',
                         boxShadow: '0 0 20px rgba(16, 185, 129, 0.8)',
-                        scale: [1, 1.2, 1],
-                      } : phase === 'locking' ? {
-                        scale: [1, 0.8, 1],
                       } : {}}
-                      transition={{ duration: 0.3 }}
+                      transition={{ duration: 0.2 }}
                     />
-
-                    {/* Corner brackets */}
-                    {[0, 90, 180, 270].map((rotation) => (
-                      <motion.div
-                        key={rotation}
-                        className="absolute top-1/2 left-1/2 w-8 h-8"
-                        style={{ 
-                          transform: `translate(-50%, -50%) rotate(${rotation}deg) translate(${isMobile ? 80 : 120}px, 0)`,
-                        }}
-                        animate={phase === 'locked' ? { opacity: 1 } : { opacity: 0.5 }}
-                      >
-                        <div className="w-3 h-[2px] bg-emerald-400" />
-                        <div className="w-[2px] h-3 bg-emerald-400" />
-                      </motion.div>
-                    ))}
                   </motion.div>
 
-                  {/* Target game preview - moves during scanning */}
+                  {/* Corner brackets */}
+                  {[
+                    { top: '15%', left: '15%', rotate: 0 },
+                    { top: '15%', right: '15%', rotate: 90 },
+                    { bottom: '15%', right: '15%', rotate: 180 },
+                    { bottom: '15%', left: '15%', rotate: 270 },
+                  ].map((pos, i) => (
+                    <motion.div
+                      key={i}
+                      className="absolute w-6 h-6"
+                      style={{ 
+                        ...pos, 
+                        transform: `rotate(${pos.rotate}deg)`,
+                      }}
+                      animate={phase === 'locked' ? { opacity: 1, scale: 1 } : { opacity: 0.4, scale: 0.9 }}
+                      transition={{ duration: 0.3, delay: i * 0.05 }}
+                    >
+                      <div className="absolute top-0 left-0 w-full h-[2px] bg-emerald-400" />
+                      <div className="absolute top-0 left-0 w-[2px] h-full bg-emerald-400" />
+                    </motion.div>
+                  ))}
+
+                  {/* Target game image */}
                   <motion.div
-                    className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 rounded-xl overflow-hidden"
+                    className="absolute top-1/2 left-1/2 rounded-xl overflow-hidden shadow-2xl"
                     style={{
-                      width: isMobile ? 120 : 160,
-                      height: isMobile ? 160 : 220,
-                    }}
-                    animate={phase === 'scanning' ? {
-                      x: scanPosition.x,
-                      y: scanPosition.y,
-                    } : {
-                      x: 0,
-                      y: 0,
-                    }}
-                    transition={{ 
-                      type: phase === 'scanning' ? "spring" : "spring",
-                      stiffness: phase === 'scanning' ? 100 : 300,
-                      damping: phase === 'scanning' ? 15 : 20,
+                      width: isMobile ? 100 : 140,
+                      height: isMobile ? 140 : 190,
+                      x: useTransform(smoothX, (v) => v - (isMobile ? 50 : 70)),
+                      y: useTransform(smoothY, (v) => v - (isMobile ? 70 : 95)),
                     }}
                   >
-                    <img 
-                      src={selectedGame.image} 
+                    <motion.img
+                      src={selectedGame.image}
                       alt={selectedGame.name}
                       className="w-full h-full object-cover"
+                      animate={phase === 'locked' ? { scale: 1.05 } : { scale: 1 }}
+                      transition={{ duration: 0.3 }}
                     />
                     
                     {/* Lock overlay */}
                     <AnimatePresence>
                       {phase === 'locked' && (
                         <motion.div
-                          className="absolute inset-0 bg-emerald-500/20 flex items-center justify-center"
+                          className="absolute inset-0 flex items-center justify-center"
+                          style={{ background: 'rgba(16, 185, 129, 0.2)' }}
                           initial={{ opacity: 0 }}
                           animate={{ opacity: 1 }}
                           exit={{ opacity: 0 }}
                         >
                           <motion.div
+                            className="w-14 h-14 rounded-full bg-emerald-500/90 flex items-center justify-center"
                             initial={{ scale: 0 }}
                             animate={{ scale: 1 }}
-                            transition={{ type: "spring", stiffness: 400 }}
+                            transition={{ type: 'spring', stiffness: 400, damping: 15 }}
                           >
-                            <Check className="w-12 h-12 text-emerald-400" />
+                            <Check className="w-7 h-7 text-black" strokeWidth={3} />
                           </motion.div>
                         </motion.div>
                       )}
                     </AnimatePresence>
                   </motion.div>
 
-                  {/* Scanning indicator */}
-                  {phase === 'scanning' && (
-                    <motion.div
-                      className="absolute -bottom-12 left-1/2 -translate-x-1/2 flex items-center gap-2"
-                      animate={{ opacity: [0.5, 1, 0.5] }}
-                      transition={{ duration: 1, repeat: Infinity }}
-                    >
-                      <div className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-                      <span className="text-xs tracking-[0.2em] text-emerald-400/80 font-mono">SCANNING</span>
-                    </motion.div>
-                  )}
-
-                  {/* Locking indicator */}
-                  {phase === 'locking' && (
-                    <motion.div
-                      className="absolute -bottom-12 left-1/2 -translate-x-1/2"
-                      initial={{ opacity: 0 }}
-                      animate={{ opacity: 1 }}
-                    >
-                      <span className="text-xs tracking-[0.2em] text-yellow-400 font-mono">LOCKING...</span>
-                    </motion.div>
-                  )}
-
-                  {/* Locked indicator */}
-                  {phase === 'locked' && (
-                    <motion.div
-                      className="absolute -bottom-12 left-1/2 -translate-x-1/2"
-                      initial={{ opacity: 0, scale: 0.8 }}
-                      animate={{ opacity: 1, scale: 1 }}
-                    >
-                      <span className="text-sm tracking-[0.2em] text-emerald-400 font-mono font-bold">TARGET LOCKED</span>
-                    </motion.div>
-                  )}
-                </div>
+                  {/* Status text */}
+                  <motion.div
+                    className="absolute -bottom-14 left-1/2 -translate-x-1/2 flex items-center gap-2"
+                  >
+                    {phase === 'scanning' && (
+                      <motion.div
+                        className="flex items-center gap-2"
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                      >
+                        <motion.div
+                          className="w-1.5 h-1.5 rounded-full bg-emerald-400"
+                          animate={{ opacity: [1, 0.3, 1] }}
+                          transition={{ duration: 0.8, repeat: Infinity }}
+                        />
+                        <span className="text-xs tracking-[0.25em] text-emerald-400/80 font-medium uppercase">
+                          Scanner
+                        </span>
+                      </motion.div>
+                    )}
+                    {phase === 'locked' && (
+                      <motion.span
+                        className="text-sm tracking-[0.2em] text-emerald-400 font-bold uppercase"
+                        initial={{ opacity: 0, y: 5 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        style={{ textShadow: '0 0 20px rgba(16, 185, 129, 0.6)' }}
+                      >
+                        Mål låst
+                      </motion.span>
+                    )}
+                  </motion.div>
+                </motion.div>
               </motion.div>
             )}
           </AnimatePresence>
 
-          {/* PAYMENT PHASE */}
-          <AnimatePresence>
+          {/* PAYMENT */}
+          <AnimatePresence mode="wait">
             {phase === 'payment' && (
               <motion.div
-                className="absolute inset-0 flex items-center justify-center"
-                initial={{ opacity: 0, y: 50 }}
+                className="absolute inset-0 flex items-center justify-center px-6"
+                initial={{ opacity: 0, y: 30 }}
                 animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, scale: 0.9 }}
-                transition={{ duration: 0.4 }}
+                exit={{ opacity: 0, y: -30, scale: 0.95 }}
+                transition={{ duration: 0.4, ease: [0.4, 0, 0.2, 1] }}
               >
                 <motion.div
-                  className="relative p-6 md:p-8 rounded-2xl"
+                  className="w-full max-w-sm rounded-2xl p-6"
                   style={{
-                    width: isMobile ? 300 : 380,
-                    background: 'linear-gradient(145deg, #1a1a24 0%, #12121a 100%)',
-                    border: '1px solid rgba(16, 185, 129, 0.2)',
-                    boxShadow: '0 25px 80px rgba(0,0,0,0.5)',
+                    background: 'linear-gradient(145deg, rgba(20, 20, 28, 0.95) 0%, rgba(12, 12, 18, 0.95) 100%)',
+                    border: '1px solid rgba(16, 185, 129, 0.15)',
+                    boxShadow: '0 30px 60px rgba(0, 0, 0, 0.4)',
                   }}
                 >
-                  {/* Game being purchased */}
-                  <div className="flex items-center gap-4 mb-6">
-                    <div className="w-16 h-20 rounded-lg overflow-hidden flex-shrink-0">
+                  {/* Game row */}
+                  <div className="flex items-center gap-4 mb-5">
+                    <div className="w-14 h-18 rounded-lg overflow-hidden flex-shrink-0 shadow-lg">
                       <img src={selectedGame.image} alt="" className="w-full h-full object-cover" />
                     </div>
-                    <div className="flex-1">
-                      <p className="text-white font-semibold">{selectedGame.name}</p>
-                      <p className="text-white/40 text-sm">Digital Key</p>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-white font-semibold truncate">{selectedGame.name}</p>
+                      <p className="text-white/40 text-sm">Digital nøgle</p>
                     </div>
-                    <div className="text-right">
-                      <p className="text-emerald-400 font-bold text-lg">${selectedGame.price}</p>
-                    </div>
+                    <p className="text-emerald-400 font-bold text-lg">{selectedGame.price} kr</p>
                   </div>
 
-                  {/* Payment processing */}
-                  <motion.div
-                    className="flex items-center justify-center gap-3 py-4 rounded-xl"
-                    style={{ background: 'rgba(16, 185, 129, 0.1)' }}
-                  >
-                    <motion.div
-                      animate={{ rotate: 360 }}
-                      transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
-                    >
-                      <CreditCard className="w-5 h-5 text-emerald-400" />
-                    </motion.div>
-                    <motion.span
-                      className="text-sm text-emerald-400 font-medium"
-                      animate={{ opacity: [0.5, 1, 0.5] }}
-                      transition={{ duration: 1.5, repeat: Infinity }}
-                    >
-                      Processing payment...
-                    </motion.span>
-                  </motion.div>
-
-                  {/* Progress bar */}
-                  <div className="mt-4 h-1 bg-white/10 rounded-full overflow-hidden">
-                    <motion.div
-                      className="h-full bg-gradient-to-r from-emerald-500 to-emerald-400"
-                      initial={{ width: 0 }}
-                      animate={{ width: '100%' }}
-                      transition={{ duration: 1.8, ease: "easeInOut" }}
-                    />
+                  {/* Progress section */}
+                  <div className="rounded-xl p-4" style={{ background: 'rgba(16, 185, 129, 0.08)' }}>
+                    <div className="flex items-center justify-between mb-3">
+                      <span className="text-sm text-white/60">Behandler betaling</span>
+                      <span className="text-sm text-emerald-400 font-medium">{paymentProgress}%</span>
+                    </div>
+                    <div className="h-2 bg-black/30 rounded-full overflow-hidden">
+                      <motion.div
+                        className="h-full rounded-full"
+                        style={{
+                          width: `${paymentProgress}%`,
+                          background: 'linear-gradient(90deg, #10b981, #34d399)',
+                          boxShadow: '0 0 20px rgba(16, 185, 129, 0.5)',
+                        }}
+                      />
+                    </div>
                   </div>
                 </motion.div>
               </motion.div>
             )}
           </AnimatePresence>
 
-          {/* DELIVERY PHASE */}
-          <AnimatePresence>
+          {/* DELIVERY */}
+          <AnimatePresence mode="wait">
             {phase === 'delivery' && (
               <motion.div
-                className="absolute inset-0 flex items-center justify-center"
-                initial={{ opacity: 0, scale: 0.9 }}
+                className="absolute inset-0 flex items-center justify-center px-6"
+                initial={{ opacity: 0, scale: 0.95 }}
                 animate={{ opacity: 1, scale: 1 }}
-                exit={{ opacity: 0, y: -50 }}
-                transition={{ duration: 0.4 }}
+                exit={{ opacity: 0, scale: 1.05, filter: 'blur(10px)' }}
+                transition={{ duration: 0.4, ease: [0.4, 0, 0.2, 1] }}
               >
                 {/* Success glow */}
                 <motion.div
-                  className="absolute inset-0"
+                  className="absolute inset-0 pointer-events-none"
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
                   style={{
-                    background: 'radial-gradient(ellipse 50% 50% at 50% 50%, rgba(16, 185, 129, 0.15) 0%, transparent 70%)',
+                    background: 'radial-gradient(ellipse 60% 50% at 50% 50%, rgba(16, 185, 129, 0.1) 0%, transparent 70%)',
                   }}
                 />
 
                 <motion.div
-                  className="relative p-6 md:p-8 rounded-2xl"
+                  className="w-full max-w-sm rounded-2xl p-6"
                   style={{
-                    width: isMobile ? 300 : 400,
-                    background: 'linear-gradient(145deg, #1a1a24 0%, #12121a 100%)',
-                    border: '1px solid rgba(16, 185, 129, 0.3)',
-                    boxShadow: '0 25px 80px rgba(0,0,0,0.5), 0 0 60px rgba(16, 185, 129, 0.1)',
+                    background: 'linear-gradient(145deg, rgba(20, 20, 28, 0.95) 0%, rgba(12, 12, 18, 0.95) 100%)',
+                    border: '1px solid rgba(16, 185, 129, 0.25)',
+                    boxShadow: '0 30px 60px rgba(0, 0, 0, 0.4), 0 0 80px rgba(16, 185, 129, 0.08)',
                   }}
                 >
                   {/* Success header */}
                   <motion.div
-                    className="flex items-center justify-center gap-3 mb-6"
-                    initial={{ opacity: 0, y: -10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: 0.2 }}
+                    className="flex items-center gap-3 mb-5"
+                    initial={{ opacity: 0, x: -10 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ delay: 0.1 }}
                   >
                     <motion.div
-                      className="w-10 h-10 rounded-full bg-emerald-500 flex items-center justify-center"
+                      className="w-11 h-11 rounded-full bg-emerald-500 flex items-center justify-center"
                       initial={{ scale: 0 }}
                       animate={{ scale: 1 }}
-                      transition={{ delay: 0.3, type: "spring", stiffness: 300 }}
+                      transition={{ delay: 0.2, type: 'spring', stiffness: 300 }}
                     >
-                      <Zap className="w-5 h-5 text-black" />
+                      <Zap className="w-5 h-5 text-black" strokeWidth={2.5} />
                     </motion.div>
                     <div>
-                      <p className="text-white font-bold">Instant Delivery!</p>
-                      <p className="text-white/40 text-xs">Your key is ready</p>
+                      <p className="text-white font-bold">Øjeblikkelig levering!</p>
+                      <p className="text-white/40 text-xs">Din nøgle er klar</p>
                     </div>
                   </motion.div>
 
                   {/* Game info */}
                   <motion.div
-                    className="flex items-center gap-4 mb-4 pb-4 border-b border-white/10"
+                    className="flex items-center gap-3 pb-4 mb-4 border-b border-white/10"
                     initial={{ opacity: 0 }}
                     animate={{ opacity: 1 }}
-                    transition={{ delay: 0.4 }}
+                    transition={{ delay: 0.3 }}
                   >
-                    <div className="w-14 h-18 rounded-lg overflow-hidden flex-shrink-0">
+                    <div className="w-12 h-16 rounded-lg overflow-hidden flex-shrink-0">
                       <img src={selectedGame.image} alt="" className="w-full h-full object-cover" />
                     </div>
                     <div>
-                      <p className="text-white font-medium">{selectedGame.name}</p>
-                      <p className="text-emerald-400 text-sm">${selectedGame.price}</p>
+                      <p className="text-white font-medium text-sm">{selectedGame.name}</p>
+                      <p className="text-emerald-400 text-xs">{selectedGame.price} kr</p>
                     </div>
                   </motion.div>
 
-                  {/* Key display */}
+                  {/* Key */}
                   <motion.div
                     className="rounded-xl p-4"
                     style={{
-                      background: 'linear-gradient(145deg, #0d1117 0%, #161b22 100%)',
-                      border: '1px solid rgba(16, 185, 129, 0.2)',
+                      background: 'linear-gradient(145deg, rgba(16, 185, 129, 0.08) 0%, rgba(16, 185, 129, 0.03) 100%)',
+                      border: '1px solid rgba(16, 185, 129, 0.15)',
                     }}
                     initial={{ opacity: 0, y: 10 }}
                     animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: 0.6 }}
+                    transition={{ delay: 0.4 }}
                   >
                     <div className="flex items-center gap-2 mb-2">
-                      <Key className="w-4 h-4 text-emerald-400" />
-                      <span className="text-xs text-white/40 uppercase tracking-wider">Activation Key</span>
+                      <Key className="w-3.5 h-3.5 text-emerald-400" />
+                      <span className="text-[10px] text-white/40 uppercase tracking-wider font-medium">Aktiveringsnøgle</span>
                     </div>
-                    
-                    <div className="font-mono text-base md:text-lg text-emerald-400 tracking-wider text-center py-2">
+                    <div className="font-mono text-emerald-400 tracking-widest text-center py-1.5" style={{ fontSize: isMobile ? 14 : 16 }}>
                       {generatedKey.split('').map((char, i) => (
                         <motion.span
                           key={i}
-                          initial={{ opacity: 0, y: 5 }}
+                          initial={{ opacity: 0, y: 8 }}
                           animate={{ opacity: 1, y: 0 }}
-                          transition={{ delay: 0.8 + i * 0.02 }}
-                          style={{ textShadow: '0 0 10px rgba(16, 185, 129, 0.5)' }}
+                          transition={{ delay: 0.5 + i * 0.015 }}
+                          style={{ textShadow: '0 0 12px rgba(16, 185, 129, 0.4)' }}
                         >
                           {char}
                         </motion.span>
@@ -510,47 +544,28 @@ const IntroAnimation = ({ onComplete }: IntroAnimationProps) => {
                     </div>
                   </motion.div>
 
-                  {/* Email note */}
                   <motion.p
-                    className="text-center text-white/40 text-xs mt-4"
+                    className="text-center text-white/30 text-xs mt-4"
                     initial={{ opacity: 0 }}
                     animate={{ opacity: 1 }}
-                    transition={{ delay: 1.5 }}
+                    transition={{ delay: 1.2 }}
                   >
-                    Also sent to your email ✨
+                    Også sendt til din email ✨
                   </motion.p>
                 </motion.div>
               </motion.div>
             )}
           </AnimatePresence>
-
-          {/* TRANSITION PHASE - Smooth zoom out */}
-          <AnimatePresence>
-            {phase === 'transition' && (
-              <motion.div
-                className="absolute inset-0 flex items-center justify-center"
-                initial={{ opacity: 1 }}
-                animate={{ opacity: 0, scale: 1.2 }}
-                transition={{ duration: 0.8, ease: [0.4, 0, 0.2, 1] }}
-              >
-                <motion.div
-                  className="text-center"
-                  initial={{ opacity: 1, y: 0 }}
-                  animate={{ opacity: 0, y: -30 }}
-                  transition={{ duration: 0.5 }}
-                >
-                  <motion.div
-                    className="text-2xl md:text-3xl font-bold tracking-wider text-emerald-400 mb-2"
-                    style={{ textShadow: '0 0 30px rgba(16, 185, 129, 0.5)' }}
-                  >
-                    DinGaming
-                  </motion.div>
-                  <p className="text-white/40 text-sm tracking-widest">READY TO PLAY</p>
-                </motion.div>
-              </motion.div>
-            )}
-          </AnimatePresence>
         </motion.div>
+      ) : (
+        // Smooth exit - empty div that fades out
+        <motion.div
+          className="fixed inset-0 z-[100] bg-[#07070a]"
+          initial={{ opacity: 1 }}
+          animate={{ opacity: 0 }}
+          transition={{ duration: 0.6, ease: [0.4, 0, 0.2, 1] }}
+          onAnimationComplete={onComplete}
+        />
       )}
     </AnimatePresence>
   );
