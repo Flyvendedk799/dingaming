@@ -55,6 +55,22 @@ Deno.serve(async (req) => {
       })
     }
 
+    // Check if there's already a bulk operation in progress before starting
+    const currentOpStatus = await checkCurrentBulkOperation(shopifyAccessToken)
+    if (currentOpStatus.status === 'RUNNING' || currentOpStatus.status === 'CREATED') {
+      return new Response(JSON.stringify({
+        success: false,
+        error: 'already_running',
+        message: 'A bulk operation is already in progress. Click "Tjek Status" to monitor it.',
+        operationId: currentOpStatus.id,
+        status: currentOpStatus.status,
+        objectCount: currentOpStatus.objectCount
+      }), {
+        status: 200, // Return 200 so UI can handle gracefully
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      })
+    }
+
     // Get settings
     const { data: settingsData } = await supabase
       .from('store_settings')
@@ -336,6 +352,33 @@ async function startBulkMutation(accessToken: string, stagedUploadPath: string):
 
   const operation = data.data.bulkOperationRunMutation.bulkOperation
   return { success: true, operationId: operation?.id }
+}
+
+// Quick check for in-progress operation (no DB updates, just status)
+async function checkCurrentBulkOperation(accessToken: string): Promise<any> {
+  const shopifyAdminUrl = `https://${SHOPIFY_STORE_DOMAIN}/admin/api/${SHOPIFY_API_VERSION}/graphql.json`
+
+  const query = `
+    query {
+      currentBulkOperation(type: MUTATION) {
+        id
+        status
+        objectCount
+      }
+    }
+  `
+
+  const response = await fetch(shopifyAdminUrl, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'X-Shopify-Access-Token': accessToken
+    },
+    body: JSON.stringify({ query })
+  })
+
+  const data = await response.json()
+  return data.data?.currentBulkOperation || { status: 'NO_OPERATION' }
 }
 
 async function checkBulkOperationStatus(accessToken: string, supabase: any): Promise<any> {
