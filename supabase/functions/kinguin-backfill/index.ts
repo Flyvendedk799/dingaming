@@ -8,7 +8,8 @@ const corsHeaders = {
 const KINGUIN_API_URL = 'https://gateway.kinguin.net/esa/api/v1'
 const ALLOWED_REGIONS = [3, 1] // Worldwide, Europe
 const PRODUCTS_PER_PAGE = 100
-const PAGES_PER_RUN = 10 // Process 10 pages (1000 products) per run to avoid timeout
+const PAGES_PER_RUN = 20 // Process 20 pages (2000 products) per run
+const PARALLEL_REQUESTS = 5 // Fetch 5 pages in parallel
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -80,87 +81,127 @@ Deno.serve(async (req) => {
       })
       .eq('key', 'sync_lock')
 
-    // Get last page we processed
+    // Auto-detect starting page based on highest kinguin_id in database
+    const { data: maxKinguinId } = await supabase
+      .from('kinguin_products')
+      .select('kinguin_id')
+      .order('kinguin_id', { ascending: false })
+      .limit(1)
+      .maybeSingle()
+
+    // Calculate starting page: each page has ~100 products per region
+    // We sort by kinguinId asc, so page N has products with kinguinId around N*100
+    const highestId = maxKinguinId?.kinguin_id || 0
+    const estimatedPage = Math.max(1, Math.floor(highestId / PRODUCTS_PER_PAGE) - 5) // Go back 5 pages to catch any gaps
+    
+    // Get saved page or use estimated
     const { data: lastPageData } = await supabase
       .from('store_settings')
       .select('value')
       .eq('key', 'backfill_last_page')
       .maybeSingle()
 
-    let currentPage = Number(lastPageData?.value) || 1
+    const savedPage = Number(lastPageData?.value) || 1
+    let currentPage = Math.max(savedPage, estimatedPage)
 
-    console.log(`Starting backfill from page ${currentPage}`)
+    console.log(`Highest kinguin_id: ${highestId}, estimated page: ${estimatedPage}, starting from page: ${currentPage}`)
 
     let totalSynced = 0
     let emptyPages = 0
-    const maxEmptyPages = 3 // Stop after 3 consecutive empty pages
+    const maxEmptyPages = 3
 
-    for (let i = 0; i < PAGES_PER_RUN && emptyPages < maxEmptyPages; i++) {
-      let pageProducts = 0
-
-      for (const regionId of ALLOWED_REGIONS) {
-        const kinguinUrl = `${KINGUIN_API_URL}/products?regionId=${regionId}&page=${currentPage}&limit=${PRODUCTS_PER_PAGE}&sortBy=kinguinId&sortType=asc`
-        
-        console.log(`Fetching region ${regionId}, page ${currentPage}`)
-        
+    // Helper function to fetch a single page for a region
+    async function fetchPage(page: number, regionId: number): Promise<any[]> {
+      const kinguinUrl = `${KINGUIN_API_URL}/products?regionId=${regionId}&page=${page}&limit=${PRODUCTS_PER_PAGE}&sortBy=kinguinId&sortType=asc`
+      
+      try {
         const response = await fetch(kinguinUrl, {
           headers: {
-            'X-Api-Key': kinguinApiKey,
+            'X-Api-Key': kinguinApiKey!,
             'Content-Type': 'application/json'
           }
         })
 
         if (!response.ok) {
-          console.error(`Kinguin API error: ${response.status}`)
-          continue
+          console.error(`Kinguin API error for page ${page}, region ${regionId}: ${response.status}`)
+          return []
         }
 
         const data = await response.json()
-        const products = data.results || data.products || data || []
+        return data.results || data.products || data || []
+      } catch (e) {
+        console.error(`Fetch error page ${page}, region ${regionId}:`, e)
+        return []
+      }
+    }
+
+    // Process pages in parallel batches
+    for (let batch = 0; batch < Math.ceil(PAGES_PER_RUN / PARALLEL_REQUESTS) && emptyPages < maxEmptyPages; batch++) {
+      const pagesToFetch: number[] = []
+      for (let i = 0; i < PARALLEL_REQUESTS && (batch * PARALLEL_REQUESTS + i) < PAGES_PER_RUN; i++) {
+        pagesToFetch.push(currentPage + batch * PARALLEL_REQUESTS + i)
+      }
+
+      console.log(`Fetching pages in parallel: ${pagesToFetch.join(', ')}`)
+
+      // Fetch all pages for all regions in parallel
+      const fetchPromises = pagesToFetch.flatMap(page => 
+        ALLOWED_REGIONS.map(regionId => fetchPage(page, regionId).then(products => ({ page, regionId, products })))
+      )
+
+      const results = await Promise.all(fetchPromises)
+
+      // Group by page to check for empty pages
+      const pageResults = new Map<number, any[]>()
+      for (const { page, products } of results) {
+        if (!pageResults.has(page)) pageResults.set(page, [])
+        pageResults.get(page)!.push(...products)
+      }
+
+      // Process each page's results
+      for (const page of pagesToFetch) {
+        const allProducts = pageResults.get(page) || []
         
-        if (products.length === 0) continue
-
-        pageProducts += products.length
-
-        // Upsert products
-        const productsToUpsert = products.map((product: any) => ({
-          kinguin_id: product.kinguinId,
-          product_id: product.productId,
-          name: product.name,
-          description: product.description,
-          cover_image: product.coverImage || product.images?.cover?.url,
-          screenshots: product.screenshots?.map((s: any) => s.url) || [],
-          original_price: parseFloat(product.price || 0),
-          sell_price: parseFloat(product.price || 0),
-          platform: product.platform,
-          genres: product.genres || [],
-          release_date: product.releaseDate,
-          region_id: product.regionId,
-          region_name: product.region?.name || (product.regionId === 3 ? 'Worldwide' : 'Europe'),
-          is_available: (product.qty || 0) > 0,
-          qty: product.qty || 0,
-          updated_at: new Date().toISOString()
-        }))
-
-        const { error } = await supabase
-          .from('kinguin_products')
-          .upsert(productsToUpsert, { onConflict: 'kinguin_id' })
-
-        if (error) {
-          console.error(`Error upserting page ${currentPage}:`, error)
+        if (allProducts.length === 0) {
+          emptyPages++
+          console.log(`Empty page ${page}, empty count: ${emptyPages}`)
+          if (emptyPages >= maxEmptyPages) break
         } else {
-          totalSynced += products.length
+          emptyPages = 0
+
+          // Upsert products
+          const productsToUpsert = allProducts.map((product: any) => ({
+            kinguin_id: product.kinguinId,
+            product_id: product.productId,
+            name: product.name,
+            description: product.description,
+            cover_image: product.coverImage || product.images?.cover?.url,
+            screenshots: product.screenshots?.map((s: any) => s.url) || [],
+            original_price: parseFloat(product.price || 0),
+            sell_price: parseFloat(product.price || 0),
+            platform: product.platform,
+            genres: product.genres || [],
+            release_date: product.releaseDate,
+            region_id: product.regionId,
+            region_name: product.region?.name || (product.regionId === 3 ? 'Worldwide' : 'Europe'),
+            is_available: (product.qty || 0) > 0,
+            qty: product.qty || 0,
+            updated_at: new Date().toISOString()
+          }))
+
+          const { error } = await supabase
+            .from('kinguin_products')
+            .upsert(productsToUpsert, { onConflict: 'kinguin_id' })
+
+          if (error) {
+            console.error(`Error upserting page ${page}:`, error)
+          } else {
+            totalSynced += allProducts.length
+          }
         }
       }
 
-      if (pageProducts === 0) {
-        emptyPages++
-        console.log(`Empty page ${currentPage}, empty count: ${emptyPages}`)
-      } else {
-        emptyPages = 0
-      }
-
-      currentPage++
+      currentPage = pagesToFetch[pagesToFetch.length - 1] + 1
     }
 
     // Check if we've reached the end
