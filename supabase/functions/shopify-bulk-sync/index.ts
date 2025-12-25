@@ -31,7 +31,17 @@ Deno.serve(async (req) => {
 
     // Check for existing bulk operation status
     if (action === 'status') {
-      const status = await checkBulkOperationStatus(shopifyAccessToken)
+      const status = await checkBulkOperationStatus(shopifyAccessToken, supabase)
+      
+      // Add remaining products count to status
+      const { count: remainingProducts } = await supabase
+        .from('kinguin_products')
+        .select('*', { count: 'exact', head: true })
+        .eq('is_available', true)
+        .is('shopify_product_id', null)
+      
+      status.remainingProducts = remainingProducts || 0
+      
       return new Response(JSON.stringify(status), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' }
       })
@@ -320,7 +330,7 @@ async function startBulkMutation(accessToken: string, stagedUploadPath: string):
   return { success: true, operationId: operation?.id }
 }
 
-async function checkBulkOperationStatus(accessToken: string): Promise<any> {
+async function checkBulkOperationStatus(accessToken: string, supabase: any): Promise<any> {
   const shopifyAdminUrl = `https://${SHOPIFY_STORE_DOMAIN}/admin/api/${SHOPIFY_API_VERSION}/graphql.json`
 
   const query = `
@@ -349,5 +359,84 @@ async function checkBulkOperationStatus(accessToken: string): Promise<any> {
   })
 
   const data = await response.json()
-  return data.data?.currentBulkOperation || { status: 'NO_OPERATION' }
+  const operation = data.data?.currentBulkOperation || { status: 'NO_OPERATION' }
+  
+  // If completed and has URL, parse results and update database
+  if (operation.status === 'COMPLETED' && operation.url) {
+    try {
+      await processCompletedBulkOperation(operation.url, supabase)
+      operation.dbUpdated = true
+    } catch (err) {
+      console.error('Error processing bulk results:', err)
+      operation.dbUpdateError = err instanceof Error ? err.message : 'Unknown error'
+    }
+  }
+  
+  return operation
+}
+
+async function processCompletedBulkOperation(resultUrl: string, supabase: any): Promise<void> {
+  console.log('Downloading bulk operation results from:', resultUrl)
+  
+  const response = await fetch(resultUrl)
+  if (!response.ok) {
+    throw new Error(`Failed to download results: ${response.status}`)
+  }
+  
+  const text = await response.text()
+  const lines = text.trim().split('\n').filter(line => line.length > 0)
+  
+  console.log(`Processing ${lines.length} result lines`)
+  
+  let updatedCount = 0
+  const updates: { kinguin_id: number; shopify_product_id: string }[] = []
+  
+  for (const line of lines) {
+    try {
+      const result = JSON.parse(line)
+      
+      // Extract product ID and handle from the result
+      // Format depends on mutation response structure
+      if (result.data?.productSet?.product) {
+        const product = result.data.productSet.product
+        const shopifyId = product.id // gid://shopify/Product/xxx
+        const handle = product.handle // kinguin-12345
+        
+        // Extract kinguin_id from handle
+        const match = handle?.match(/kinguin-(\d+)/)
+        if (match && shopifyId) {
+          updates.push({
+            kinguin_id: parseInt(match[1]),
+            shopify_product_id: shopifyId
+          })
+        }
+      }
+    } catch (err) {
+      console.error('Error parsing result line:', err)
+    }
+  }
+  
+  // Batch update database
+  if (updates.length > 0) {
+    console.log(`Updating ${updates.length} products in database`)
+    
+    // Update in chunks of 100
+    for (let i = 0; i < updates.length; i += 100) {
+      const chunk = updates.slice(i, i + 100)
+      
+      for (const update of chunk) {
+        await supabase
+          .from('kinguin_products')
+          .update({ 
+            shopify_product_id: update.shopify_product_id,
+            last_synced_to_shopify: new Date().toISOString()
+          })
+          .eq('kinguin_id', update.kinguin_id)
+      }
+      
+      updatedCount += chunk.length
+    }
+    
+    console.log(`Updated ${updatedCount} products in database`)
+  }
 }
