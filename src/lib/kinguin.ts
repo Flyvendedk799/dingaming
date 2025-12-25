@@ -105,6 +105,49 @@ export async function syncProducts(
   return { success: true, synced: totalSynced, shopifySynced: totalShopifySynced };
 }
 
+export async function syncDbToShopify(
+  startOffset = 0,
+  onProgress?: (offset: number, totalSynced: number) => void
+): Promise<{ success: boolean; synced: number }> {
+  let totalSynced = 0;
+  let offset = startOffset;
+  const limit = 50; // Smaller batches for Shopify API rate limits
+  
+  while (true) {
+    const response = await fetch(
+      `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/sync-db-to-shopify?offset=${offset}&limit=${limit}`,
+      {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+          'Content-Type': 'application/json'
+        }
+      }
+    );
+
+    if (!response.ok) {
+      console.error(`Sync error at offset ${offset}:`, await response.text());
+      break;
+    }
+
+    const result = await response.json();
+    const syncedThisBatch = result.synced || 0;
+    totalSynced += syncedThisBatch;
+    
+    console.log(`Offset ${offset}: synced ${syncedThisBatch} to Shopify (total: ${totalSynced})`);
+    
+    onProgress?.(offset, totalSynced);
+    
+    if (result.done) {
+      break;
+    }
+    
+    offset = result.nextOffset;
+  }
+
+  return { success: true, synced: totalSynced };
+}
+
 export interface CartItem {
   kinguinId: number;
   name: string;
