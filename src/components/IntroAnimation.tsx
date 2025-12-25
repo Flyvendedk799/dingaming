@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback, useMemo } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { motion, AnimatePresence, useMotionValue, useTransform, useSpring } from "framer-motion";
 import { useIsMobile } from "@/hooks/use-mobile";
 import game1 from "@/assets/game-1.jpg";
@@ -29,11 +29,11 @@ interface IntroAnimationProps {
 
 const IntroAnimation = ({ onComplete }: IntroAnimationProps) => {
   const [phase, setPhase] = useState<'waiting' | 'opening' | 'cards-flying' | 'selection' | 'reveal' | 'complete'>('waiting');
-  const [selectedGame, setSelectedGame] = useState(games[4]); // Red Dead 2 - legendary
+  const [selectedGame, setSelectedGame] = useState(games[4]);
   const [flyingCards, setFlyingCards] = useState<Array<{ id: number; game: typeof games[0]; delay: number; angle: number }>>([]);
   const isMobile = useIsMobile();
   
-  // Mouse tracking for 3D effect
+  // Mouse tracking for 3D effect - ALL hooks at top level
   const mouseX = useMotionValue(0);
   const mouseY = useMotionValue(0);
   const smoothMouseX = useSpring(mouseX, { stiffness: 100, damping: 30 });
@@ -42,9 +42,9 @@ const IntroAnimation = ({ onComplete }: IntroAnimationProps) => {
   const rotateX = useTransform(smoothMouseY, [-300, 300], [8, -8]);
   const rotateY = useTransform(smoothMouseX, [-400, 400], [-8, 8]);
 
-  // Case lid animation
-  const [caseOpen, setCaseOpen] = useState(0);
+  // Case lid animation - hook at top level
   const caseOpenSpring = useSpring(0, { stiffness: 80, damping: 15 });
+  const lidRotateX = useTransform(caseOpenSpring, [0, 100], [0, -120]);
 
   const handleMouseMove = useCallback((e: React.MouseEvent) => {
     const rect = e.currentTarget.getBoundingClientRect();
@@ -68,12 +68,11 @@ const IntroAnimation = ({ onComplete }: IntroAnimationProps) => {
       }
       setFlyingCards(cards);
       
-      // Transition to selection after cards fly
       setTimeout(() => setPhase('selection'), 2000);
     }
   }, [phase]);
 
-  // Selection phase - pick a random game after delay
+  // Selection phase
   useEffect(() => {
     if (phase === 'selection') {
       const timer = setTimeout(() => {
@@ -115,7 +114,7 @@ const IntroAnimation = ({ onComplete }: IntroAnimationProps) => {
     return () => window.removeEventListener('keydown', onKey);
   }, [handleSkip, handleCaseClick, phase]);
 
-  const rarityConfig = rarityColors[selectedGame.rarity];
+  const rarityConfig = useMemo(() => rarityColors[selectedGame.rarity], [selectedGame.rarity]);
 
   return (
     <AnimatePresence>
@@ -289,7 +288,7 @@ const IntroAnimation = ({ onComplete }: IntroAnimationProps) => {
                           0 10px 40px rgba(0,0,0,0.4)
                         `,
                         transformOrigin: 'top center',
-                        rotateX: useTransform(caseOpenSpring, [0, 100], [0, -120]),
+                        rotateX: lidRotateX,
                         transformStyle: 'preserve-3d',
                       }}
                     >
@@ -355,9 +354,7 @@ const IntroAnimation = ({ onComplete }: IntroAnimationProps) => {
                         }}
                         transition={{ duration: 1.5, repeat: Infinity }}
                       >
-                        <motion.div
-                          className="w-0 h-0 border-l-4 border-r-4 border-t-6 border-transparent border-t-emerald-400"
-                        />
+                        <div className="w-0 h-0 border-l-4 border-r-4 border-t-6 border-transparent border-t-emerald-400" />
                       </motion.div>
                     </motion.div>
                   )}
