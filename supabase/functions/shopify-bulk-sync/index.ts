@@ -388,6 +388,11 @@ async function processCompletedBulkOperation(resultUrl: string, supabase: any): 
   
   console.log(`Processing ${lines.length} result lines`)
   
+  // Log first line to understand format
+  if (lines.length > 0) {
+    console.log('Sample result line:', lines[0].substring(0, 500))
+  }
+  
   let updatedCount = 0
   const updates: { kinguin_id: number; shopify_product_id: string }[] = []
   
@@ -395,16 +400,40 @@ async function processCompletedBulkOperation(resultUrl: string, supabase: any): 
     try {
       const result = JSON.parse(line)
       
-      // Extract product ID and handle from the result
-      // Format depends on mutation response structure
-      if (result.data?.productSet?.product) {
-        const product = result.data.productSet.product
-        const shopifyId = product.id // gid://shopify/Product/xxx
-        const handle = product.handle // kinguin-12345
-        
-        // Extract kinguin_id from handle
-        const match = handle?.match(/kinguin-(\d+)/)
-        if (match && shopifyId) {
+      // Try multiple possible formats
+      let shopifyId: string | null = null
+      let handle: string | null = null
+      
+      // Format 1: Direct productSet result
+      if (result.productSet?.product) {
+        shopifyId = result.productSet.product.id
+        handle = result.productSet.product.handle
+      }
+      // Format 2: Wrapped in data
+      else if (result.data?.productSet?.product) {
+        shopifyId = result.data.productSet.product.id
+        handle = result.data.productSet.product.handle
+      }
+      // Format 3: Direct product at root
+      else if (result.product?.id) {
+        shopifyId = result.product.id
+        handle = result.product.handle
+      }
+      // Format 4: id and handle at root level
+      else if (result.id && result.handle) {
+        shopifyId = result.id
+        handle = result.handle
+      }
+      // Format 5: __parentId pattern (nested results)
+      else if (result.__parentId) {
+        // Skip nested items, we only care about root products
+        continue
+      }
+      
+      if (handle && shopifyId) {
+        // Extract kinguin_id from handle (format: kinguin-12345)
+        const match = handle.match(/kinguin-(\d+)/)
+        if (match) {
           updates.push({
             kinguin_id: parseInt(match[1]),
             shopify_product_id: shopifyId
@@ -412,9 +441,11 @@ async function processCompletedBulkOperation(resultUrl: string, supabase: any): 
         }
       }
     } catch (err) {
-      console.error('Error parsing result line:', err)
+      console.error('Error parsing result line:', line.substring(0, 200), err)
     }
   }
+  
+  console.log(`Found ${updates.length} products to update in database`)
   
   // Batch update database
   if (updates.length > 0) {
