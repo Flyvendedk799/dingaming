@@ -5,9 +5,11 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
 
-// Shopify Admin API config
 const SHOPIFY_STORE_DOMAIN = 'dingaming-js6x0.myshopify.com'
 const SHOPIFY_API_VERSION = '2025-07'
+
+// Process products in parallel batches
+const CONCURRENT_LIMIT = 10
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -55,25 +57,36 @@ Deno.serve(async (req) => {
       })
     }
 
-    console.log(`Found ${products.length} products to sync`)
+    console.log(`Found ${products.length} products to sync in parallel (${CONCURRENT_LIMIT} at a time)`)
 
+    // Process in parallel batches
     let shopifySynced = 0
-    for (const product of products) {
-      try {
-        const result = await syncProductToShopify(product, shopifyAccessToken)
-        if (result.success) {
+    let failed = 0
+    
+    for (let i = 0; i < products.length; i += CONCURRENT_LIMIT) {
+      const batch = products.slice(i, i + CONCURRENT_LIMIT)
+      
+      const results = await Promise.allSettled(
+        batch.map(product => createShopifyProductDirect(product, shopifyAccessToken))
+      )
+      
+      for (const result of results) {
+        if (result.status === 'fulfilled' && result.value.success) {
           shopifySynced++
+        } else {
+          failed++
         }
-      } catch (err) {
-        console.error(`Failed to sync product ${product.kinguin_id} to Shopify:`, err)
       }
+      
+      console.log(`Batch ${Math.floor(i / CONCURRENT_LIMIT) + 1}: ${batch.length} processed, total synced: ${shopifySynced}`)
     }
 
-    console.log(`Synced ${shopifySynced} products to Shopify`)
+    console.log(`Finished: ${shopifySynced} synced, ${failed} failed`)
 
     return new Response(JSON.stringify({ 
       success: true, 
       synced: shopifySynced,
+      failed,
       total: products.length,
       offset,
       limit,
@@ -92,54 +105,8 @@ Deno.serve(async (req) => {
   }
 })
 
-async function syncProductToShopify(product: any, accessToken: string): Promise<{ success: boolean }> {
-  const shopifyAdminUrl = `https://${SHOPIFY_STORE_DOMAIN}/admin/api/${SHOPIFY_API_VERSION}/graphql.json`
-  
-  // Check if product exists by searching for SKU
-  const searchQuery = `
-    query searchProduct($query: String!) {
-      products(first: 1, query: $query) {
-        edges {
-          node {
-            id
-            title
-          }
-        }
-      }
-    }
-  `
-  
-  const searchResult = await fetch(shopifyAdminUrl, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'X-Shopify-Access-Token': accessToken
-    },
-    body: JSON.stringify({
-      query: searchQuery,
-      variables: { query: `sku:KINGUIN-${product.kinguin_id}` }
-    })
-  })
-
-  const searchData = await searchResult.json()
-  
-  if (searchData.errors) {
-    console.error(`Shopify search error for ${product.kinguin_id}:`, JSON.stringify(searchData.errors))
-    return { success: false }
-  }
-  
-  const existingProduct = searchData.data?.products?.edges?.[0]?.node
-
-  if (existingProduct) {
-    // Already exists, skip or update
-    return { success: true }
-  } else {
-    // Create new product
-    return await createShopifyProduct(product, accessToken)
-  }
-}
-
-async function createShopifyProduct(product: any, accessToken: string): Promise<{ success: boolean }> {
+// Direct create without search - uses unique handle for idempotency
+async function createShopifyProductDirect(product: any, accessToken: string): Promise<{ success: boolean }> {
   const shopifyAdminUrl = `https://${SHOPIFY_STORE_DOMAIN}/admin/api/${SHOPIFY_API_VERSION}/graphql.json`
   
   const mutation = `
@@ -147,8 +114,6 @@ async function createShopifyProduct(product: any, accessToken: string): Promise<
       productSet(input: $input, synchronous: $synchronous) {
         product {
           id
-          title
-          handle
         }
         userErrors {
           field
@@ -160,75 +125,76 @@ async function createShopifyProduct(product: any, accessToken: string): Promise<
 
   const regionTag = product.region_id === 3 ? 'Worldwide' : 'Europe'
   const cleanTitle = (product.name || 'Untitled Product').substring(0, 255)
+  // Use kinguin_id in handle for idempotency - Shopify will update if exists
+  const handle = `kinguin-${product.kinguin_id}`
   
-  const response = await fetch(shopifyAdminUrl, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'X-Shopify-Access-Token': accessToken
-    },
-    body: JSON.stringify({
-      query: mutation,
-      variables: {
-        synchronous: true,
-        input: {
-          title: cleanTitle,
-          descriptionHtml: product.description || '',
-          vendor: 'DinGaming',
-          productType: 'Game Key',
-          tags: [product.platform || 'Steam', regionTag, 'Digital'],
-          status: product.is_available ? 'ACTIVE' : 'DRAFT',
-          productOptions: [{
-            name: 'Title',
-            values: [{ name: 'Default Title' }]
-          }],
-          variants: [{
-            optionValues: [{ optionName: 'Title', name: 'Default Title' }],
-            price: product.sell_price.toFixed(2),
-            sku: `KINGUIN-${product.kinguin_id}`,
-            inventoryPolicy: 'CONTINUE'
-          }],
-          metafields: [{
-            namespace: 'kinguin',
-            key: 'kinguin_id',
-            value: product.kinguin_id.toString(),
-            type: 'number_integer'
-          }, {
-            namespace: 'kinguin',
-            key: 'original_price',
-            value: product.original_price.toString(),
-            type: 'number_decimal'
-          }]
+  try {
+    const response = await fetch(shopifyAdminUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Shopify-Access-Token': accessToken
+      },
+      body: JSON.stringify({
+        query: mutation,
+        variables: {
+          synchronous: true,
+          input: {
+            handle,
+            title: cleanTitle,
+            descriptionHtml: product.description || '',
+            vendor: 'DinGaming',
+            productType: 'Game Key',
+            tags: [product.platform || 'Steam', regionTag, 'Digital'],
+            status: product.is_available ? 'ACTIVE' : 'DRAFT',
+            productOptions: [{
+              name: 'Title',
+              values: [{ name: 'Default Title' }]
+            }],
+            variants: [{
+              optionValues: [{ optionName: 'Title', name: 'Default Title' }],
+              price: product.sell_price.toFixed(2),
+              sku: `KINGUIN-${product.kinguin_id}`,
+              inventoryPolicy: 'CONTINUE'
+            }],
+            metafields: [{
+              namespace: 'kinguin',
+              key: 'kinguin_id',
+              value: product.kinguin_id.toString(),
+              type: 'number_integer'
+            }]
+          }
         }
-      }
+      })
     })
-  })
 
-  const data = await response.json()
-  
-  if (data.errors) {
-    console.error(`Shopify API error for ${product.kinguin_id}:`, JSON.stringify(data.errors))
-    return { success: false }
-  }
-  
-  if (data.data?.productSet?.userErrors?.length > 0) {
-    console.error(`Shopify userErrors for ${product.kinguin_id}:`, JSON.stringify(data.data.productSet.userErrors))
-    return { success: false }
-  }
-  
-  const createdProduct = data.data?.productSet?.product
-  if (createdProduct?.id) {
-    // Add image if available
-    if (product.cover_image) {
-      await addProductImage(createdProduct.id, product.cover_image, cleanTitle, accessToken)
+    const data = await response.json()
+    
+    if (data.errors) {
+      console.error(`API error ${product.kinguin_id}:`, data.errors[0]?.message)
+      return { success: false }
     }
-    return { success: true }
+    
+    if (data.data?.productSet?.userErrors?.length > 0) {
+      console.error(`UserError ${product.kinguin_id}:`, data.data.productSet.userErrors[0]?.message)
+      return { success: false }
+    }
+    
+    const createdProduct = data.data?.productSet?.product
+    if (createdProduct?.id && product.cover_image) {
+      // Fire and forget image upload - don't wait
+      addProductImageAsync(createdProduct.id, product.cover_image, cleanTitle, accessToken)
+    }
+    
+    return { success: !!createdProduct?.id }
+  } catch (err) {
+    console.error(`Failed ${product.kinguin_id}:`, err)
+    return { success: false }
   }
-  
-  return { success: false }
 }
 
-async function addProductImage(productId: string, imageUrl: string, altText: string, accessToken: string): Promise<void> {
+// Async image upload - doesn't block product creation
+function addProductImageAsync(productId: string, imageUrl: string, altText: string, accessToken: string): void {
   const shopifyAdminUrl = `https://${SHOPIFY_STORE_DOMAIN}/admin/api/${SHOPIFY_API_VERSION}/graphql.json`
   
   const mutation = `
@@ -247,26 +213,22 @@ async function addProductImage(productId: string, imageUrl: string, altText: str
     }
   `
   
-  try {
-    await fetch(shopifyAdminUrl, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'X-Shopify-Access-Token': accessToken
-      },
-      body: JSON.stringify({
-        query: mutation,
-        variables: {
-          productId,
-          media: [{
-            originalSource: imageUrl,
-            alt: altText,
-            mediaContentType: 'IMAGE'
-          }]
-        }
-      })
+  fetch(shopifyAdminUrl, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'X-Shopify-Access-Token': accessToken
+    },
+    body: JSON.stringify({
+      query: mutation,
+      variables: {
+        productId,
+        media: [{
+          originalSource: imageUrl,
+          alt: altText,
+          mediaContentType: 'IMAGE'
+        }]
+      }
     })
-  } catch (err) {
-    console.error(`Failed to add image to product ${productId}:`, err)
-  }
+  }).catch(err => console.error(`Image upload failed for ${productId}:`, err))
 }
