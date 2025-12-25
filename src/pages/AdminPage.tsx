@@ -248,14 +248,17 @@ const AdminPage = () => {
       const status = await response.json();
       
       if (status.status === 'COMPLETED') {
-        toast.success(`Bulk operation fuldført! ${status.objectCount || 0} produkter oprettet.`);
+        toast.success(`Bulk operation fuldført! ${status.objectCount || 0} produkter oprettet. ${status.remainingProducts?.toLocaleString() || 0} mangler stadig.`);
+        if (status.dbUpdated) {
+          toast.info('Database opdateret med Shopify produkt IDs');
+        }
         loadData();
       } else if (status.status === 'RUNNING') {
-        toast.info(`Status: RUNNING - ${status.objectCount || 0} produkter behandlet...`);
+        toast.info(`Status: RUNNING - ${status.objectCount || 0} produkter behandlet... ${status.remainingProducts?.toLocaleString() || '?'} mangler stadig.`);
       } else if (status.status === 'NO_OPERATION') {
-        toast.info('Ingen aktiv bulk operation');
+        toast.info(`Ingen aktiv bulk operation. ${status.remainingProducts?.toLocaleString() || 0} produkter mangler på Shopify.`);
       } else {
-        toast.info(`Status: ${status.status}`);
+        toast.info(`Status: ${status.status} - ${status.remainingProducts?.toLocaleString() || 0} mangler`);
       }
     } catch (error) {
       console.error('Status check error:', error);
