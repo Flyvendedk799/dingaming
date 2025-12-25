@@ -224,7 +224,9 @@ async function stageUpload(accessToken: string, jsonlContent: string): Promise<{
 
   const target = stageData.data.stagedUploadsCreate.stagedTargets[0]
   
-  // Upload the file
+  console.log('Staged target:', JSON.stringify(target, null, 2))
+  
+  // Upload the file to Google Cloud Storage
   const formData = new FormData()
   for (const param of target.parameters) {
     formData.append(param.name, param.value)
@@ -237,15 +239,23 @@ async function stageUpload(accessToken: string, jsonlContent: string): Promise<{
   })
 
   if (!uploadResponse.ok) {
-    return { success: false, error: `Upload failed: ${uploadResponse.status}` }
+    const errorText = await uploadResponse.text()
+    console.error('Upload failed:', errorText)
+    return { success: false, error: `Upload failed: ${uploadResponse.status} - ${errorText}` }
   }
 
-  // Extract the key from resourceUrl
-  const resourceUrl = target.resourceUrl
-  const keyMatch = resourceUrl.match(/key=([^&]+)/) || resourceUrl.match(/\/([^\/]+\.jsonl)/)
-  const key = keyMatch ? keyMatch[1] : resourceUrl
+  console.log('File uploaded successfully')
 
-  return { success: true, key: resourceUrl }
+  // Find the 'key' parameter - this is what Shopify needs for the bulk mutation
+  const keyParam = target.parameters.find((p: {name: string; value: string}) => p.name === 'key')
+  if (!keyParam) {
+    console.error('No key parameter found in staged upload response')
+    return { success: false, error: 'No key parameter in staged upload response' }
+  }
+
+  console.log('Using staged upload key:', keyParam.value)
+
+  return { success: true, key: keyParam.value }
 }
 
 async function startBulkMutation(accessToken: string, stagedUploadPath: string): Promise<{ success: boolean; operationId?: string; error?: string }> {
