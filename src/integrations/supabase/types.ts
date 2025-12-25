@@ -175,7 +175,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      bulk_update_kinguin_shopify_ids: {
+        Args: { updates: Json }
+        Returns: Json
+      }
     }
     Enums: {
       [_ in never]: never

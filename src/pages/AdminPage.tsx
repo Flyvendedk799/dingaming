@@ -199,21 +199,33 @@ const AdminPage = () => {
           
           const status = await statusResponse.json();
           
-          if (status.status === 'COMPLETED') {
-            totalSynced += status.objectCount || result.productsInThisChunk;
-            toast.success(`Chunk ${chunkNumber} fuldført! Total: ${totalSynced} produkter`);
-            completed = true;
-          } else if (status.status === 'FAILED') {
-            toast.error(`Chunk ${chunkNumber} fejlede: ${status.errorCode}`);
-            completed = true;
-          } else if (status.status === 'RUNNING') {
-            if (attempts % 6 === 0) { // Update every 30 seconds
-              toast.info(`Chunk ${chunkNumber} kører... ${status.objectCount || 0} behandlet`);
-            }
-          } else if (status.status === 'NO_OPERATION') {
-            // Operation might have completed very quickly
-            completed = true;
-          }
+           if (status.status === 'COMPLETED') {
+             if (status.dbUpdateError) {
+               toast.error(`Chunk ${chunkNumber} DB opdatering fejlede: ${status.dbUpdateError}`);
+               completed = true;
+             } else {
+               const updatedInDb = Number(status.dbUpdatedCount ?? 0) || Number(status.rootObjectCount ?? status.objectCount ?? result.productsInThisChunk);
+               totalSynced += updatedInDb;
+               toast.success(`Chunk ${chunkNumber} fuldført! DB opdateret: ${updatedInDb}. Total: ${totalSynced}`);
+
+               if (Number(status.alreadyExistsCount ?? 0) > 0) {
+                 toast.warning(`Nogle produkter fandtes allerede på Shopify (${status.alreadyExistsCount}). Kør "Hent Eksisterende" for at linke dem.`);
+               }
+
+               await loadData();
+               completed = true;
+             }
+           } else if (status.status === 'FAILED') {
+             toast.error(`Chunk ${chunkNumber} fejlede: ${status.errorCode}`);
+             completed = true;
+           } else if (status.status === 'RUNNING') {
+             if (attempts % 6 === 0) { // Update every 30 seconds
+               toast.info(`Chunk ${chunkNumber} kører... ${status.objectCount || 0} behandlet`);
+             }
+           } else if (status.status === 'NO_OPERATION') {
+             // Operation might have completed very quickly
+             completed = true;
+           }
           
           attempts++;
         }
@@ -253,12 +265,22 @@ const AdminPage = () => {
 
       const status = await response.json();
       
-      if (status.status === 'COMPLETED') {
-        toast.success(`Bulk operation fuldført! ${status.objectCount || 0} produkter oprettet. ${status.remainingProducts?.toLocaleString() || 0} mangler stadig.`);
-        if (status.dbUpdated) {
-          toast.info('Database opdateret med Shopify produkt IDs');
-        }
-        loadData();
+       if (status.status === 'COMPLETED') {
+         if (status.dbUpdateError) {
+           toast.error(`Bulk fuldført, men DB opdatering fejlede: ${status.dbUpdateError}`);
+         } else {
+           const updatedInDb = Number(status.dbUpdatedCount ?? 0) || Number(status.rootObjectCount ?? status.objectCount ?? 0);
+           toast.success(`Bulk operation fuldført! DB opdateret: ${updatedInDb}. ${status.remainingProducts?.toLocaleString() || 0} mangler stadig.`);
+
+           if (Number(status.alreadyExistsCount ?? 0) > 0) {
+             toast.warning(`Nogle produkter fandtes allerede på Shopify (${status.alreadyExistsCount}). Kør "Hent Eksisterende" for at linke dem.`);
+           }
+
+           if (status.dbUpdated) {
+             toast.info('Database opdateret med Shopify produkt IDs');
+           }
+         }
+         loadData();
       } else if (status.status === 'RUNNING') {
         toast.info(`Status: RUNNING - ${status.objectCount || 0} produkter behandlet... ${status.remainingProducts?.toLocaleString() || '?'} mangler stadig.`);
       } else if (status.status === 'NO_OPERATION') {

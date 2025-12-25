@@ -450,78 +450,125 @@ async function checkBulkOperationStatus(accessToken: string, supabase: any): Pro
 
   const data = await response.json()
   const operation = data.data?.currentBulkOperation || { status: 'NO_OPERATION' }
-  
-  // If completed and has URL, parse results and update database
-  if (operation.status === 'COMPLETED' && operation.url) {
+
+  // If completed and has URL, parse results and update database (idempotent via store_settings)
+  if (operation.status === 'COMPLETED' && operation.url && operation.id) {
     try {
-      await processCompletedBulkOperation(operation.url, supabase)
-      operation.dbUpdated = true
+      const settingKey = 'last_processed_shopify_bulk_operation_id'
+
+      const { data: settingRow, error: settingError } = await supabase
+        .from('store_settings')
+        .select('id, value')
+        .eq('key', settingKey)
+        .maybeSingle()
+
+      if (settingError) {
+        console.warn('Could not read last processed bulk operation setting:', settingError)
+      }
+
+      const lastProcessedIdRaw = settingRow?.value
+      const lastProcessedId =
+        typeof lastProcessedIdRaw === 'string'
+          ? lastProcessedIdRaw.replace(/"/g, '')
+          : lastProcessedIdRaw
+
+      if (lastProcessedId !== operation.id) {
+        const result = await processCompletedBulkOperation(operation.url, supabase)
+
+        // Best-effort persist that this operation was processed to avoid redoing work
+        if (settingRow?.id) {
+          await supabase
+            .from('store_settings')
+            .update({ value: operation.id })
+            .eq('id', settingRow.id)
+        } else {
+          await supabase
+            .from('store_settings')
+            .insert({ key: settingKey, value: operation.id })
+        }
+
+        operation.dbUpdated = true
+        operation.dbUpdatedCount = result.updated
+        operation.dbUpdatesFound = result.totalFound
+        operation.alreadyExistsCount = result.alreadyExistsCount
+        operation.dbUpdateErrors = result.errors
+      } else {
+        operation.dbUpdated = true
+        operation.dbAlreadyProcessed = true
+      }
     } catch (err) {
       console.error('Error processing bulk results:', err)
       operation.dbUpdateError = err instanceof Error ? err.message : 'Unknown error'
     }
   }
-  
+
   return operation
 }
 
-async function processCompletedBulkOperation(resultUrl: string, supabase: any): Promise<void> {
+async function processCompletedBulkOperation(
+  resultUrl: string,
+  supabase: any
+): Promise<{ updated: number; totalFound: number; alreadyExistsCount: number; errors: number }> {
   console.log('Downloading bulk operation results from:', resultUrl)
-  
+
   const response = await fetch(resultUrl)
   if (!response.ok) {
     throw new Error(`Failed to download results: ${response.status}`)
   }
-  
+
   const text = await response.text()
-  const lines = text.trim().split('\n').filter(line => line.length > 0)
-  
+  const lines = text.trim().split('\n').filter((line) => line.length > 0)
+
   console.log(`Processing ${lines.length} result lines`)
-  
-  // Log first line to understand format
+
   if (lines.length > 0) {
     console.log('Sample result line:', lines[0].substring(0, 500))
   }
-  
-  let updatedCount = 0
+
   const updates: { kinguin_id: number; shopify_product_id: string }[] = []
-  
+  let alreadyExistsCount = 0
+
   for (const line of lines) {
     try {
       const result = JSON.parse(line)
-      
-      // Try multiple possible formats
+
       let shopifyId: string | null = null
       let handle: string | null = null
-      
-      // Format 1: Direct productSet result
+
+      // Capture common "already in use" error so we can recommend reconciliation
+      const userErrors =
+        result?.data?.productSet?.userErrors ||
+        result?.productSet?.userErrors ||
+        []
+
+      if (Array.isArray(userErrors)) {
+        for (const e of userErrors) {
+          const msg = e?.message
+          if (typeof msg === 'string' && msg.toLowerCase().includes('already in use')) {
+            alreadyExistsCount++
+            break
+          }
+        }
+      }
+
+      // Try multiple possible formats for successful rows
       if (result.productSet?.product) {
         shopifyId = result.productSet.product.id
         handle = result.productSet.product.handle
-      }
-      // Format 2: Wrapped in data
-      else if (result.data?.productSet?.product) {
+      } else if (result.data?.productSet?.product) {
         shopifyId = result.data.productSet.product.id
         handle = result.data.productSet.product.handle
-      }
-      // Format 3: Direct product at root
-      else if (result.product?.id) {
+      } else if (result.product?.id) {
         shopifyId = result.product.id
         handle = result.product.handle
-      }
-      // Format 4: id and handle at root level
-      else if (result.id && result.handle) {
+      } else if (result.id && result.handle) {
         shopifyId = result.id
         handle = result.handle
-      }
-      // Format 5: __parentId pattern (nested results)
-      else if (result.__parentId) {
-        // Skip nested items, we only care about root products
+      } else if (result.__parentId) {
         continue
       }
-      
+
       if (handle && shopifyId) {
-        // Extract kinguin_id from handle (format: kinguin-12345)
         const match = handle.match(/kinguin-(\d+)/)
         if (match) {
           updates.push({
@@ -530,35 +577,43 @@ async function processCompletedBulkOperation(resultUrl: string, supabase: any): 
           })
         }
       }
-    } catch (err) {
-      console.error('Error parsing result line:', line.substring(0, 200), err)
+    } catch (_err) {
+      // Skip invalid lines
     }
   }
-  
+
   console.log(`Found ${updates.length} products to update in database`)
-  
-  // Batch update database
-  if (updates.length > 0) {
-    console.log(`Updating ${updates.length} products in database`)
-    
-    // Update in chunks of 100
-    for (let i = 0; i < updates.length; i += 100) {
-      const chunk = updates.slice(i, i + 100)
-      
-      for (const update of chunk) {
-        await supabase
-          .from('kinguin_products')
-          .update({ 
-            shopify_product_id: update.shopify_product_id,
-            last_synced_to_shopify: new Date().toISOString()
-          })
-          .eq('kinguin_id', update.kinguin_id)
-      }
-      
-      updatedCount += chunk.length
+
+  let totalUpdated = 0
+  let errors = 0
+
+  // Use a single DB call per batch (much faster + avoids CPU limits)
+  const batchSize = 2000
+  for (let i = 0; i < updates.length; i += batchSize) {
+    const batch = updates.slice(i, i + batchSize)
+
+    const { data, error } = await supabase.rpc('bulk_update_kinguin_shopify_ids', {
+      updates: batch
+    })
+
+    if (error) {
+      errors++
+      console.error('bulk_update_kinguin_shopify_ids failed:', error)
+      continue
     }
-    
-    console.log(`Updated ${updatedCount} products in database`)
+
+    const updated = Number(data?.updated ?? 0)
+    totalUpdated += updated
+    console.log(`DB batch ${Math.floor(i / batchSize) + 1}: updated ${updated}/${batch.length}`)
+  }
+
+  console.log(`Bulk result processing complete. Updated ${totalUpdated}/${updates.length} rows.`)
+
+  return {
+    updated: totalUpdated,
+    totalFound: updates.length,
+    alreadyExistsCount,
+    errors
   }
 }
 
@@ -766,27 +821,18 @@ async function processReconcileResults(
   
   console.log(`Parsed ${updates.length} valid products from this batch`)
   
-  // Batch update database - use smaller parallel batches
-  const timestamp = new Date().toISOString()
-  const dbBatchSize = 100
+  // Batch update database via RPC (fast + reliable)
   let updatedCount = 0
-  
-  for (let i = 0; i < updates.length; i += dbBatchSize) {
-    const batch = updates.slice(i, i + dbBatchSize)
-    
-    // Run updates in parallel
-    const updatePromises = batch.map(update => 
-      supabase
-        .from('kinguin_products')
-        .update({ 
-          shopify_product_id: update.shopify_product_id,
-          last_synced_to_shopify: timestamp
-        })
-        .eq('kinguin_id', update.kinguin_id)
-    )
-    
-    await Promise.all(updatePromises)
-    updatedCount += batch.length
+  if (updates.length > 0) {
+    const { data, error } = await supabase.rpc('bulk_update_kinguin_shopify_ids', {
+      updates
+    })
+
+    if (error) {
+      throw new Error(`DB update failed: ${error.message}`)
+    }
+
+    updatedCount = Number(data?.updated ?? 0)
   }
   
   const nextOffset = offset + linesToProcess.length
