@@ -1,58 +1,118 @@
 import { useState, useEffect } from "react";
 import { useSearchParams, Link } from "react-router-dom";
-import { fetchProducts, ShopifyProduct } from "@/lib/shopify";
+import { fetchKinguinProducts, KinguinProduct } from "@/lib/kinguin";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import { CartDrawer } from "@/components/CartDrawer";
-import ShopifyProductCard from "@/components/ShopifyProductCard";
+import KinguinProductCard from "@/components/KinguinProductCard";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Search, Loader2, X, SlidersHorizontal } from "lucide-react";
+import { Search, Loader2, X, Filter } from "lucide-react";
 import { motion } from "framer-motion";
+import { supabase } from "@/integrations/supabase/client";
 
 const SearchPage = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const initialQuery = searchParams.get("q") || "";
+  const platformFilter = searchParams.get("platform") || "";
+  const genreFilter = searchParams.get("genre") || "";
   
   const [query, setQuery] = useState(initialQuery);
-  const [products, setProducts] = useState<ShopifyProduct[]>([]);
+  const [products, setProducts] = useState<KinguinProduct[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [hasSearched, setHasSearched] = useState(false);
 
-  const handleSearch = async (searchQuery: string) => {
-    if (!searchQuery.trim()) {
-      setProducts([]);
-      setHasSearched(false);
-      return;
-    }
-    
+  const handleSearch = async (searchQuery?: string, platform?: string, genre?: string) => {
     setIsLoading(true);
     setHasSearched(true);
     
-    // Update URL with search query
-    setSearchParams({ q: searchQuery });
-    
-    const results = await fetchProducts(50, `title:*${searchQuery}*`);
-    setProducts(results);
-    setIsLoading(false);
+    try {
+      // Build query with filters
+      let dbQuery = supabase
+        .from('kinguin_products')
+        .select('*')
+        .eq('is_available', true)
+        .order('updated_at', { ascending: false })
+        .limit(100);
+
+      // Apply text search
+      if (searchQuery?.trim()) {
+        dbQuery = dbQuery.ilike('name', `%${searchQuery.trim()}%`);
+      }
+
+      // Apply platform filter
+      if (platform) {
+        dbQuery = dbQuery.eq('platform', platform);
+      }
+
+      // Apply genre filter (genres is an array, use contains)
+      if (genre) {
+        dbQuery = dbQuery.contains('genres', [genre]);
+      }
+
+      const { data, error } = await dbQuery;
+
+      if (error) {
+        console.error('Search error:', error);
+        setProducts([]);
+      } else {
+        setProducts((data || []) as KinguinProduct[]);
+      }
+    } catch (error) {
+      console.error('Search error:', error);
+      setProducts([]);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
+  // Initial load with URL params
   useEffect(() => {
-    if (initialQuery) {
-      handleSearch(initialQuery);
+    if (initialQuery || platformFilter || genreFilter) {
+      handleSearch(initialQuery, platformFilter, genreFilter);
     }
   }, []);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    handleSearch(query);
+    
+    // Update URL params
+    const params: Record<string, string> = {};
+    if (query.trim()) params.q = query.trim();
+    if (platformFilter) params.platform = platformFilter;
+    if (genreFilter) params.genre = genreFilter;
+    setSearchParams(params);
+    
+    handleSearch(query, platformFilter, genreFilter);
   };
 
   const clearSearch = () => {
     setQuery("");
+    setSearchParams({});
     setProducts([]);
     setHasSearched(false);
-    setSearchParams({});
+  };
+
+  const clearFilter = (filterType: 'platform' | 'genre') => {
+    const params: Record<string, string> = {};
+    if (query.trim()) params.q = query.trim();
+    if (filterType !== 'platform' && platformFilter) params.platform = platformFilter;
+    if (filterType !== 'genre' && genreFilter) params.genre = genreFilter;
+    setSearchParams(params);
+    
+    handleSearch(
+      query, 
+      filterType === 'platform' ? undefined : platformFilter,
+      filterType === 'genre' ? undefined : genreFilter
+    );
+  };
+
+  const getSearchTitle = () => {
+    const parts = [];
+    if (platformFilter) parts.push(platformFilter);
+    if (genreFilter) parts.push(genreFilter);
+    if (initialQuery) parts.push(`"${initialQuery}"`);
+    return parts.length > 0 ? parts.join(' • ') : 'Søg efter spil';
   };
 
   return (
@@ -72,11 +132,36 @@ const SearchPage = () => {
           transition={{ duration: 0.5 }}
         >
           <h1 className="font-heading text-4xl md:text-5xl text-foreground mb-4">
-            Søg efter spil
+            {getSearchTitle()}
           </h1>
           <p className="text-muted-foreground text-lg mb-8">
             Find dit næste eventyr blandt vores udvalg af game keys
           </p>
+
+          {/* Active Filters */}
+          {(platformFilter || genreFilter) && (
+            <div className="flex flex-wrap items-center justify-center gap-2 mb-6">
+              <Filter className="w-4 h-4 text-muted-foreground" />
+              {platformFilter && (
+                <button
+                  onClick={() => clearFilter('platform')}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-primary/10 border border-primary/20 text-sm text-primary hover:bg-primary/20 transition-colors"
+                >
+                  {platformFilter}
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              )}
+              {genreFilter && (
+                <button
+                  onClick={() => clearFilter('genre')}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-accent/10 border border-accent/20 text-sm text-accent hover:bg-accent/20 transition-colors"
+                >
+                  {genreFilter}
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              )}
+            </div>
+          )}
 
           {/* Search Form */}
           <form onSubmit={handleSubmit} className="relative">
@@ -121,7 +206,10 @@ const SearchPage = () => {
           >
             <div className="flex items-center justify-between mb-6">
               <p className="text-muted-foreground">
-                {products.length} {products.length === 1 ? "resultat" : "resultater"} for "{searchParams.get("q")}"
+                {products.length} {products.length === 1 ? "resultat" : "resultater"}
+                {initialQuery && ` for "${initialQuery}"`}
+                {platformFilter && ` i ${platformFilter}`}
+                {genreFilter && ` (${genreFilter})`}
               </p>
             </div>
 
@@ -129,12 +217,12 @@ const SearchPage = () => {
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
                 {products.map((product, index) => (
                   <motion.div
-                    key={product.node.id}
+                    key={product.id}
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ delay: index * 0.05, duration: 0.3 }}
                   >
-                    <ShopifyProductCard product={product} />
+                    <KinguinProductCard product={product} index={index} />
                   </motion.div>
                 ))}
               </div>
@@ -147,7 +235,7 @@ const SearchPage = () => {
                   Ingen resultater fundet
                 </h3>
                 <p className="text-muted-foreground mb-6">
-                  Prøv at søge efter noget andet
+                  Prøv at søge efter noget andet eller fjern filtre
                 </p>
                 <Link to="/">
                   <Button variant="outline">
