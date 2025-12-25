@@ -69,10 +69,12 @@ Deno.serve(async (req) => {
       })
     }
 
-    // Fetch all products to sync (in batches to avoid memory issues)
-    const batchSize = 5000
+    // Fetch all products to sync (in batches - Supabase has 1000 row limit per query)
+    const batchSize = 1000
     let allProducts: any[] = []
     let offset = 0
+
+    console.log('Starting to fetch products in batches of 1000...')
 
     while (true) {
       const { data: products, error } = await supabase
@@ -83,14 +85,25 @@ Deno.serve(async (req) => {
         .order('kinguin_id', { ascending: true })
         .range(offset, offset + batchSize - 1)
 
-      if (error) throw error
-      if (!products || products.length === 0) break
+      if (error) {
+        console.error('Fetch error:', error)
+        throw error
+      }
+      
+      if (!products || products.length === 0) {
+        console.log('No more products to fetch')
+        break
+      }
 
       allProducts = [...allProducts, ...products]
-      offset += batchSize
-      console.log(`Fetched ${allProducts.length} products so far...`)
+      offset += products.length
+      console.log(`Fetched batch: ${products.length} products, total so far: ${allProducts.length}`)
       
-      if (products.length < batchSize) break
+      // If we got fewer than batchSize, we've reached the end
+      if (products.length < batchSize) {
+        console.log('Last batch reached (fewer than 1000 products)')
+        break
+      }
     }
 
     console.log(`Total products to sync: ${allProducts.length}`)
