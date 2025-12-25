@@ -134,12 +134,12 @@ const KinguinProductGrid = () => {
               {isSyncing && syncProgress ? `Side ${syncProgress.page} (${syncProgress.total})` : 'Synkroniser'}
             </Button>
             <Button 
-              onClick={() => handleSync(230)} 
+              onClick={() => handleSync(333)} 
               disabled={isSyncing}
               variant="secondary"
               className="shrink-0"
             >
-              Fortsæt fra side 230
+              Fortsæt fra side 333
             </Button>
           </div>
         </div>
