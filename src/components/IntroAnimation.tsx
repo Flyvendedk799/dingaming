@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { motion, AnimatePresence, useMotionValue, useTransform, useSpring } from "framer-motion";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { Mail, Check, Key } from "lucide-react";
 import game1 from "@/assets/game-1.jpg";
 import game2 from "@/assets/game-2.jpg";
 import game3 from "@/assets/game-3.jpg";
@@ -28,12 +29,13 @@ interface IntroAnimationProps {
 }
 
 const IntroAnimation = ({ onComplete }: IntroAnimationProps) => {
-  const [phase, setPhase] = useState<'waiting' | 'opening' | 'cards-flying' | 'selection' | 'reveal' | 'complete'>('waiting');
+  const [phase, setPhase] = useState<'waiting' | 'opening' | 'cards-flying' | 'selection' | 'reveal' | 'delivery' | 'complete'>('waiting');
   const [selectedGame, setSelectedGame] = useState(games[4]);
   const [flyingCards, setFlyingCards] = useState<Array<{ id: number; game: typeof games[0]; delay: number; angle: number }>>([]);
+  const [generatedKey, setGeneratedKey] = useState('');
   const isMobile = useIsMobile();
   
-  // Mouse tracking for 3D effect - ALL hooks at top level
+  // Mouse tracking for 3D effect
   const mouseX = useMotionValue(0);
   const mouseY = useMotionValue(0);
   const smoothMouseX = useSpring(mouseX, { stiffness: 100, damping: 30 });
@@ -42,9 +44,23 @@ const IntroAnimation = ({ onComplete }: IntroAnimationProps) => {
   const rotateX = useTransform(smoothMouseY, [-300, 300], [8, -8]);
   const rotateY = useTransform(smoothMouseX, [-400, 400], [-8, 8]);
 
-  // Case lid animation - hook at top level
+  // Case lid animation
   const caseOpenSpring = useSpring(0, { stiffness: 80, damping: 15 });
   const lidRotateX = useTransform(caseOpenSpring, [0, 100], [0, -120]);
+
+  // Generate a fake game key
+  useEffect(() => {
+    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+    const segments = [];
+    for (let s = 0; s < 4; s++) {
+      let segment = '';
+      for (let i = 0; i < 5; i++) {
+        segment += chars[Math.floor(Math.random() * chars.length)];
+      }
+      segments.push(segment);
+    }
+    setGeneratedKey(segments.join('-'));
+  }, []);
 
   const handleMouseMove = useCallback((e: React.MouseEvent) => {
     const rect = e.currentTarget.getBoundingClientRect();
@@ -83,10 +99,18 @@ const IntroAnimation = ({ onComplete }: IntroAnimationProps) => {
     }
   }, [phase]);
 
-  // Complete after reveal
+  // Reveal to delivery transition
   useEffect(() => {
     if (phase === 'reveal') {
-      const timer = setTimeout(() => setPhase('complete'), 3500);
+      const timer = setTimeout(() => setPhase('delivery'), 2500);
+      return () => clearTimeout(timer);
+    }
+  }, [phase]);
+
+  // Complete after delivery
+  useEffect(() => {
+    if (phase === 'delivery') {
+      const timer = setTimeout(() => setPhase('complete'), 4000);
       return () => clearTimeout(timer);
     }
     if (phase === 'complete') onComplete();
@@ -139,19 +163,11 @@ const IntroAnimation = ({ onComplete }: IntroAnimationProps) => {
               animate={{ opacity: [0.5, 0.8, 0.5] }}
               transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}
             />
-            <motion.div
-              className="absolute inset-0"
-              style={{
-                background: 'radial-gradient(ellipse 60% 40% at 50% 0%, rgba(139, 92, 246, 0.05) 0%, transparent 60%)',
-              }}
-              animate={{ opacity: [0.3, 0.6, 0.3] }}
-              transition={{ duration: 5, repeat: Infinity, ease: "easeInOut", delay: 1 }}
-            />
           </div>
 
           {/* Floating dust particles */}
           <div className="absolute inset-0 pointer-events-none overflow-hidden">
-            {[...Array(40)].map((_, i) => (
+            {[...Array(30)].map((_, i) => (
               <motion.div
                 key={i}
                 className="absolute w-1 h-1 rounded-full bg-emerald-400/30"
@@ -162,7 +178,6 @@ const IntroAnimation = ({ onComplete }: IntroAnimationProps) => {
                 animate={{
                   y: [0, -100 - Math.random() * 100],
                   opacity: [0, 0.6, 0],
-                  scale: [0.5, 1, 0.5],
                 }}
                 transition={{
                   duration: 6 + Math.random() * 4,
@@ -187,6 +202,55 @@ const IntroAnimation = ({ onComplete }: IntroAnimationProps) => {
             >
               ESC TO SKIP
             </button>
+          </motion.div>
+
+          {/* Step indicators */}
+          <motion.div 
+            className="absolute top-8 left-1/2 -translate-x-1/2 z-50 flex items-center gap-3"
+            initial={{ opacity: 0, y: -20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.5 }}
+          >
+            {['Choose', 'Pay', 'Play'].map((step, i) => {
+              const phaseStr = phase as string;
+              const isActive = 
+                (i === 0 && ['waiting', 'opening', 'cards-flying', 'selection', 'reveal'].includes(phaseStr)) ||
+                (i === 1 && phaseStr === 'delivery') ||
+                (i === 2 && phaseStr === 'complete');
+              const isPast = 
+                (i === 0 && ['delivery', 'complete'].includes(phaseStr)) ||
+                (i === 1 && phaseStr === 'complete');
+              
+              return (
+                <div key={step} className="flex items-center gap-3">
+                  <motion.div 
+                    className="flex flex-col items-center"
+                    animate={{ 
+                      opacity: isActive || isPast ? 1 : 0.3,
+                    }}
+                  >
+                    <motion.div 
+                      className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold ${
+                        isPast ? 'bg-emerald-500 text-black' : isActive ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500' : 'bg-white/10 text-white/40'
+                      }`}
+                      animate={isActive ? { scale: [1, 1.1, 1] } : {}}
+                      transition={{ duration: 1, repeat: isActive ? Infinity : 0 }}
+                    >
+                      {isPast ? <Check className="w-4 h-4" /> : i + 1}
+                    </motion.div>
+                    <span className="text-[10px] mt-1 tracking-wider text-white/60">{step}</span>
+                  </motion.div>
+                  {i < 2 && (
+                    <motion.div 
+                      className="w-8 h-[2px] rounded-full"
+                      style={{ 
+                        background: isPast ? '#10b981' : 'rgba(255,255,255,0.1)',
+                      }}
+                    />
+                  )}
+                </div>
+              );
+            })}
           </motion.div>
 
           {/* WAITING PHASE - Interactive Case */}
@@ -337,7 +401,7 @@ const IntroAnimation = ({ onComplete }: IntroAnimationProps) => {
                         </div>
                       </div>
 
-                      {/* Lid inner face (visible when open) */}
+                      {/* Lid inner face */}
                       <div
                         className="absolute inset-0 rounded-2xl"
                         style={{
@@ -364,16 +428,6 @@ const IntroAnimation = ({ onComplete }: IntroAnimationProps) => {
                       >
                         CLICK TO OPEN
                       </motion.div>
-                      <motion.div
-                        className="mt-3 w-8 h-8 mx-auto rounded-full border border-emerald-500/30 flex items-center justify-center"
-                        animate={{ 
-                          y: [0, 5, 0],
-                          borderColor: ['rgba(16, 185, 129, 0.3)', 'rgba(16, 185, 129, 0.6)', 'rgba(16, 185, 129, 0.3)'],
-                        }}
-                        transition={{ duration: 1.5, repeat: Infinity }}
-                      >
-                        <div className="w-0 h-0 border-l-4 border-r-4 border-t-6 border-transparent border-t-emerald-400" />
-                      </motion.div>
                     </motion.div>
                   )}
                 </motion.div>
@@ -390,7 +444,7 @@ const IntroAnimation = ({ onComplete }: IntroAnimationProps) => {
                 animate={{ opacity: 1 }}
                 exit={{ opacity: 0 }}
               >
-                {/* Energy burst from center */}
+                {/* Energy burst */}
                 <motion.div
                   className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2"
                   initial={{ scale: 0, opacity: 1 }}
@@ -425,8 +479,6 @@ const IntroAnimation = ({ onComplete }: IntroAnimationProps) => {
                         y: 50, 
                         scale: 0.3, 
                         opacity: 0,
-                        rotateX: 0,
-                        rotateY: 0,
                         rotateZ: card.angle,
                       }}
                       animate={{
@@ -434,8 +486,6 @@ const IntroAnimation = ({ onComplete }: IntroAnimationProps) => {
                         y: phase === 'selection' ? 0 : endY,
                         scale: phase === 'selection' ? 0 : 1,
                         opacity: phase === 'selection' ? 0 : [0, 1, 1, 0],
-                        rotateX: [0, Math.random() * 360],
-                        rotateY: [0, Math.random() * 360],
                         rotateZ: [card.angle, card.angle + (Math.random() - 0.5) * 180],
                       }}
                       transition={{
@@ -449,12 +499,6 @@ const IntroAnimation = ({ onComplete }: IntroAnimationProps) => {
                         alt={card.game.name}
                         className="w-full h-full object-cover"
                       />
-                      <div 
-                        className="absolute inset-0"
-                        style={{
-                          background: `linear-gradient(135deg, transparent 30%, ${rarityColors[card.game.rarity].primary}40 100%)`,
-                        }}
-                      />
                     </motion.div>
                   );
                 })}
@@ -465,7 +509,6 @@ const IntroAnimation = ({ onComplete }: IntroAnimationProps) => {
                     className="absolute inset-0 flex items-center justify-center"
                     initial={{ opacity: 0 }}
                     animate={{ opacity: 1 }}
-                    transition={{ delay: 0.3 }}
                   >
                     <motion.div
                       className="text-xl md:text-2xl tracking-[0.4em] text-emerald-400/80 font-mono"
@@ -487,108 +530,31 @@ const IntroAnimation = ({ onComplete }: IntroAnimationProps) => {
                 className="absolute inset-0 flex items-center justify-center"
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
+                exit={{ opacity: 0, scale: 0.9 }}
               >
-                {/* Rarity glow background */}
+                {/* Rarity glow */}
                 <motion.div
                   className="absolute inset-0"
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  transition={{ duration: 1 }}
                   style={{
                     background: `radial-gradient(ellipse 60% 60% at 50% 50%, ${rarityConfig.glow} 0%, transparent 70%)`,
                   }}
                 />
 
-                {/* Light rays */}
-                <div className="absolute inset-0 overflow-hidden">
-                  {[...Array(12)].map((_, i) => (
-                    <motion.div
-                      key={i}
-                      className="absolute top-1/2 left-1/2 origin-center"
-                      style={{
-                        width: '200vmax',
-                        height: 2,
-                        marginLeft: '-100vmax',
-                        background: `linear-gradient(90deg, transparent 0%, ${rarityConfig.primary}30 50%, transparent 100%)`,
-                        transform: `rotate(${i * 30}deg)`,
-                      }}
-                      initial={{ opacity: 0, scaleX: 0 }}
-                      animate={{ opacity: [0, 0.8, 0.4], scaleX: [0, 1, 1] }}
-                      transition={{ duration: 1.5, delay: 0.2 + i * 0.05 }}
-                    />
-                  ))}
-                </div>
-
-                {/* Floating particles */}
-                {[...Array(20)].map((_, i) => (
-                  <motion.div
-                    key={i}
-                    className="absolute rounded-full"
-                    style={{
-                      width: Math.random() * 6 + 2,
-                      height: Math.random() * 6 + 2,
-                      background: rarityConfig.primary,
-                      left: '50%',
-                      top: '50%',
-                    }}
-                    initial={{ 
-                      x: 0, 
-                      y: 0, 
-                      opacity: 0,
-                      scale: 0,
-                    }}
-                    animate={{ 
-                      x: (Math.random() - 0.5) * 400,
-                      y: (Math.random() - 0.5) * 400,
-                      opacity: [0, 1, 0],
-                      scale: [0, 1.5, 0],
-                    }}
-                    transition={{
-                      duration: 2,
-                      delay: 0.5 + i * 0.05,
-                      ease: "easeOut",
-                    }}
-                  />
-                ))}
-
-                {/* Main card reveal */}
+                {/* Main card */}
                 <motion.div
                   className="relative"
                   initial={{ scale: 0.3, rotateY: 180, opacity: 0 }}
                   animate={{ scale: 1, rotateY: 0, opacity: 1 }}
-                  transition={{ 
-                    duration: 1.2, 
-                    ease: [0.34, 1.56, 0.64, 1],
-                  }}
-                  style={{ perspective: '1000px' }}
+                  transition={{ duration: 1, ease: [0.34, 1.56, 0.64, 1] }}
                 >
-                  {/* Card glow */}
-                  <motion.div
-                    className="absolute -inset-8 rounded-3xl"
-                    style={{
-                      background: `radial-gradient(ellipse at center, ${rarityConfig.glow} 0%, transparent 70%)`,
-                    }}
-                    animate={{
-                      opacity: [0.5, 1, 0.5],
-                      scale: [1, 1.1, 1],
-                    }}
-                    transition={{ duration: 2, repeat: Infinity }}
-                  />
-
-                  {/* The card */}
                   <motion.div
                     className="relative rounded-2xl overflow-hidden"
                     style={{
-                      width: isMobile ? 200 : 280,
-                      height: isMobile ? 280 : 380,
-                      boxShadow: `
-                        0 25px 80px rgba(0,0,0,0.6),
-                        0 0 60px ${rarityConfig.glow},
-                        inset 0 1px 0 rgba(255,255,255,0.1)
-                      `,
+                      width: isMobile ? 180 : 240,
+                      height: isMobile ? 250 : 320,
+                      boxShadow: `0 25px 80px rgba(0,0,0,0.6), 0 0 60px ${rarityConfig.glow}`,
                       border: `2px solid ${rarityConfig.primary}`,
                     }}
-                    whileHover={{ scale: 1.02 }}
                   >
                     <img 
                       src={selectedGame.image} 
@@ -596,42 +562,27 @@ const IntroAnimation = ({ onComplete }: IntroAnimationProps) => {
                       className="w-full h-full object-cover"
                     />
                     
-                    {/* Holographic overlay */}
-                    <motion.div
-                      className="absolute inset-0"
-                      style={{
-                        background: `linear-gradient(135deg, transparent 0%, ${rarityConfig.primary}20 50%, transparent 100%)`,
-                      }}
-                      animate={{
-                        backgroundPosition: ['0% 0%', '100% 100%', '0% 0%'],
-                      }}
-                      transition={{ duration: 3, repeat: Infinity }}
-                    />
-
-                    {/* Shine sweep */}
+                    {/* Shine */}
                     <motion.div
                       className="absolute inset-0"
                       style={{
                         background: 'linear-gradient(105deg, transparent 40%, rgba(255,255,255,0.3) 50%, transparent 60%)',
                         backgroundSize: '200% 100%',
                       }}
-                      animate={{
-                        backgroundPosition: ['-100% 0', '200% 0'],
-                      }}
-                      transition={{ duration: 2, delay: 0.5, repeat: Infinity, repeatDelay: 3 }}
+                      animate={{ backgroundPosition: ['-100% 0', '200% 0'] }}
+                      transition={{ duration: 1.5, delay: 0.5 }}
                     />
 
-                    {/* Rarity badge */}
+                    {/* Badge */}
                     <motion.div
-                      className="absolute top-4 right-4 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider"
+                      className="absolute top-3 right-3 px-2 py-1 rounded-full text-[10px] font-bold uppercase"
                       style={{
                         background: `${rarityConfig.primary}cc`,
                         color: '#fff',
-                        boxShadow: `0 0 20px ${rarityConfig.glow}`,
                       }}
-                      initial={{ scale: 0, rotate: -180 }}
-                      animate={{ scale: 1, rotate: 0 }}
-                      transition={{ delay: 0.8, type: "spring", stiffness: 200 }}
+                      initial={{ scale: 0 }}
+                      animate={{ scale: 1 }}
+                      transition={{ delay: 0.8, type: "spring" }}
                     >
                       {selectedGame.rarity}
                     </motion.div>
@@ -639,27 +590,153 @@ const IntroAnimation = ({ onComplete }: IntroAnimationProps) => {
 
                   {/* Game name */}
                   <motion.div
-                    className="absolute -bottom-20 left-1/2 -translate-x-1/2 text-center w-full"
+                    className="absolute -bottom-16 left-1/2 -translate-x-1/2 text-center w-full"
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: 1 }}
+                    transition={{ delay: 0.8 }}
                   >
-                    <motion.h2
-                      className="text-2xl md:text-4xl font-bold tracking-wide"
-                      style={{
-                        color: rarityConfig.primary,
-                        textShadow: `0 0 30px ${rarityConfig.glow}`,
-                      }}
+                    <h2
+                      className="text-xl md:text-2xl font-bold"
+                      style={{ color: rarityConfig.primary }}
                     >
                       {selectedGame.name}
-                    </motion.h2>
+                    </h2>
+                  </motion.div>
+                </motion.div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+
+          {/* DELIVERY PHASE - Email with Key */}
+          <AnimatePresence>
+            {phase === 'delivery' && (
+              <motion.div
+                className="absolute inset-0 flex items-center justify-center"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+              >
+                {/* Success glow */}
+                <motion.div
+                  className="absolute inset-0"
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  style={{
+                    background: 'radial-gradient(ellipse 50% 50% at 50% 50%, rgba(16, 185, 129, 0.15) 0%, transparent 70%)',
+                  }}
+                />
+
+                {/* Email envelope animation */}
+                <motion.div
+                  className="relative"
+                  initial={{ y: 100, opacity: 0, scale: 0.8 }}
+                  animate={{ y: 0, opacity: 1, scale: 1 }}
+                  transition={{ duration: 0.6, ease: "easeOut" }}
+                >
+                  {/* Email card */}
+                  <motion.div
+                    className="relative rounded-2xl p-6 md:p-8"
+                    style={{
+                      width: isMobile ? 300 : 420,
+                      background: 'linear-gradient(145deg, #1a1a24 0%, #12121a 100%)',
+                      border: '1px solid rgba(16, 185, 129, 0.3)',
+                      boxShadow: '0 25px 80px rgba(0,0,0,0.5), 0 0 40px rgba(16, 185, 129, 0.1)',
+                    }}
+                  >
+                    {/* Email header */}
+                    <motion.div
+                      className="flex items-center gap-3 mb-4 pb-4 border-b border-white/10"
+                      initial={{ opacity: 0, x: -20 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      transition={{ delay: 0.3 }}
+                    >
+                      <motion.div
+                        className="w-10 h-10 rounded-full bg-emerald-500/20 flex items-center justify-center"
+                        animate={{ 
+                          boxShadow: ['0 0 0 0 rgba(16, 185, 129, 0.4)', '0 0 0 10px rgba(16, 185, 129, 0)', '0 0 0 0 rgba(16, 185, 129, 0.4)'],
+                        }}
+                        transition={{ duration: 2, repeat: Infinity }}
+                      >
+                        <Mail className="w-5 h-5 text-emerald-400" />
+                      </motion.div>
+                      <div>
+                        <p className="text-white font-medium text-sm">DinGaming</p>
+                        <p className="text-white/40 text-xs">Your game key is ready!</p>
+                      </div>
+                      <motion.div
+                        className="ml-auto"
+                        initial={{ scale: 0 }}
+                        animate={{ scale: 1 }}
+                        transition={{ delay: 0.8, type: "spring" }}
+                      >
+                        <div className="w-6 h-6 rounded-full bg-emerald-500 flex items-center justify-center">
+                          <Check className="w-4 h-4 text-black" />
+                        </div>
+                      </motion.div>
+                    </motion.div>
+
+                    {/* Game info */}
+                    <motion.div
+                      className="flex items-center gap-4 mb-4"
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: 0.5 }}
+                    >
+                      <div 
+                        className="w-16 h-20 rounded-lg overflow-hidden flex-shrink-0"
+                        style={{ boxShadow: `0 0 20px ${rarityConfig.glow}` }}
+                      >
+                        <img src={selectedGame.image} alt="" className="w-full h-full object-cover" />
+                      </div>
+                      <div>
+                        <p className="text-white font-semibold">{selectedGame.name}</p>
+                        <p className="text-white/40 text-sm">Digital Key • Instant Delivery</p>
+                      </div>
+                    </motion.div>
+
+                    {/* Key display */}
+                    <motion.div
+                      className="relative rounded-xl p-4"
+                      style={{
+                        background: 'linear-gradient(145deg, #0d1117 0%, #161b22 100%)',
+                        border: '1px solid rgba(16, 185, 129, 0.2)',
+                      }}
+                      initial={{ opacity: 0, scale: 0.9 }}
+                      animate={{ opacity: 1, scale: 1 }}
+                      transition={{ delay: 0.8 }}
+                    >
+                      <div className="flex items-center gap-2 mb-2">
+                        <Key className="w-4 h-4 text-emerald-400" />
+                        <span className="text-xs text-white/40 uppercase tracking-wider">Your Game Key</span>
+                      </div>
+                      
+                      <motion.div
+                        className="font-mono text-lg md:text-xl text-emerald-400 tracking-wider text-center py-2"
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        transition={{ delay: 1.2 }}
+                        style={{ textShadow: '0 0 20px rgba(16, 185, 129, 0.5)' }}
+                      >
+                        {generatedKey.split('').map((char, i) => (
+                          <motion.span
+                            key={i}
+                            initial={{ opacity: 0, y: 10 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            transition={{ delay: 1.2 + i * 0.03 }}
+                          >
+                            {char}
+                          </motion.span>
+                        ))}
+                      </motion.div>
+                    </motion.div>
+
+                    {/* Success message */}
                     <motion.p
-                      className="text-sm md:text-base text-white/50 mt-2 tracking-widest uppercase"
+                      className="text-center text-white/50 text-sm mt-4"
                       initial={{ opacity: 0 }}
                       animate={{ opacity: 1 }}
-                      transition={{ delay: 1.3 }}
+                      transition={{ delay: 1.8 }}
                     >
-                      Your key is ready
+                      Delivered instantly to your inbox ✨
                     </motion.p>
                   </motion.div>
                 </motion.div>
@@ -669,7 +746,7 @@ const IntroAnimation = ({ onComplete }: IntroAnimationProps) => {
                   className="absolute bottom-12 left-1/2 -translate-x-1/2"
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 0.6 }}
-                  transition={{ delay: 2 }}
+                  transition={{ delay: 2.5 }}
                   onClick={handleSkip}
                 >
                   <motion.div
