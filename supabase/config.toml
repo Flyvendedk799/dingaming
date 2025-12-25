@@ -1,5 +1,8 @@
 project_id = "fqwyfpnxyvlrofswosfm"
 
+[functions.kinguin-auto-sync]
+verify_jwt = false
+
 [functions.sync-db-to-shopify]
 verify_jwt = false
 
