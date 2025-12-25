@@ -160,6 +160,12 @@ const AdminPage = () => {
 
         const result = await response.json();
         
+        // Handle already running case gracefully
+        if (result.error === 'already_running') {
+          toast.warning(result.message || 'En bulk operation kører allerede. Tjek status.');
+          break;
+        }
+        
         if (result.error) {
           toast.error(result.error);
           break;
