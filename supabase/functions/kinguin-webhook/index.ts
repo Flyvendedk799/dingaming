@@ -5,14 +5,15 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-event-secret',
 }
 
+const SHOPIFY_STORE_DOMAIN = 'dingaming-js6x0.myshopify.com'
+const SHOPIFY_API_VERSION = '2025-07'
+
 Deno.serve(async (req) => {
-  // Handle CORS preflight
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders })
   }
 
   try {
-    // Verify webhook secret
     const eventSecret = req.headers.get('x-event-secret')
     const expectedSecret = Deno.env.get('KINGUIN_WEBHOOK_SECRET')
     
@@ -25,28 +26,23 @@ Deno.serve(async (req) => {
     }
 
     const payload = await req.json()
-    console.log('Webhook received:', JSON.stringify(payload))
+    console.log('Webhook received:', JSON.stringify(payload).substring(0, 500))
 
-    // Initialize Supabase client
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
     const supabase = createClient(supabaseUrl, supabaseKey)
+    const shopifyAccessToken = Deno.env.get('SHOPIFY_ACCESS_TOKEN')
 
-    // Determine event type from payload
     const eventType = payload.event || payload.type || 'unknown'
     
-    // Log the webhook
     await supabase.from('kinguin_webhook_logs').insert({
       event_type: eventType,
       payload: payload
     })
 
-    // Handle different event types
     if (eventType === 'product.update' || payload.kinguinId) {
-      // Product update webhook
-      await handleProductUpdate(supabase, payload)
+      await handleProductUpdate(supabase, payload, shopifyAccessToken)
     } else if (eventType === 'order.status' || payload.orderId) {
-      // Order status change webhook
       await handleOrderStatusChange(supabase, payload)
     }
 
@@ -64,30 +60,46 @@ Deno.serve(async (req) => {
   }
 })
 
-async function handleProductUpdate(supabase: any, payload: any) {
-  console.log('Processing product update:', payload.kinguinId)
+async function handleProductUpdate(supabase: any, payload: any, shopifyAccessToken: string | undefined) {
+  const kinguinId = payload.kinguinId
+  console.log('Processing product update:', kinguinId)
   
-  const MARGIN = 1.30 // 30% margin
+  // Get settings
+  const { data: settingsData } = await supabase
+    .from('store_settings')
+    .select('key, value')
+    .in('key', ['global_margin_percent', 'eur_to_dkk_rate'])
 
-  // Check if product matches our region criteria (Europe = various IDs, Region Free = 3)
-  const allowedRegions = [3] // Region free, add EU region IDs as needed
-  const regionId = payload.regionId || payload.region?.id
-  
-  if (regionId && !allowedRegions.includes(regionId)) {
-    console.log(`Skipping product ${payload.kinguinId} - region ${regionId} not allowed`)
-    return
+  let globalMargin = 30
+  let eurToDkkRate = 7.46
+
+  if (settingsData) {
+    for (const s of settingsData) {
+      if (s.key === 'global_margin_percent') globalMargin = Number(s.value) || 30
+      if (s.key === 'eur_to_dkk_rate') eurToDkkRate = Number(s.value) || 7.46
+    }
   }
 
-  const sellPrice = payload.price ? parseFloat(payload.price) * MARGIN : null
+  // Check if product exists
+  const { data: existingProduct } = await supabase
+    .from('kinguin_products')
+    .select('*')
+    .eq('kinguin_id', kinguinId)
+    .maybeSingle()
+
+  const price = payload.price ? parseFloat(payload.price) : 0
+  const qty = payload.qty || 0
+  const isAvailable = qty > 0
   
   const productData = {
-    kinguin_id: payload.kinguinId,
+    kinguin_id: kinguinId,
     product_id: payload.productId,
     name: payload.name,
-    original_price: payload.price ? parseFloat(payload.price) : 0,
-    sell_price: sellPrice || 0,
-    qty: payload.qty || 0,
-    is_available: (payload.qty || 0) > 0
+    original_price: price,
+    sell_price: price, // Base price from Kinguin
+    qty: qty,
+    is_available: isAvailable,
+    updated_at: new Date().toISOString()
   }
 
   const { error } = await supabase
@@ -99,7 +111,24 @@ async function handleProductUpdate(supabase: any, payload: any) {
     throw error
   }
 
-  console.log('Product updated successfully:', payload.kinguinId)
+  console.log('Product updated in DB:', kinguinId)
+
+  // Sync to Shopify if product is linked
+  if (existingProduct?.shopify_product_id && shopifyAccessToken) {
+    const margin = existingProduct.margin_percent ?? globalMargin
+    const priceWithMargin = price * (1 + margin / 100)
+    const priceInDkk = priceWithMargin * eurToDkkRate
+
+    await updateShopifyProduct(
+      existingProduct.shopify_product_id,
+      priceInDkk,
+      isAvailable,
+      shopifyAccessToken
+    )
+  } else if (!isAvailable && existingProduct?.shopify_product_id && shopifyAccessToken) {
+    // Set to DRAFT if unavailable
+    await setShopifyProductDraft(existingProduct.shopify_product_id, shopifyAccessToken)
+  }
 }
 
 async function handleOrderStatusChange(supabase: any, payload: any) {
@@ -110,7 +139,6 @@ async function handleOrderStatusChange(supabase: any, payload: any) {
     updated_at: new Date().toISOString()
   }
 
-  // If order is completed, store the keys
   if (payload.status === 'completed' && payload.products) {
     const keys = payload.products.flatMap((p: any) => 
       p.keys?.map((k: any) => ({
@@ -133,4 +161,153 @@ async function handleOrderStatusChange(supabase: any, payload: any) {
   }
 
   console.log('Order status updated:', payload.orderId, 'to', payload.status)
+}
+
+async function updateShopifyProduct(shopifyProductId: string, priceInDkk: number, isAvailable: boolean, accessToken: string) {
+  const shopifyAdminUrl = `https://${SHOPIFY_STORE_DOMAIN}/admin/api/${SHOPIFY_API_VERSION}/graphql.json`
+
+  // First get the variant ID
+  const getVariantQuery = `
+    query getProduct($id: ID!) {
+      product(id: $id) {
+        variants(first: 1) {
+          edges {
+            node {
+              id
+            }
+          }
+        }
+      }
+    }
+  `
+
+  try {
+    const variantRes = await fetch(shopifyAdminUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Shopify-Access-Token': accessToken
+      },
+      body: JSON.stringify({
+        query: getVariantQuery,
+        variables: { id: shopifyProductId }
+      })
+    })
+
+    const variantData = await variantRes.json()
+    const variantId = variantData.data?.product?.variants?.edges?.[0]?.node?.id
+
+    if (!variantId) {
+      console.error('Could not find variant for product:', shopifyProductId)
+      return
+    }
+
+    // Update variant price and product status
+    const mutation = `
+      mutation productVariantUpdate($input: ProductVariantInput!) {
+        productVariantUpdate(input: $input) {
+          productVariant {
+            id
+          }
+          userErrors {
+            field
+            message
+          }
+        }
+      }
+    `
+
+    await fetch(shopifyAdminUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Shopify-Access-Token': accessToken
+      },
+      body: JSON.stringify({
+        query: mutation,
+        variables: {
+          input: {
+            id: variantId,
+            price: priceInDkk.toFixed(2)
+          }
+        }
+      })
+    })
+
+    // Update product status
+    const statusMutation = `
+      mutation productUpdate($input: ProductInput!) {
+        productUpdate(input: $input) {
+          product {
+            id
+          }
+          userErrors {
+            field
+            message
+          }
+        }
+      }
+    `
+
+    await fetch(shopifyAdminUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Shopify-Access-Token': accessToken
+      },
+      body: JSON.stringify({
+        query: statusMutation,
+        variables: {
+          input: {
+            id: shopifyProductId,
+            status: isAvailable ? 'ACTIVE' : 'DRAFT'
+          }
+        }
+      })
+    })
+
+    console.log(`Updated Shopify product ${shopifyProductId} - price: ${priceInDkk.toFixed(2)} DKK, status: ${isAvailable ? 'ACTIVE' : 'DRAFT'}`)
+  } catch (err) {
+    console.error('Failed to update Shopify product:', err)
+  }
+}
+
+async function setShopifyProductDraft(shopifyProductId: string, accessToken: string) {
+  const shopifyAdminUrl = `https://${SHOPIFY_STORE_DOMAIN}/admin/api/${SHOPIFY_API_VERSION}/graphql.json`
+
+  const mutation = `
+    mutation productUpdate($input: ProductInput!) {
+      productUpdate(input: $input) {
+        product {
+          id
+        }
+        userErrors {
+          field
+          message
+        }
+      }
+    }
+  `
+
+  try {
+    await fetch(shopifyAdminUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Shopify-Access-Token': accessToken
+      },
+      body: JSON.stringify({
+        query: mutation,
+        variables: {
+          input: {
+            id: shopifyProductId,
+            status: 'DRAFT'
+          }
+        }
+      })
+    })
+    console.log(`Set Shopify product ${shopifyProductId} to DRAFT`)
+  } catch (err) {
+    console.error('Failed to set Shopify product to DRAFT:', err)
+  }
 }

@@ -8,8 +8,8 @@ const corsHeaders = {
 const SHOPIFY_STORE_DOMAIN = 'dingaming-js6x0.myshopify.com'
 const SHOPIFY_API_VERSION = '2025-07'
 
-// Process products in parallel batches
-const CONCURRENT_LIMIT = 10
+// Shopify rate limit: ~2 requests/second for mutations
+const DELAY_BETWEEN_PRODUCTS_MS = 600
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -29,14 +29,31 @@ Deno.serve(async (req) => {
 
     const url = new URL(req.url)
     const offset = parseInt(url.searchParams.get('offset') || '0')
-    const limit = parseInt(url.searchParams.get('limit') || '100')
+    const limit = parseInt(url.searchParams.get('limit') || '20') // Smaller batches to avoid timeout
 
     console.log(`Syncing DB products to Shopify - offset ${offset}, limit ${limit}`)
+
+    // Get settings
+    const { data: settingsData } = await supabase
+      .from('store_settings')
+      .select('key, value')
+      .in('key', ['global_margin_percent', 'eur_to_dkk_rate'])
+
+    let globalMargin = 30
+    let eurToDkkRate = 7.46
+
+    if (settingsData) {
+      for (const s of settingsData) {
+        if (s.key === 'global_margin_percent') globalMargin = Number(s.value) || 30
+        if (s.key === 'eur_to_dkk_rate') eurToDkkRate = Number(s.value) || 7.46
+      }
+    }
 
     // Fetch products from local DB
     const { data: products, error: fetchError } = await supabase
       .from('kinguin_products')
       .select('*')
+      .eq('is_available', true)
       .order('kinguin_id', { ascending: true })
       .range(offset, offset + limit - 1)
 
@@ -57,28 +74,27 @@ Deno.serve(async (req) => {
       })
     }
 
-    console.log(`Found ${products.length} products to sync in parallel (${CONCURRENT_LIMIT} at a time)`)
+    console.log(`Found ${products.length} products to sync sequentially`)
 
-    // Process in parallel batches
     let shopifySynced = 0
     let failed = 0
-    
-    for (let i = 0; i < products.length; i += CONCURRENT_LIMIT) {
-      const batch = products.slice(i, i + CONCURRENT_LIMIT)
-      
-      const results = await Promise.allSettled(
-        batch.map(product => createShopifyProductDirect(product, shopifyAccessToken))
-      )
-      
-      for (const result of results) {
-        if (result.status === 'fulfilled' && result.value.success) {
+
+    // Process sequentially with delay to respect rate limits
+    for (const product of products) {
+      try {
+        const result = await createOrUpdateShopifyProduct(product, shopifyAccessToken, globalMargin, eurToDkkRate, supabase)
+        if (result.success) {
           shopifySynced++
         } else {
           failed++
         }
+        
+        // Delay between requests to avoid throttling
+        await new Promise(resolve => setTimeout(resolve, DELAY_BETWEEN_PRODUCTS_MS))
+      } catch (err) {
+        console.error(`Failed to sync product ${product.kinguin_id}:`, err)
+        failed++
       }
-      
-      console.log(`Batch ${Math.floor(i / CONCURRENT_LIMIT) + 1}: ${batch.length} processed, total synced: ${shopifySynced}`)
     }
 
     console.log(`Finished: ${shopifySynced} synced, ${failed} failed`)
@@ -105,9 +121,23 @@ Deno.serve(async (req) => {
   }
 })
 
-// Direct create without search - uses unique handle for idempotency
-async function createShopifyProductDirect(product: any, accessToken: string): Promise<{ success: boolean }> {
+async function createOrUpdateShopifyProduct(
+  product: any, 
+  accessToken: string, 
+  globalMargin: number,
+  eurToDkkRate: number,
+  supabase: any
+): Promise<{ success: boolean; shopifyId?: string }> {
   const shopifyAdminUrl = `https://${SHOPIFY_STORE_DOMAIN}/admin/api/${SHOPIFY_API_VERSION}/graphql.json`
+  
+  // Calculate final price in DKK
+  const margin = product.margin_percent ?? globalMargin
+  const priceWithMargin = product.sell_price * (1 + margin / 100)
+  const priceInDkk = priceWithMargin * eurToDkkRate
+
+  const regionTag = product.region_id === 3 ? 'Worldwide' : 'Europe'
+  const cleanTitle = (product.name || 'Untitled Product').substring(0, 255)
+  const handle = `kinguin-${product.kinguin_id}`
   
   const mutation = `
     mutation productSet($input: ProductSetInput!, $synchronous: Boolean!) {
@@ -123,11 +153,6 @@ async function createShopifyProductDirect(product: any, accessToken: string): Pr
     }
   `
 
-  const regionTag = product.region_id === 3 ? 'Worldwide' : 'Europe'
-  const cleanTitle = (product.name || 'Untitled Product').substring(0, 255)
-  // Use kinguin_id in handle for idempotency - Shopify will update if exists
-  const handle = `kinguin-${product.kinguin_id}`
-  
   try {
     const response = await fetch(shopifyAdminUrl, {
       method: 'POST',
@@ -145,7 +170,7 @@ async function createShopifyProductDirect(product: any, accessToken: string): Pr
             descriptionHtml: product.description || '',
             vendor: 'DinGaming',
             productType: 'Game Key',
-            tags: [product.platform || 'Steam', regionTag, 'Digital'],
+            tags: [product.platform || 'Steam', regionTag, 'Digital', 'DKK'],
             status: product.is_available ? 'ACTIVE' : 'DRAFT',
             productOptions: [{
               name: 'Title',
@@ -153,7 +178,7 @@ async function createShopifyProductDirect(product: any, accessToken: string): Pr
             }],
             variants: [{
               optionValues: [{ optionName: 'Title', name: 'Default Title' }],
-              price: product.sell_price.toFixed(2),
+              price: priceInDkk.toFixed(2),
               sku: `KINGUIN-${product.kinguin_id}`,
               inventoryPolicy: 'CONTINUE'
             }],
@@ -162,6 +187,16 @@ async function createShopifyProductDirect(product: any, accessToken: string): Pr
               key: 'kinguin_id',
               value: product.kinguin_id.toString(),
               type: 'number_integer'
+            }, {
+              namespace: 'kinguin',
+              key: 'original_price_eur',
+              value: product.sell_price.toString(),
+              type: 'number_decimal'
+            }, {
+              namespace: 'kinguin',
+              key: 'margin_percent',
+              value: margin.toString(),
+              type: 'number_decimal'
             }]
           }
         }
@@ -181,19 +216,31 @@ async function createShopifyProductDirect(product: any, accessToken: string): Pr
     }
     
     const createdProduct = data.data?.productSet?.product
-    if (createdProduct?.id && product.cover_image) {
-      // Fire and forget image upload - don't wait
-      addProductImageAsync(createdProduct.id, product.cover_image, cleanTitle, accessToken)
+    if (createdProduct?.id) {
+      // Update local DB with Shopify product ID
+      await supabase
+        .from('kinguin_products')
+        .update({ 
+          shopify_product_id: createdProduct.id,
+          last_synced_to_shopify: new Date().toISOString()
+        })
+        .eq('kinguin_id', product.kinguin_id)
+
+      // Add image (fire and forget)
+      if (product.cover_image) {
+        addProductImageAsync(createdProduct.id, product.cover_image, cleanTitle, accessToken)
+      }
+      
+      return { success: true, shopifyId: createdProduct.id }
     }
     
-    return { success: !!createdProduct?.id }
+    return { success: false }
   } catch (err) {
     console.error(`Failed ${product.kinguin_id}:`, err)
     return { success: false }
   }
 }
 
-// Async image upload - doesn't block product creation
 function addProductImageAsync(productId: string, imageUrl: string, altText: string, accessToken: string): void {
   const shopifyAdminUrl = `https://${SHOPIFY_STORE_DOMAIN}/admin/api/${SHOPIFY_API_VERSION}/graphql.json`
   

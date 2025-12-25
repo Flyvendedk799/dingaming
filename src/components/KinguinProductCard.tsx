@@ -2,7 +2,8 @@ import { useState } from "react";
 import { motion } from "framer-motion";
 import { ShoppingCart, Check, Globe, Monitor } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { KinguinProduct, formatPrice } from "@/lib/kinguin";
+import { KinguinProduct } from "@/lib/kinguin";
+import { usePricing } from "@/lib/pricing";
 import { useCartStore } from "@/stores/cartStore";
 import { toast } from "sonner";
 import { Link } from "react-router-dom";
@@ -16,6 +17,7 @@ const KinguinProductCard = ({ product, index }: KinguinProductCardProps) => {
   const [isAdding, setIsAdding] = useState(false);
   const [justAdded, setJustAdded] = useState(false);
   const addItem = useCartStore((state) => state.addItem);
+  const { getPrice, formatDKK, loading } = usePricing();
 
   const handleAddToCart = (e: React.MouseEvent) => {
     e.preventDefault();
@@ -23,14 +25,15 @@ const KinguinProductCard = ({ product, index }: KinguinProductCardProps) => {
     
     setIsAdding(true);
     
-    // Use Kinguin ID as variant ID - will need to be synced with Shopify
+    const priceInDkk = getPrice(product.sell_price, product.margin_percent);
+    
     addItem({
       variantId: `kinguin-${product.kinguin_id}`,
       title: product.name,
       quantity: 1,
       price: {
-        amount: product.sell_price.toString(),
-        currencyCode: 'EUR'
+        amount: priceInDkk.toFixed(2),
+        currencyCode: 'DKK'
       },
       image: product.cover_image || undefined,
       sku: `KINGUIN-${product.kinguin_id}`
@@ -48,6 +51,9 @@ const KinguinProductCard = ({ product, index }: KinguinProductCardProps) => {
   const imageUrl = product.cover_image || '/placeholder.svg';
   const platform = product.platform || 'Steam';
   const regionLabel = product.region_name || (product.region_id === 3 ? 'Worldwide' : 'Europe');
+
+  const priceInDkk = getPrice(product.sell_price, product.margin_percent);
+  const originalPriceInDkk = getPrice(product.original_price * 1.3, product.margin_percent);
 
   return (
     <motion.div
@@ -97,11 +103,11 @@ const KinguinProductCard = ({ product, index }: KinguinProductCardProps) => {
           <div className="flex items-center justify-between gap-3">
             <div className="flex flex-col">
               <span className="text-lg font-bold text-primary">
-                {formatPrice(product.sell_price)}
+                {loading ? '...' : formatDKK(priceInDkk)}
               </span>
               {product.original_price !== product.sell_price && (
                 <span className="text-xs text-muted-foreground line-through">
-                  {formatPrice(product.original_price * 1.3)}
+                  {loading ? '...' : formatDKK(originalPriceInDkk)}
                 </span>
               )}
             </div>
