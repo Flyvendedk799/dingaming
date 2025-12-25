@@ -480,92 +480,171 @@ async function processCompletedBulkOperation(resultUrl: string, supabase: any): 
   }
 }
 
-// Reconcile function - fetch existing Shopify products and update our DB
+// Reconcile function - use bulk query to fetch ALL products, then batch update DB
 async function reconcileShopifyProducts(accessToken: string, supabase: any): Promise<any> {
   const shopifyAdminUrl = `https://${SHOPIFY_STORE_DOMAIN}/admin/api/${SHOPIFY_API_VERSION}/graphql.json`
   
-  let cursor: string | null = null
-  let totalUpdated = 0
-  let totalFound = 0
-  let hasNextPage = true
+  console.log('Starting bulk query for reconciliation...')
   
-  console.log('Starting Shopify product reconciliation...')
-  
-  while (hasNextPage) {
-    const query = `
-      query getProducts($cursor: String) {
-        products(first: 250, after: $cursor, query: "handle:kinguin-*") {
-          pageInfo {
-            hasNextPage
-            endCursor
-          }
-          edges {
-            node {
-              id
-              handle
+  // Step 1: Start bulk query operation
+  const bulkQueryMutation = `
+    mutation {
+      bulkOperationRunQuery(
+        query: """
+        {
+          products(query: "handle:kinguin-*") {
+            edges {
+              node {
+                id
+                handle
+              }
             }
           }
+        }
+        """
+      ) {
+        bulkOperation {
+          id
+          status
+        }
+        userErrors {
+          field
+          message
+        }
+      }
+    }
+  `
+  
+  const startResponse: Response = await fetch(shopifyAdminUrl, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'X-Shopify-Access-Token': accessToken
+    },
+    body: JSON.stringify({ query: bulkQueryMutation })
+  })
+  
+  const startData: any = await startResponse.json()
+  
+  if (startData.errors || startData.data?.bulkOperationRunQuery?.userErrors?.length > 0) {
+    const error = startData.errors?.[0]?.message || startData.data?.bulkOperationRunQuery?.userErrors?.[0]?.message
+    throw new Error(`Failed to start bulk query: ${error}`)
+  }
+  
+  const operationId = startData.data?.bulkOperationRunQuery?.bulkOperation?.id
+  console.log('Bulk query started:', operationId)
+  
+  // Step 2: Poll for completion
+  let completed = false
+  let resultUrl: string | null = null
+  let attempts = 0
+  const maxAttempts = 60 // 5 minutes max
+  
+  while (!completed && attempts < maxAttempts) {
+    await new Promise(resolve => setTimeout(resolve, 5000))
+    
+    const statusQuery = `
+      query {
+        currentBulkOperation(type: QUERY) {
+          id
+          status
+          errorCode
+          objectCount
+          url
         }
       }
     `
     
-    const response: Response = await fetch(shopifyAdminUrl, {
+    const statusResponse: Response = await fetch(shopifyAdminUrl, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         'X-Shopify-Access-Token': accessToken
       },
-      body: JSON.stringify({ query, variables: { cursor } })
+      body: JSON.stringify({ query: statusQuery })
     })
     
-    const data: any = await response.json()
+    const statusData: any = await statusResponse.json()
+    const operation = statusData.data?.currentBulkOperation
     
-    if (data.errors) {
-      console.error('Shopify query error:', data.errors)
-      throw new Error(data.errors[0]?.message || 'Shopify query failed')
+    console.log(`Bulk query status: ${operation?.status}, objects: ${operation?.objectCount}`)
+    
+    if (operation?.status === 'COMPLETED') {
+      completed = true
+      resultUrl = operation.url
+    } else if (operation?.status === 'FAILED') {
+      throw new Error(`Bulk query failed: ${operation?.errorCode}`)
     }
     
-    const products = data.data?.products?.edges || []
-    const pageInfo: any = data.data?.products?.pageInfo
-    
-    console.log(`Fetched ${products.length} products from Shopify`)
-    totalFound += products.length
-    
-    // Update database for each product
-    for (const { node } of products) {
-      const match = node.handle?.match(/kinguin-(\d+)/)
-      if (match) {
-        const kinguinId = parseInt(match[1])
-        const { error } = await supabase
-          .from('kinguin_products')
-          .update({ 
-            shopify_product_id: node.id,
-            last_synced_to_shopify: new Date().toISOString()
-          })
-          .eq('kinguin_id', kinguinId)
-          .is('shopify_product_id', null) // Only update if not already set
-        
-        if (!error) {
-          totalUpdated++
-        }
-      }
-    }
-    
-    hasNextPage = pageInfo?.hasNextPage || false
-    cursor = pageInfo?.endCursor || null
-    
-    console.log(`Progress: ${totalFound} found, ${totalUpdated} updated`)
-    
-    // Small delay to avoid rate limits
-    await new Promise(resolve => setTimeout(resolve, 500))
+    attempts++
   }
   
-  console.log(`Reconciliation complete: ${totalFound} products found, ${totalUpdated} updated in DB`)
+  if (!resultUrl) {
+    throw new Error('Bulk query timed out or no results')
+  }
+  
+  // Step 3: Download and parse results
+  console.log('Downloading bulk query results...')
+  const resultsResponse = await fetch(resultUrl)
+  const resultsText = await resultsResponse.text()
+  const lines = resultsText.trim().split('\n').filter(line => line.length > 0)
+  
+  console.log(`Got ${lines.length} products from Shopify`)
+  
+  // Step 4: Parse all products into an array
+  const updates: { kinguin_id: number; shopify_product_id: string }[] = []
+  
+  for (const line of lines) {
+    try {
+      const product = JSON.parse(line)
+      const match = product.handle?.match(/kinguin-(\d+)/)
+      if (match && product.id) {
+        updates.push({
+          kinguin_id: parseInt(match[1]),
+          shopify_product_id: product.id
+        })
+      }
+    } catch (err) {
+      // Skip invalid lines
+    }
+  }
+  
+  console.log(`Parsed ${updates.length} valid products to update`)
+  
+  // Step 5: Batch update database using raw SQL for speed
+  let totalUpdated = 0
+  const batchSize = 500
+  
+  for (let i = 0; i < updates.length; i += batchSize) {
+    const batch = updates.slice(i, i + batchSize)
+    const timestamp = new Date().toISOString()
+    
+    // Build a CASE statement for batch update
+    const kinguinIds = batch.map(u => u.kinguin_id)
+    
+    // Update all at once using individual updates but in parallel
+    const updatePromises = batch.map(update => 
+      supabase
+        .from('kinguin_products')
+        .update({ 
+          shopify_product_id: update.shopify_product_id,
+          last_synced_to_shopify: timestamp
+        })
+        .eq('kinguin_id', update.kinguin_id)
+    )
+    
+    await Promise.all(updatePromises)
+    totalUpdated += batch.length
+    
+    console.log(`Updated batch ${Math.floor(i / batchSize) + 1}: ${totalUpdated}/${updates.length}`)
+  }
+  
+  console.log(`Reconciliation complete: ${updates.length} products found, ${totalUpdated} updated in DB`)
   
   return {
     success: true,
-    totalFound,
+    totalFound: updates.length,
     totalUpdated,
-    message: `Found ${totalFound} Shopify products, updated ${totalUpdated} in database`
+    message: `Found ${updates.length} Shopify products, updated ${totalUpdated} in database`
   }
 }
