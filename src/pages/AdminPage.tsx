@@ -417,14 +417,16 @@ const AdminPage = () => {
         }
         
         done = processResult.done;
+        const updatedInThisBatch = processResult.updatedInBatch || 0;
         offset = processResult.nextOffset || processResult.processed;
         
         if (!done) {
-          toast.info(`Behandlet ${offset}/${totalProducts} produkter...`);
+          toast.info(`Behandlet ${offset}/${totalProducts} produkter (${updatedInThisBatch} opdateret i denne batch)...`);
         }
       }
       
-      toast.success(`Fuldført! Opdateret ${offset} produkter i databasen.`);
+      toast.success(`Reconcile fuldført! Matchede ${offset} produkter fra Shopify.`);
+      toast.info('Kør "Genindlæs data" for at se opdaterede statistikker.');
       loadData();
     } catch (error) {
       console.error('Reconcile error:', error);
