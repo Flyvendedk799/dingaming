@@ -8,8 +8,8 @@ const corsHeaders = {
 const SHOPIFY_STORE_DOMAIN = 'dingaming-js6x0.myshopify.com'
 const SHOPIFY_API_VERSION = '2025-07'
 
-// Shopify rate limit: ~2 requests/second for mutations
-const DELAY_BETWEEN_PRODUCTS_MS = 600
+// Shopify rate limit: ~2 requests/second for mutations - use 500ms to be safe
+const DELAY_BETWEEN_PRODUCTS_MS = 500
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -29,7 +29,7 @@ Deno.serve(async (req) => {
 
     const url = new URL(req.url)
     const offset = parseInt(url.searchParams.get('offset') || '0')
-    const limit = parseInt(url.searchParams.get('limit') || '20') // Smaller batches to avoid timeout
+    const limit = parseInt(url.searchParams.get('limit') || '100') // 100 products per batch
 
     console.log(`Syncing DB products to Shopify - offset ${offset}, limit ${limit}`)
 
