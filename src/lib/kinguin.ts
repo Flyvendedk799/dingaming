@@ -56,17 +56,47 @@ export async function fetchKinguinProductById(kinguinId: number): Promise<Kingui
   return data as KinguinProduct;
 }
 
-export async function syncProducts(): Promise<{ success: boolean; synced: number }> {
-  const { data, error } = await supabase.functions.invoke('kinguin-sync-products', {
-    body: {}
-  });
+export async function syncProducts(syncToShopify = true): Promise<{ success: boolean; synced: number; shopifySynced: number }> {
+  let totalSynced = 0;
+  let totalShopifySynced = 0;
+  
+  // Sync multiple pages to get more products
+  for (let page = 1; page <= 10; page++) {
+    const { data, error } = await supabase.functions.invoke('kinguin-sync-products', {
+      body: {},
+      headers: {
+        'Content-Type': 'application/json'
+      }
+    });
 
-  if (error) {
-    console.error('Error syncing products:', error);
-    throw error;
+    // Pass params via URL since edge function reads from query params
+    const response = await fetch(
+      `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/kinguin-sync-products?page=${page}&limit=100&syncToShopify=${syncToShopify}`,
+      {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+          'Content-Type': 'application/json'
+        }
+      }
+    );
+
+    if (!response.ok) {
+      console.error(`Sync error on page ${page}:`, await response.text());
+      break;
+    }
+
+    const result = await response.json();
+    totalSynced += result.synced || 0;
+    totalShopifySynced += result.shopifySynced || 0;
+    
+    // Stop if we got fewer products than requested (no more pages)
+    if ((result.synced || 0) < 100) {
+      break;
+    }
   }
 
-  return data;
+  return { success: true, synced: totalSynced, shopifySynced: totalShopifySynced };
 }
 
 export interface CartItem {
