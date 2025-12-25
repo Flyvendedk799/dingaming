@@ -250,18 +250,8 @@ export async function fetchProductByHandle(handle: string) {
 }
 
 export interface CartItem {
-  product: ShopifyProduct;
   variantId: string;
-  variantTitle: string;
-  price: {
-    amount: string;
-    currencyCode: string;
-  };
   quantity: number;
-  selectedOptions: Array<{
-    name: string;
-    value: string;
-  }>;
 }
 
 export async function createStorefrontCheckout(items: CartItem[]): Promise<string> {
@@ -296,4 +286,12 @@ export async function createStorefrontCheckout(items: CartItem[]): Promise<strin
     console.error('Error creating storefront checkout:', error);
     throw error;
   }
+}
+
+export function formatPrice(amount: string | number, currency: string = 'EUR'): string {
+  const numAmount = typeof amount === 'string' ? parseFloat(amount) : amount;
+  return new Intl.NumberFormat('da-DK', {
+    style: 'currency',
+    currency
+  }).format(numAmount);
 }

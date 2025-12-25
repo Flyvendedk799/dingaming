@@ -9,20 +9,18 @@ import {
   SheetTitle,
   SheetTrigger,
 } from "@/components/ui/sheet";
-import { ShoppingCart, Minus, Plus, Trash2, CreditCard, Loader2 } from "lucide-react";
+import { ShoppingCart, Minus, Plus, Trash2, ExternalLink, Loader2 } from "lucide-react";
 import { useCartStore } from "@/stores/cartStore";
-import { formatPrice } from "@/lib/kinguin";
-import { toast } from "sonner";
+import { formatPrice } from "@/lib/shopify";
 
 export const CartDrawer = () => {
   const [isOpen, setIsOpen] = useState(false);
-  const [isCheckingOut, setIsCheckingOut] = useState(false);
   const { 
     items, 
     isLoading, 
     updateQuantity, 
     removeItem,
-    clearCart,
+    createCheckout,
     getTotalPrice,
     getTotalItems
   } = useCartStore();
@@ -32,15 +30,15 @@ export const CartDrawer = () => {
   const currency = items[0]?.price.currencyCode || 'EUR';
 
   const handleCheckout = async () => {
-    setIsCheckingOut(true);
-    
-    // For now, show a message that checkout will be implemented
-    // When you have Stripe or another payment processor, integrate here
-    toast.info("Checkout kommer snart!", {
-      description: "Vi arbejder på at integrere betalingsløsning"
-    });
-    
-    setIsCheckingOut(false);
+    try {
+      const checkoutUrl = await createCheckout();
+      if (checkoutUrl) {
+        window.open(checkoutUrl, '_blank');
+        setIsOpen(false);
+      }
+    } catch (error) {
+      console.error('Checkout failed:', error);
+    }
   };
 
   return (
@@ -92,7 +90,7 @@ export const CartDrawer = () => {
                       <div className="flex-1 min-w-0">
                         <h4 className="font-medium truncate text-sm">{item.title}</h4>
                         <p className="font-semibold text-primary mt-1">
-                          {formatPrice(parseFloat(item.price.amount))}
+                          {formatPrice(item.price.amount, item.price.currencyCode)}
                         </p>
                       </div>
                       
@@ -135,7 +133,7 @@ export const CartDrawer = () => {
                 <div className="flex justify-between items-center">
                   <span className="text-lg font-semibold">Total</span>
                   <span className="text-xl font-bold text-primary">
-                    {formatPrice(totalPrice)}
+                    {formatPrice(totalPrice.toString(), currency)}
                   </span>
                 </div>
                 
@@ -143,16 +141,16 @@ export const CartDrawer = () => {
                   onClick={handleCheckout}
                   className="w-full bg-primary text-primary-foreground hover:bg-primary/90" 
                   size="lg"
-                  disabled={items.length === 0 || isCheckingOut}
+                  disabled={items.length === 0 || isLoading}
                 >
-                  {isCheckingOut ? (
+                  {isLoading ? (
                     <>
                       <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                      Behandler...
+                      Opretter checkout...
                     </>
                   ) : (
                     <>
-                      <CreditCard className="w-4 h-4 mr-2" />
+                      <ExternalLink className="w-4 h-4 mr-2" />
                       Gå til betaling
                     </>
                   )}

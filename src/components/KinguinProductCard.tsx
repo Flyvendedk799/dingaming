@@ -23,8 +23,9 @@ const KinguinProductCard = ({ product, index }: KinguinProductCardProps) => {
     
     setIsAdding(true);
     
+    // Use Kinguin ID as variant ID - will need to be synced with Shopify
     addItem({
-      variantId: product.kinguin_id.toString(),
+      variantId: `kinguin-${product.kinguin_id}`,
       title: product.name,
       quantity: 1,
       price: {
@@ -32,8 +33,7 @@ const KinguinProductCard = ({ product, index }: KinguinProductCardProps) => {
         currencyCode: 'EUR'
       },
       image: product.cover_image || undefined,
-      kinguinId: product.kinguin_id,
-      originalPrice: product.original_price
+      sku: `KINGUIN-${product.kinguin_id}`
     });
 
     setTimeout(() => {
