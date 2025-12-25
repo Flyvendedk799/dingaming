@@ -39,6 +39,12 @@ const IntroAnimation = ({ onComplete }: IntroAnimationProps) => {
   const scanRotation = useMotionValue(0);
   const smoothRotation = useSpring(scanRotation, { stiffness: 20, damping: 15 });
 
+  // Pre-compute transforms for target position (can't use hooks in JSX)
+  const targetOffsetX = isMobile ? 50 : 70;
+  const targetOffsetY = isMobile ? 70 : 95;
+  const targetX = useTransform(smoothX, (v) => v - targetOffsetX);
+  const targetY = useTransform(smoothY, (v) => v - targetOffsetY);
+
   // Generate key on mount
   useEffect(() => {
     const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
@@ -326,8 +332,8 @@ const IntroAnimation = ({ onComplete }: IntroAnimationProps) => {
                     style={{
                       width: isMobile ? 100 : 140,
                       height: isMobile ? 140 : 190,
-                      x: useTransform(smoothX, (v) => v - (isMobile ? 50 : 70)),
-                      y: useTransform(smoothY, (v) => v - (isMobile ? 70 : 95)),
+                      x: targetX,
+                      y: targetY,
                     }}
                   >
                     <motion.img
