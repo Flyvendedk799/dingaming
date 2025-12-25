@@ -42,6 +42,45 @@ Deno.serve(async (req) => {
       })
     }
 
+    // Check sync lock to prevent overlapping runs
+    const { data: lockData } = await supabase
+      .from('store_settings')
+      .select('value')
+      .eq('key', 'sync_lock')
+      .maybeSingle()
+
+    const lock = lockData?.value || { locked: false }
+    
+    if (lock.locked) {
+      const lockAge = Date.now() - new Date(lock.started_at).getTime()
+      const MAX_LOCK_AGE_MS = 30 * 60 * 1000 // 30 minutes max
+
+      if (lockAge < MAX_LOCK_AGE_MS) {
+        console.log(`Sync already in progress (started ${Math.round(lockAge / 1000)}s ago), skipping`)
+        return new Response(JSON.stringify({ 
+          skipped: true, 
+          reason: 'Sync already in progress',
+          started_at: lock.started_at
+        }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        })
+      } else {
+        console.log('Stale lock detected (>30 min), proceeding anyway')
+      }
+    }
+
+    // Acquire lock
+    await supabase
+      .from('store_settings')
+      .update({ 
+        value: { 
+          locked: true, 
+          started_at: new Date().toISOString(),
+          function: 'kinguin-auto-sync'
+        }
+      })
+      .eq('key', 'sync_lock')
+
     // Get settings
     const { data: settings } = await supabase
       .from('store_settings')
@@ -204,6 +243,12 @@ Deno.serve(async (req) => {
       .update({ value: JSON.stringify(newestTimestamp) })
       .eq('key', 'last_kinguin_sync_timestamp')
 
+    // Release lock
+    await supabase
+      .from('store_settings')
+      .update({ value: { locked: false, started_at: null, function: null } })
+      .eq('key', 'sync_lock')
+
     console.log(`Sync complete. New: ${totalNewProducts}, Updated: ${totalUpdatedProducts}, Shopify: ${totalShopifySynced}`)
 
     return new Response(JSON.stringify({
@@ -217,6 +262,20 @@ Deno.serve(async (req) => {
     })
   } catch (error) {
     console.error('Auto-sync error:', error)
+    
+    // Release lock on error
+    try {
+      const supabaseUrl = Deno.env.get('SUPABASE_URL')!
+      const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
+      const supabase = createClient(supabaseUrl, supabaseKey)
+      await supabase
+        .from('store_settings')
+        .update({ value: { locked: false, started_at: null, function: null } })
+        .eq('key', 'sync_lock')
+    } catch (e) {
+      console.error('Failed to release lock:', e)
+    }
+
     const errorMessage = error instanceof Error ? error.message : 'Unknown error'
     return new Response(JSON.stringify({ error: errorMessage }), {
       status: 500,
