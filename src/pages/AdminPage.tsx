@@ -142,7 +142,7 @@ const AdminPage = () => {
     try {
       let offset = 0;
       let totalSynced = 0;
-      const limit = 20;
+      const limit = 100; // 100 products per batch
 
       while (true) {
         const response = await fetch(
