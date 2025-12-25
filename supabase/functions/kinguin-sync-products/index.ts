@@ -104,8 +104,10 @@ Deno.serve(async (req) => {
       
       for (const product of productsToUpsert) {
         try {
-          await syncProductToShopify(product, shopifyAccessToken)
-          shopifySynced++
+          const result = await syncProductToShopify(product, shopifyAccessToken)
+          if (result.success) {
+            shopifySynced++
+          }
         } catch (err) {
           console.error(`Failed to sync product ${product.kinguin_id} to Shopify:`, err)
         }
@@ -133,7 +135,7 @@ Deno.serve(async (req) => {
   }
 })
 
-async function syncProductToShopify(product: any, accessToken: string) {
+async function syncProductToShopify(product: any, accessToken: string): Promise<{ success: boolean }> {
   const shopifyAdminUrl = `https://${SHOPIFY_STORE_DOMAIN}/admin/api/${SHOPIFY_API_VERSION}/graphql.json`
   
   // Check if product exists by searching for SKU (kinguin_id)
@@ -163,25 +165,32 @@ async function syncProductToShopify(product: any, accessToken: string) {
   })
 
   const searchData = await searchResult.json()
+  
+  if (searchData.errors) {
+    console.error(`Shopify search error for ${product.kinguin_id}:`, JSON.stringify(searchData.errors))
+    return { success: false }
+  }
+  
   const existingProduct = searchData.data?.products?.edges?.[0]?.node
 
   if (existingProduct) {
     // Update existing product
     console.log(`Product ${product.kinguin_id} already exists in Shopify, updating...`)
-    await updateShopifyProduct(existingProduct.id, product, accessToken)
+    return await updateShopifyProduct(existingProduct.id, product, accessToken)
   } else {
-    // Create new product
+    // Create new product using productSet mutation (2025-07 API)
     console.log(`Creating new Shopify product for ${product.kinguin_id}`)
-    await createShopifyProduct(product, accessToken)
+    return await createShopifyProduct(product, accessToken)
   }
 }
 
-async function createShopifyProduct(product: any, accessToken: string) {
+async function createShopifyProduct(product: any, accessToken: string): Promise<{ success: boolean }> {
   const shopifyAdminUrl = `https://${SHOPIFY_STORE_DOMAIN}/admin/api/${SHOPIFY_API_VERSION}/graphql.json`
   
+  // Use productSet mutation which is the correct way in 2025-07 API
   const mutation = `
-    mutation productCreate($input: ProductInput!, $media: [CreateMediaInput!]) {
-      productCreate(input: $input, media: $media) {
+    mutation productSet($input: ProductSetInput!, $synchronous: Boolean!) {
+      productSet(input: $input, synchronous: $synchronous) {
         product {
           id
           title
@@ -197,6 +206,9 @@ async function createShopifyProduct(product: any, accessToken: string) {
 
   const regionTag = product.region_id === 3 ? 'Worldwide' : 'Europe'
   
+  // Clean title - remove any problematic characters
+  const cleanTitle = (product.name || 'Untitled Product').substring(0, 255)
+  
   const response = await fetch(shopifyAdminUrl, {
     method: 'POST',
     headers: {
@@ -206,21 +218,23 @@ async function createShopifyProduct(product: any, accessToken: string) {
     body: JSON.stringify({
       query: mutation,
       variables: {
+        synchronous: true,
         input: {
-          title: product.name,
+          title: cleanTitle,
           descriptionHtml: product.description || '',
           vendor: 'DinGaming',
           productType: 'Game Key',
           tags: [product.platform || 'Steam', regionTag, 'Digital'],
           status: product.is_available ? 'ACTIVE' : 'DRAFT',
+          productOptions: [{
+            name: 'Title',
+            values: [{ name: 'Default Title' }]
+          }],
           variants: [{
+            optionValues: [{ optionName: 'Title', name: 'Default Title' }],
             price: product.sell_price.toFixed(2),
             sku: `KINGUIN-${product.kinguin_id}`,
-            inventoryQuantities: {
-              availableQuantity: product.qty || 0,
-              locationId: 'gid://shopify/Location/1' // Default location
-            },
-            inventoryPolicy: 'DENY'
+            inventoryPolicy: 'CONTINUE'
           }],
           metafields: [{
             namespace: 'kinguin',
@@ -233,26 +247,84 @@ async function createShopifyProduct(product: any, accessToken: string) {
             value: product.original_price.toString(),
             type: 'number_decimal'
           }]
-        },
-        media: product.cover_image ? [{
-          originalSource: product.cover_image,
-          alt: product.name,
-          mediaContentType: 'IMAGE'
-        }] : []
+        }
       }
     })
   })
 
   const data = await response.json()
   
-  if (data.data?.productCreate?.userErrors?.length > 0) {
-    console.error('Shopify create error:', data.data.productCreate.userErrors)
+  // Log the full response for debugging
+  if (data.errors) {
+    console.error(`Shopify API error for ${product.kinguin_id}:`, JSON.stringify(data.errors))
+    return { success: false }
   }
   
-  return data
+  if (data.data?.productSet?.userErrors?.length > 0) {
+    console.error(`Shopify create userErrors for ${product.kinguin_id}:`, JSON.stringify(data.data.productSet.userErrors))
+    return { success: false }
+  }
+  
+  const createdProduct = data.data?.productSet?.product
+  if (createdProduct?.id) {
+    console.log(`Successfully created Shopify product: ${createdProduct.id}`)
+    
+    // Add image if available
+    if (product.cover_image) {
+      await addProductImage(createdProduct.id, product.cover_image, cleanTitle, accessToken)
+    }
+    
+    return { success: true }
+  }
+  
+  console.error(`Unknown Shopify response for ${product.kinguin_id}:`, JSON.stringify(data))
+  return { success: false }
 }
 
-async function updateShopifyProduct(productId: string, product: any, accessToken: string) {
+async function addProductImage(productId: string, imageUrl: string, altText: string, accessToken: string): Promise<void> {
+  const shopifyAdminUrl = `https://${SHOPIFY_STORE_DOMAIN}/admin/api/${SHOPIFY_API_VERSION}/graphql.json`
+  
+  const mutation = `
+    mutation productCreateMedia($productId: ID!, $media: [CreateMediaInput!]!) {
+      productCreateMedia(productId: $productId, media: $media) {
+        media {
+          ... on MediaImage {
+            id
+          }
+        }
+        mediaUserErrors {
+          field
+          message
+        }
+      }
+    }
+  `
+  
+  try {
+    await fetch(shopifyAdminUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Shopify-Access-Token': accessToken
+      },
+      body: JSON.stringify({
+        query: mutation,
+        variables: {
+          productId,
+          media: [{
+            originalSource: imageUrl,
+            alt: altText,
+            mediaContentType: 'IMAGE'
+          }]
+        }
+      })
+    })
+  } catch (err) {
+    console.error(`Failed to add image to product ${productId}:`, err)
+  }
+}
+
+async function updateShopifyProduct(productId: string, product: any, accessToken: string): Promise<{ success: boolean }> {
   const shopifyAdminUrl = `https://${SHOPIFY_STORE_DOMAIN}/admin/api/${SHOPIFY_API_VERSION}/graphql.json`
   
   const mutation = `
@@ -287,5 +359,17 @@ async function updateShopifyProduct(productId: string, product: any, accessToken
     })
   })
 
-  return response.json()
+  const data = await response.json()
+  
+  if (data.errors) {
+    console.error(`Shopify update error for ${productId}:`, JSON.stringify(data.errors))
+    return { success: false }
+  }
+  
+  if (data.data?.productUpdate?.userErrors?.length > 0) {
+    console.error(`Shopify update userErrors for ${productId}:`, JSON.stringify(data.data.productUpdate.userErrors))
+    return { success: false }
+  }
+  
+  return { success: true }
 }
