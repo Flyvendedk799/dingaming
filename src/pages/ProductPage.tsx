@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useParams, Link } from "react-router-dom";
 import { fetchKinguinProductById, KinguinProduct, formatPrice } from "@/lib/kinguin";
-import { useCartStore, CartItem } from "@/stores/cartStore";
+import { useCartStore } from "@/stores/cartStore";
 import { Button } from "@/components/ui/button";
 import { ArrowLeft, ShoppingCart, CheckCircle2, Loader2, Shield, Zap, Globe } from "lucide-react";
 import { toast } from "sonner";
@@ -56,8 +56,8 @@ const ProductPage = () => {
   }
 
   const handleAddToCart = () => {
-    const cartItem: CartItem = {
-      variantId: product.kinguin_id.toString(),
+    addItem({
+      variantId: `kinguin-${product.kinguin_id}`,
       title: product.name,
       quantity: 1,
       price: {
@@ -65,11 +65,9 @@ const ProductPage = () => {
         currencyCode: 'EUR'
       },
       image: product.cover_image || undefined,
-      kinguinId: product.kinguin_id,
-      originalPrice: product.original_price
-    };
+      sku: `KINGUIN-${product.kinguin_id}`
+    });
     
-    addItem(cartItem);
     setIsAdding(true);
     
     toast.success("Tilføjet til kurv", {

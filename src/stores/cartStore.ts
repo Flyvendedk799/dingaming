@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
+import { createStorefrontCheckout } from '@/lib/shopify';
 
 export interface CartItem {
   variantId: string;
@@ -10,13 +11,12 @@ export interface CartItem {
     currencyCode: string;
   };
   image?: string;
-  // Kinguin specific fields
-  kinguinId?: number;
-  originalPrice?: number;
+  sku?: string;
 }
 
 interface CartStore {
   items: CartItem[];
+  checkoutUrl: string | null;
   isLoading: boolean;
   
   // Actions
@@ -25,15 +25,17 @@ interface CartStore {
   removeItem: (variantId: string) => void;
   clearCart: () => void;
   setLoading: (loading: boolean) => void;
+  setCheckoutUrl: (url: string) => void;
+  createCheckout: () => Promise<string | null>;
   getTotalItems: () => number;
   getTotalPrice: () => number;
-  getKinguinItems: () => { kinguinId: number; price: number; qty: number; name: string; sellPrice: number; coverImage?: string }[];
 }
 
 export const useCartStore = create<CartStore>()(
   persist(
     (set, get) => ({
       items: [],
+      checkoutUrl: null,
       isLoading: false,
 
       addItem: (item) => {
@@ -73,10 +75,28 @@ export const useCartStore = create<CartStore>()(
       },
 
       clearCart: () => {
-        set({ items: [] });
+        set({ items: [], checkoutUrl: null });
       },
 
       setLoading: (isLoading) => set({ isLoading }),
+      setCheckoutUrl: (checkoutUrl) => set({ checkoutUrl }),
+
+      createCheckout: async () => {
+        const { items, setLoading, setCheckoutUrl } = get();
+        if (items.length === 0) return null;
+
+        setLoading(true);
+        try {
+          const checkoutUrl = await createStorefrontCheckout(items);
+          setCheckoutUrl(checkoutUrl);
+          return checkoutUrl;
+        } catch (error) {
+          console.error('Failed to create checkout:', error);
+          return null;
+        } finally {
+          setLoading(false);
+        }
+      },
 
       getTotalItems: () => {
         return get().items.reduce((sum, item) => sum + item.quantity, 0);
@@ -84,19 +104,6 @@ export const useCartStore = create<CartStore>()(
 
       getTotalPrice: () => {
         return get().items.reduce((sum, item) => sum + (parseFloat(item.price.amount) * item.quantity), 0);
-      },
-
-      getKinguinItems: () => {
-        return get().items
-          .filter(item => item.kinguinId)
-          .map(item => ({
-            kinguinId: item.kinguinId!,
-            price: item.originalPrice || parseFloat(item.price.amount),
-            sellPrice: parseFloat(item.price.amount),
-            qty: item.quantity,
-            name: item.title,
-            coverImage: item.image
-          }));
       }
     }),
     {
