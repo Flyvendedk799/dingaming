@@ -26,8 +26,9 @@ const KinguinProductGrid = () => {
   const handleSync = async () => {
     setIsSyncing(true);
     try {
-      const result = await syncProducts();
-      toast.success(`Synkroniserede ${result.synced} produkter`);
+      toast.info('Synkroniserer produkter... Dette kan tage et øjeblik.');
+      const result = await syncProducts(true);
+      toast.success(`Synkroniserede ${result.synced} produkter til DB, ${result.shopifySynced} til Shopify`);
       await loadProducts();
     } catch (error) {
       console.error('Sync error:', error);
