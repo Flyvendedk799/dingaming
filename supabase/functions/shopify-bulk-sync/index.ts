@@ -29,10 +29,49 @@ Deno.serve(async (req) => {
     const url = new URL(req.url)
     const action = url.searchParams.get('action') || 'start'
 
-    // Reconcile - fetch existing Shopify products and update our DB
-    if (action === 'reconcile') {
-      const result = await reconcileShopifyProducts(shopifyAccessToken, supabase)
+    // Reconcile - split into multiple actions to avoid CPU limits
+    // Step 1: Start reconcile bulk query
+    if (action === 'reconcile-start') {
+      const result = await startReconcileBulkQuery(shopifyAccessToken)
       return new Response(JSON.stringify(result), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      })
+    }
+
+    // Step 2: Check reconcile status
+    if (action === 'reconcile-status') {
+      const result = await checkReconcileBulkQueryStatus(shopifyAccessToken)
+      return new Response(JSON.stringify(result), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      })
+    }
+
+    // Step 3: Process reconcile results (call multiple times with offset)
+    if (action === 'reconcile-process') {
+      const url = new URL(req.url)
+      const resultUrl = url.searchParams.get('resultUrl')
+      const offset = parseInt(url.searchParams.get('offset') || '0')
+      const batchSize = 2000 // Process 2000 at a time
+      
+      if (!resultUrl) {
+        return new Response(JSON.stringify({ error: 'resultUrl required' }), {
+          status: 400,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        })
+      }
+      
+      const result = await processReconcileResults(resultUrl, offset, batchSize, supabase)
+      return new Response(JSON.stringify(result), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      })
+    }
+
+    // Legacy reconcile - redirect to new flow
+    if (action === 'reconcile') {
+      return new Response(JSON.stringify({ 
+        error: 'Use reconcile-start, reconcile-status, reconcile-process instead',
+        message: 'Reconcile now uses a multi-step process for large catalogs'
+      }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' }
       })
     }
@@ -523,13 +562,60 @@ async function processCompletedBulkOperation(resultUrl: string, supabase: any): 
   }
 }
 
-// Reconcile function - use bulk query to fetch ALL products, then batch update DB
-async function reconcileShopifyProducts(accessToken: string, supabase: any): Promise<any> {
+// ==================== RECONCILE FUNCTIONS (Split for CPU limits) ====================
+
+// Step 1: Start the bulk query for reconciliation
+async function startReconcileBulkQuery(accessToken: string): Promise<any> {
   const shopifyAdminUrl = `https://${SHOPIFY_STORE_DOMAIN}/admin/api/${SHOPIFY_API_VERSION}/graphql.json`
+  
+  // First check if there's already a query operation running
+  const checkQuery = `
+    query {
+      currentBulkOperation(type: QUERY) {
+        id
+        status
+        objectCount
+        url
+      }
+    }
+  `
+  
+  const checkResponse = await fetch(shopifyAdminUrl, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'X-Shopify-Access-Token': accessToken
+    },
+    body: JSON.stringify({ query: checkQuery })
+  })
+  
+  const checkData = await checkResponse.json()
+  const existingOp = checkData.data?.currentBulkOperation
+  
+  if (existingOp?.status === 'RUNNING' || existingOp?.status === 'CREATED') {
+    return {
+      success: false,
+      error: 'already_running',
+      message: 'A bulk query is already in progress. Click "Tjek Status" to monitor.',
+      operationId: existingOp.id,
+      status: existingOp.status
+    }
+  }
+  
+  // If completed with URL, return it directly
+  if (existingOp?.status === 'COMPLETED' && existingOp?.url) {
+    return {
+      success: true,
+      status: 'COMPLETED',
+      operationId: existingOp.id,
+      resultUrl: existingOp.url,
+      objectCount: existingOp.objectCount,
+      message: 'Previous query completed. Ready to process.'
+    }
+  }
   
   console.log('Starting bulk query for reconciliation...')
   
-  // Step 1: Start bulk query operation
   const bulkQueryMutation = `
     mutation {
       bulkOperationRunQuery(
@@ -558,7 +644,7 @@ async function reconcileShopifyProducts(accessToken: string, supabase: any): Pro
     }
   `
   
-  const startResponse: Response = await fetch(shopifyAdminUrl, {
+  const startResponse = await fetch(shopifyAdminUrl, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -567,77 +653,103 @@ async function reconcileShopifyProducts(accessToken: string, supabase: any): Pro
     body: JSON.stringify({ query: bulkQueryMutation })
   })
   
-  const startData: any = await startResponse.json()
+  const startData = await startResponse.json()
   
   if (startData.errors || startData.data?.bulkOperationRunQuery?.userErrors?.length > 0) {
     const error = startData.errors?.[0]?.message || startData.data?.bulkOperationRunQuery?.userErrors?.[0]?.message
-    throw new Error(`Failed to start bulk query: ${error}`)
+    return { success: false, error: `Failed to start bulk query: ${error}` }
   }
   
   const operationId = startData.data?.bulkOperationRunQuery?.bulkOperation?.id
   console.log('Bulk query started:', operationId)
   
-  // Step 2: Poll for completion
-  let completed = false
-  let resultUrl: string | null = null
-  let attempts = 0
-  const maxAttempts = 60 // 5 minutes max
+  return {
+    success: true,
+    status: 'CREATED',
+    operationId,
+    message: 'Bulk query started. Poll status to monitor progress.'
+  }
+}
+
+// Step 2: Check bulk query status
+async function checkReconcileBulkQueryStatus(accessToken: string): Promise<any> {
+  const shopifyAdminUrl = `https://${SHOPIFY_STORE_DOMAIN}/admin/api/${SHOPIFY_API_VERSION}/graphql.json`
   
-  while (!completed && attempts < maxAttempts) {
-    await new Promise(resolve => setTimeout(resolve, 5000))
-    
-    const statusQuery = `
-      query {
-        currentBulkOperation(type: QUERY) {
-          id
-          status
-          errorCode
-          objectCount
-          url
-        }
+  const statusQuery = `
+    query {
+      currentBulkOperation(type: QUERY) {
+        id
+        status
+        errorCode
+        objectCount
+        url
       }
-    `
-    
-    const statusResponse: Response = await fetch(shopifyAdminUrl, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'X-Shopify-Access-Token': accessToken
-      },
-      body: JSON.stringify({ query: statusQuery })
-    })
-    
-    const statusData: any = await statusResponse.json()
-    const operation = statusData.data?.currentBulkOperation
-    
-    console.log(`Bulk query status: ${operation?.status}, objects: ${operation?.objectCount}`)
-    
-    if (operation?.status === 'COMPLETED') {
-      completed = true
-      resultUrl = operation.url
-    } else if (operation?.status === 'FAILED') {
-      throw new Error(`Bulk query failed: ${operation?.errorCode}`)
     }
-    
-    attempts++
+  `
+  
+  const response = await fetch(shopifyAdminUrl, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'X-Shopify-Access-Token': accessToken
+    },
+    body: JSON.stringify({ query: statusQuery })
+  })
+  
+  const data = await response.json()
+  const operation = data.data?.currentBulkOperation
+  
+  if (!operation) {
+    return { status: 'NO_OPERATION', message: 'No bulk query operation found' }
   }
   
-  if (!resultUrl) {
-    throw new Error('Bulk query timed out or no results')
+  return {
+    status: operation.status,
+    operationId: operation.id,
+    objectCount: operation.objectCount || 0,
+    resultUrl: operation.url || null,
+    errorCode: operation.errorCode || null
+  }
+}
+
+// Step 3: Process results in chunks (call multiple times with offset)
+async function processReconcileResults(
+  resultUrl: string, 
+  offset: number, 
+  batchSize: number, 
+  supabase: any
+): Promise<any> {
+  console.log(`Processing reconcile results: offset=${offset}, batchSize=${batchSize}`)
+  
+  // Download the full file (cached by edge function runtime)
+  const response = await fetch(resultUrl)
+  if (!response.ok) {
+    throw new Error(`Failed to download results: ${response.status}`)
   }
   
-  // Step 3: Download and parse results
-  console.log('Downloading bulk query results...')
-  const resultsResponse = await fetch(resultUrl)
-  const resultsText = await resultsResponse.text()
-  const lines = resultsText.trim().split('\n').filter(line => line.length > 0)
+  const text = await response.text()
+  const allLines = text.trim().split('\n').filter(line => line.length > 0)
+  const totalProducts = allLines.length
   
-  console.log(`Got ${lines.length} products from Shopify`)
+  console.log(`Total products in file: ${totalProducts}, processing from ${offset}`)
   
-  // Step 4: Parse all products into an array
+  // Get the slice we need to process
+  const linesToProcess = allLines.slice(offset, offset + batchSize)
+  
+  if (linesToProcess.length === 0) {
+    return {
+      success: true,
+      done: true,
+      totalProducts,
+      processed: offset,
+      message: 'All products processed'
+    }
+  }
+  
+  // Parse and collect updates
   const updates: { kinguin_id: number; shopify_product_id: string }[] = []
   
-  for (const line of lines) {
+  for (const line of linesToProcess) {
     try {
       const product = JSON.parse(line)
       const match = product.handle?.match(/kinguin-(\d+)/)
@@ -652,20 +764,17 @@ async function reconcileShopifyProducts(accessToken: string, supabase: any): Pro
     }
   }
   
-  console.log(`Parsed ${updates.length} valid products to update`)
+  console.log(`Parsed ${updates.length} valid products from this batch`)
   
-  // Step 5: Batch update database using raw SQL for speed
-  let totalUpdated = 0
-  const batchSize = 500
+  // Batch update database - use smaller parallel batches
+  const timestamp = new Date().toISOString()
+  const dbBatchSize = 100
+  let updatedCount = 0
   
-  for (let i = 0; i < updates.length; i += batchSize) {
-    const batch = updates.slice(i, i + batchSize)
-    const timestamp = new Date().toISOString()
+  for (let i = 0; i < updates.length; i += dbBatchSize) {
+    const batch = updates.slice(i, i + dbBatchSize)
     
-    // Build a CASE statement for batch update
-    const kinguinIds = batch.map(u => u.kinguin_id)
-    
-    // Update all at once using individual updates but in parallel
+    // Run updates in parallel
     const updatePromises = batch.map(update => 
       supabase
         .from('kinguin_products')
@@ -677,17 +786,23 @@ async function reconcileShopifyProducts(accessToken: string, supabase: any): Pro
     )
     
     await Promise.all(updatePromises)
-    totalUpdated += batch.length
-    
-    console.log(`Updated batch ${Math.floor(i / batchSize) + 1}: ${totalUpdated}/${updates.length}`)
+    updatedCount += batch.length
   }
   
-  console.log(`Reconciliation complete: ${updates.length} products found, ${totalUpdated} updated in DB`)
+  const nextOffset = offset + linesToProcess.length
+  const done = nextOffset >= totalProducts
+  
+  console.log(`Updated ${updatedCount} products. Next offset: ${nextOffset}, done: ${done}`)
   
   return {
     success: true,
-    totalFound: updates.length,
-    totalUpdated,
-    message: `Found ${updates.length} Shopify products, updated ${totalUpdated} in database`
+    done,
+    totalProducts,
+    processed: nextOffset,
+    updatedInBatch: updatedCount,
+    nextOffset: done ? null : nextOffset,
+    message: done 
+      ? `Reconciliation complete! Processed ${nextOffset} products.`
+      : `Processed ${nextOffset}/${totalProducts}. Continue with offset ${nextOffset}.`
   }
 }

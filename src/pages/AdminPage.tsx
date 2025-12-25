@@ -272,11 +272,16 @@ const AdminPage = () => {
     }
   };
 
+  const [reconcilingProgress, setReconcilingProgress] = useState<{ status: string; processed?: number; total?: number } | null>(null);
+
   const triggerReconcile = async () => {
-    toast.info('Henter eksisterende produkter fra Shopify...');
+    setReconcilingProgress({ status: 'starting' });
+    
     try {
-      const response = await fetch(
-        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/shopify-bulk-sync?action=reconcile`,
+      // Step 1: Start the bulk query
+      toast.info('Starter bulk query fra Shopify...');
+      const startResponse = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/shopify-bulk-sync?action=reconcile-start`,
         {
           method: 'POST',
           headers: {
@@ -285,18 +290,125 @@ const AdminPage = () => {
           }
         }
       );
-
-      const result = await response.json();
       
-      if (result.error) {
-        toast.error(result.error);
-      } else {
-        toast.success(`Fundet ${result.totalFound} produkter i Shopify, opdateret ${result.totalUpdated} i databasen`);
-        loadData();
+      const startResult = await startResponse.json();
+      
+      if (startResult.error === 'already_running') {
+        toast.warning(startResult.message);
+        setReconcilingProgress(null);
+        return;
       }
+      
+      if (startResult.error) {
+        toast.error(startResult.error);
+        setReconcilingProgress(null);
+        return;
+      }
+      
+      // If already completed with URL, skip to processing
+      let resultUrl = startResult.resultUrl;
+      let totalProducts = startResult.objectCount || 0;
+      
+      if (!resultUrl) {
+        // Step 2: Poll for completion
+        toast.info('Venter på Shopify bulk query...');
+        setReconcilingProgress({ status: 'querying' });
+        
+        let completed = false;
+        let attempts = 0;
+        const maxAttempts = 60; // 5 minutes max
+        
+        while (!completed && attempts < maxAttempts) {
+          await new Promise(resolve => setTimeout(resolve, 5000));
+          
+          const statusResponse = await fetch(
+            `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/shopify-bulk-sync?action=reconcile-status`,
+            {
+              method: 'POST',
+              headers: {
+                'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+                'Content-Type': 'application/json'
+              }
+            }
+          );
+          
+          const status = await statusResponse.json();
+          
+          if (status.status === 'COMPLETED' && status.resultUrl) {
+            resultUrl = status.resultUrl;
+            totalProducts = status.objectCount || 0;
+            completed = true;
+            toast.success(`Query fuldført! Fandt ${totalProducts} produkter.`);
+          } else if (status.status === 'FAILED') {
+            toast.error(`Query fejlede: ${status.errorCode}`);
+            setReconcilingProgress(null);
+            return;
+          } else if (status.status === 'RUNNING' || status.status === 'CREATED') {
+            if (attempts % 3 === 0) {
+              toast.info(`Query kører... ${status.objectCount || 0} fundet`);
+            }
+          } else if (status.status === 'NO_OPERATION') {
+            toast.error('Ingen aktiv query operation');
+            setReconcilingProgress(null);
+            return;
+          }
+          
+          attempts++;
+        }
+        
+        if (!completed) {
+          toast.error('Timeout - query tog for lang tid');
+          setReconcilingProgress(null);
+          return;
+        }
+      }
+      
+      // Step 3: Process results in chunks
+      toast.info('Opdaterer database...');
+      let offset = 0;
+      let done = false;
+      
+      while (!done) {
+        setReconcilingProgress({ 
+          status: 'processing', 
+          processed: offset, 
+          total: totalProducts 
+        });
+        
+        const processResponse = await fetch(
+          `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/shopify-bulk-sync?action=reconcile-process&resultUrl=${encodeURIComponent(resultUrl)}&offset=${offset}`,
+          {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+              'Content-Type': 'application/json'
+            }
+          }
+        );
+        
+        const processResult = await processResponse.json();
+        
+        if (processResult.error) {
+          toast.error(processResult.error);
+          setReconcilingProgress(null);
+          return;
+        }
+        
+        done = processResult.done;
+        offset = processResult.nextOffset || processResult.processed;
+        
+        if (!done) {
+          toast.info(`Behandlet ${offset}/${totalProducts} produkter...`);
+        }
+      }
+      
+      toast.success(`Fuldført! Opdateret ${offset} produkter i databasen.`);
+      loadData();
     } catch (error) {
       console.error('Reconcile error:', error);
       toast.error('Kunne ikke hente eksisterende produkter');
+    } finally {
+      setReconcilingProgress(null);
     }
   };
 
@@ -531,9 +643,16 @@ const AdminPage = () => {
                     <Button 
                       onClick={triggerReconcile} 
                       variant="secondary"
+                      disabled={!!reconcilingProgress}
                     >
-                      <Download className="w-4 h-4 mr-2" />
-                      Hent Eksisterende
+                      <Download className={`w-4 h-4 mr-2 ${reconcilingProgress ? 'animate-pulse' : ''}`} />
+                      {reconcilingProgress 
+                        ? reconcilingProgress.status === 'processing' 
+                          ? `${reconcilingProgress.processed}/${reconcilingProgress.total}`
+                          : reconcilingProgress.status === 'querying'
+                            ? 'Querying...'
+                            : 'Starting...'
+                        : 'Hent Eksisterende'}
                     </Button>
                   </div>
                 </CardContent>
