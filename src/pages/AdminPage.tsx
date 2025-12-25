@@ -8,7 +8,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
-import { RefreshCw, Settings, Database, ShoppingBag, Clock, TrendingUp, Package, AlertTriangle } from "lucide-react";
+import { RefreshCw, Settings, Database, ShoppingBag, Clock, TrendingUp, Package, AlertTriangle, Download } from "lucide-react";
+import { Progress } from "@/components/ui/progress";
 import Header from "@/components/Header";
 
 interface StoreSetting {
@@ -30,6 +31,8 @@ const AdminPage = () => {
   const [saving, setSaving] = useState(false);
   const [syncing, setSyncing] = useState(false);
   const [syncingShopify, setSyncingShopify] = useState(false);
+  const [backfilling, setBackfilling] = useState(false);
+  const [backfillProgress, setBackfillProgress] = useState<{ page: number; synced: number } | null>(null);
 
   useEffect(() => {
     loadData();
@@ -169,6 +172,61 @@ const AdminPage = () => {
       toast.error('Kunne ikke synkronisere til Shopify');
     } finally {
       setSyncingShopify(false);
+    }
+  };
+
+  const triggerBackfill = async () => {
+    setBackfilling(true);
+    setBackfillProgress({ page: Number(settings.backfill_last_page) || 1, synced: 0 });
+    
+    try {
+      let totalSynced = 0;
+      
+      while (true) {
+        const response = await fetch(
+          `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/kinguin-backfill`,
+          {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+              'Content-Type': 'application/json'
+            }
+          }
+        );
+
+        const result = await response.json();
+        
+        if (result.skipped) {
+          toast.info(result.reason);
+          break;
+        }
+        
+        if (result.error) {
+          toast.error(result.error);
+          break;
+        }
+
+        totalSynced += result.synced || 0;
+        setBackfillProgress({ page: result.nextPage, synced: totalSynced });
+        
+        toast.info(`Backfill: side ${result.nextPage}, ${totalSynced} produkter hentet`);
+
+        if (result.complete) {
+          toast.success(`Backfill fuldført! ${totalSynced} produkter hentet i alt.`);
+          break;
+        }
+        
+        // Small delay between runs
+        await new Promise(resolve => setTimeout(resolve, 1000));
+      }
+
+      loadData();
+    } catch (error) {
+      console.error('Backfill error:', error);
+      toast.error('Kunne ikke starte backfill');
+    } finally {
+      setBackfilling(false);
+      setBackfillProgress(null);
     }
   };
 
@@ -341,6 +399,58 @@ const AdminPage = () => {
                 </CardContent>
               </Card>
             </div>
+
+            {/* Backfill Card */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Download className="w-5 h-5" />
+                  Backfill alle produkter fra Kinguin
+                </CardTitle>
+                <CardDescription>
+                  Hent ALLE produkter fra Kinguin API (ikke kun opdaterede). Kører 1000 produkter ad gangen.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
+                  <div>
+                    <p className="text-sm font-medium">Status</p>
+                    <p className="text-xs text-muted-foreground">
+                      {settings.backfill_complete === true || settings.backfill_complete === 'true'
+                        ? 'Fuldført'
+                        : `Side ${settings.backfill_last_page || 1} - fortsætter hvor den slap`}
+                    </p>
+                  </div>
+                  <Badge variant={settings.backfill_complete === true || settings.backfill_complete === 'true' ? 'default' : 'secondary'}>
+                    {settings.backfill_complete === true || settings.backfill_complete === 'true' ? 'Fuldført' : 'I gang'}
+                  </Badge>
+                </div>
+
+                {backfillProgress && (
+                  <div className="space-y-2">
+                    <div className="flex justify-between text-sm">
+                      <span>Side {backfillProgress.page}</span>
+                      <span>{backfillProgress.synced.toLocaleString()} produkter hentet</span>
+                    </div>
+                    <Progress value={undefined} className="animate-pulse" />
+                  </div>
+                )}
+
+                <Button 
+                  onClick={triggerBackfill} 
+                  disabled={backfilling || settings.backfill_complete === true || settings.backfill_complete === 'true'}
+                  className="w-full"
+                  variant="outline"
+                >
+                  <Download className={`w-4 h-4 mr-2 ${backfilling ? 'animate-bounce' : ''}`} />
+                  {backfilling 
+                    ? `Henter side ${backfillProgress?.page || settings.backfill_last_page || 1}...` 
+                    : settings.backfill_complete === true || settings.backfill_complete === 'true'
+                      ? 'Backfill fuldført'
+                      : 'Start/Fortsæt backfill'}
+                </Button>
+              </CardContent>
+            </Card>
           </TabsContent>
 
           <TabsContent value="pricing" className="space-y-6">
