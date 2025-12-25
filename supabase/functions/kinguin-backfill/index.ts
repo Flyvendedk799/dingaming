@@ -81,30 +81,16 @@ Deno.serve(async (req) => {
       })
       .eq('key', 'sync_lock')
 
-    // Auto-detect starting page based on highest kinguin_id in database
-    const { data: maxKinguinId } = await supabase
-      .from('kinguin_products')
-      .select('kinguin_id')
-      .order('kinguin_id', { ascending: false })
-      .limit(1)
-      .maybeSingle()
-
-    // Calculate starting page: each page has ~100 products per region
-    // We sort by kinguinId asc, so page N has products with kinguinId around N*100
-    const highestId = maxKinguinId?.kinguin_id || 0
-    const estimatedPage = Math.max(1, Math.floor(highestId / PRODUCTS_PER_PAGE) - 5) // Go back 5 pages to catch any gaps
-    
-    // Get saved page or use estimated
+    // Get saved page - don't try to estimate from kinguin_id since pagination is by count, not ID
     const { data: lastPageData } = await supabase
       .from('store_settings')
       .select('value')
       .eq('key', 'backfill_last_page')
       .maybeSingle()
 
-    const savedPage = Number(lastPageData?.value) || 1
-    let currentPage = Math.max(savedPage, estimatedPage)
+    let currentPage = Number(lastPageData?.value) || 1
 
-    console.log(`Highest kinguin_id: ${highestId}, estimated page: ${estimatedPage}, starting from page: ${currentPage}`)
+    console.log(`Starting backfill from page ${currentPage}`)
 
     let totalSynced = 0
     let emptyPages = 0
