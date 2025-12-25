@@ -294,28 +294,46 @@ const IntroAnimation = ({ onComplete }: IntroAnimationProps) => {
                     >
                       {/* Lid design - Logo */}
                       <div className="absolute inset-0 flex flex-col items-center justify-center">
+                        {/* Key icon */}
+                        <motion.div className="mb-2">
+                          <svg 
+                            width={isMobile ? 32 : 40} 
+                            height={isMobile ? 32 : 40} 
+                            viewBox="0 0 24 24" 
+                            fill="none"
+                            style={{ filter: 'drop-shadow(0 0 10px rgba(16, 185, 129, 0.5))' }}
+                          >
+                            <path 
+                              d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4" 
+                              stroke="url(#keyGradient)" 
+                              strokeWidth="2" 
+                              strokeLinecap="round" 
+                              strokeLinejoin="round"
+                            />
+                            <defs>
+                              <linearGradient id="keyGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+                                <stop offset="0%" stopColor="#10b981" />
+                                <stop offset="100%" stopColor="#34d399" />
+                              </linearGradient>
+                            </defs>
+                          </svg>
+                        </motion.div>
+                        
                         <motion.div
-                          className="text-2xl md:text-3xl font-bold tracking-[0.2em]"
+                          className="text-xl md:text-2xl font-bold tracking-[0.15em]"
                           style={{
                             background: 'linear-gradient(180deg, #10b981 0%, #059669 100%)',
                             WebkitBackgroundClip: 'text',
                             WebkitTextFillColor: 'transparent',
-                            textShadow: '0 0 40px rgba(16, 185, 129, 0.3)',
                           }}
                         >
-                          KEYBOX
+                          DinGaming
                         </motion.div>
                         
-                        <div className="flex items-center gap-3 mt-3">
-                          <div className="w-8 h-[1px] bg-gradient-to-r from-transparent to-emerald-500/50" />
-                          <motion.div
-                            className="w-3 h-3 rounded-full border-2 border-emerald-500/50"
-                            animate={{ 
-                              boxShadow: ['0 0 10px rgba(16, 185, 129, 0.3)', '0 0 20px rgba(16, 185, 129, 0.6)', '0 0 10px rgba(16, 185, 129, 0.3)'],
-                            }}
-                            transition={{ duration: 1.5, repeat: Infinity }}
-                          />
-                          <div className="w-8 h-[1px] bg-gradient-to-l from-transparent to-emerald-500/50" />
+                        <div className="flex items-center gap-2 mt-2">
+                          <div className="w-6 h-[1px] bg-gradient-to-r from-transparent to-emerald-500/50" />
+                          <span className="text-[10px] tracking-[0.2em] text-emerald-500/60 uppercase">Digital Keys</span>
+                          <div className="w-6 h-[1px] bg-gradient-to-l from-transparent to-emerald-500/50" />
                         </div>
                       </div>
 
@@ -641,7 +659,7 @@ const IntroAnimation = ({ onComplete }: IntroAnimationProps) => {
                       animate={{ opacity: 1 }}
                       transition={{ delay: 1.3 }}
                     >
-                      Added to your library
+                      Your key is ready
                     </motion.p>
                   </motion.div>
                 </motion.div>
