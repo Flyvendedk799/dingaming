@@ -139,34 +139,91 @@ const AdminPage = () => {
 
   const triggerShopifySync = async () => {
     setSyncingShopify(true);
+    let totalSynced = 0;
+    let chunkNumber = 1;
+    
     try {
-      // Start bulk operation
-      const response = await fetch(
-        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/shopify-bulk-sync?action=start`,
-        {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
-            'Content-Type': 'application/json'
+      while (true) {
+        toast.info(`Starting chunk ${chunkNumber}...`);
+        
+        // Start bulk operation for this chunk
+        const response = await fetch(
+          `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/shopify-bulk-sync?action=start`,
+          {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+              'Content-Type': 'application/json'
+            }
           }
+        );
+
+        const result = await response.json();
+        
+        if (result.error) {
+          toast.error(result.error);
+          break;
         }
-      );
 
-      const result = await response.json();
-      
-      if (result.error) {
-        toast.error(result.error);
-        return;
+        if (result.done || result.productsInThisChunk === 0) {
+          toast.success(`Færdig! Alle produkter er synkroniseret.`);
+          break;
+        }
+
+        toast.info(`Chunk ${chunkNumber}: ${result.productsInThisChunk} produkter uploades... ${result.remainingProducts} tilbage.`);
+        
+        // Wait for bulk operation to complete
+        let completed = false;
+        let attempts = 0;
+        const maxAttempts = 120; // 10 minutes max per chunk
+        
+        while (!completed && attempts < maxAttempts) {
+          await new Promise(resolve => setTimeout(resolve, 5000)); // Wait 5 seconds
+          
+          const statusResponse = await fetch(
+            `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/shopify-bulk-sync?action=status`,
+            {
+              method: 'POST',
+              headers: {
+                'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+                'Content-Type': 'application/json'
+              }
+            }
+          );
+          
+          const status = await statusResponse.json();
+          
+          if (status.status === 'COMPLETED') {
+            totalSynced += status.objectCount || result.productsInThisChunk;
+            toast.success(`Chunk ${chunkNumber} fuldført! Total: ${totalSynced} produkter`);
+            completed = true;
+          } else if (status.status === 'FAILED') {
+            toast.error(`Chunk ${chunkNumber} fejlede: ${status.errorCode}`);
+            completed = true;
+          } else if (status.status === 'RUNNING') {
+            if (attempts % 6 === 0) { // Update every 30 seconds
+              toast.info(`Chunk ${chunkNumber} kører... ${status.objectCount || 0} behandlet`);
+            }
+          } else if (status.status === 'NO_OPERATION') {
+            // Operation might have completed very quickly
+            completed = true;
+          }
+          
+          attempts++;
+        }
+        
+        if (!completed) {
+          toast.error('Timeout - tjek status manuelt');
+          break;
+        }
+        
+        chunkNumber++;
+        
+        // Small delay between chunks
+        await new Promise(resolve => setTimeout(resolve, 2000));
       }
 
-      if (result.count === 0) {
-        toast.info('Ingen produkter at synkronisere');
-        return;
-      }
-
-      toast.success(`Bulk operation startet! ${result.productsCount} produkter uploades...`);
-      toast.info(`Estimeret tid: ${result.estimatedTime}. Tjek status med knappen.`);
-      
+      loadData();
     } catch (error) {
       console.error('Shopify sync error:', error);
       toast.error('Kunne ikke starte bulk synk');
@@ -194,7 +251,7 @@ const AdminPage = () => {
         toast.success(`Bulk operation fuldført! ${status.objectCount || 0} produkter oprettet.`);
         loadData();
       } else if (status.status === 'RUNNING') {
-        toast.info(`Status: ${status.status} - ${status.objectCount || 0} produkter behandlet...`);
+        toast.info(`Status: RUNNING - ${status.objectCount || 0} produkter behandlet...`);
       } else if (status.status === 'NO_OPERATION') {
         toast.info('Ingen aktiv bulk operation');
       } else {

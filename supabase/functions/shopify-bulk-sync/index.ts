@@ -8,6 +8,9 @@ const corsHeaders = {
 const SHOPIFY_STORE_DOMAIN = 'dingaming-js6x0.myshopify.com'
 const SHOPIFY_API_VERSION = '2025-07'
 
+// Process 3000 products per bulk operation to stay within memory limits
+const CHUNK_SIZE = 3000
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders })
@@ -51,65 +54,51 @@ Deno.serve(async (req) => {
     }
 
     // Get count of products to sync
-    const { count } = await supabase
+    const { count: totalRemaining } = await supabase
       .from('kinguin_products')
       .select('*', { count: 'exact', head: true })
       .eq('is_available', true)
       .is('shopify_product_id', null)
 
-    console.log(`Found ${count} products to bulk sync`)
+    console.log(`Total products remaining to sync: ${totalRemaining}`)
 
-    if (!count || count === 0) {
+    if (!totalRemaining || totalRemaining === 0) {
       return new Response(JSON.stringify({ 
         success: true, 
         message: 'No products to sync',
-        count: 0
+        count: 0,
+        done: true
       }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' }
       })
     }
 
-    // Fetch all products to sync (in batches - Supabase has 1000 row limit per query)
-    const batchSize = 1000
-    let allProducts: any[] = []
-    let offset = 0
+    // Fetch ONE chunk of products (3000 max to stay within memory)
+    const { data: products, error: fetchError } = await supabase
+      .from('kinguin_products')
+      .select('*')
+      .eq('is_available', true)
+      .is('shopify_product_id', null)
+      .order('kinguin_id', { ascending: true })
+      .limit(CHUNK_SIZE)
 
-    console.log('Starting to fetch products in batches of 1000...')
+    if (fetchError) throw fetchError
 
-    while (true) {
-      const { data: products, error } = await supabase
-        .from('kinguin_products')
-        .select('*')
-        .eq('is_available', true)
-        .is('shopify_product_id', null)
-        .order('kinguin_id', { ascending: true })
-        .range(offset, offset + batchSize - 1)
-
-      if (error) {
-        console.error('Fetch error:', error)
-        throw error
-      }
-      
-      if (!products || products.length === 0) {
-        console.log('No more products to fetch')
-        break
-      }
-
-      allProducts = [...allProducts, ...products]
-      offset += products.length
-      console.log(`Fetched batch: ${products.length} products, total so far: ${allProducts.length}`)
-      
-      // If we got fewer than batchSize, we've reached the end
-      if (products.length < batchSize) {
-        console.log('Last batch reached (fewer than 1000 products)')
-        break
-      }
+    if (!products || products.length === 0) {
+      return new Response(JSON.stringify({ 
+        success: true, 
+        message: 'No products to sync',
+        count: 0,
+        done: true
+      }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      })
     }
 
-    console.log(`Total products to sync: ${allProducts.length}`)
+    console.log(`Processing chunk of ${products.length} products`)
 
-    // Generate JSONL content for bulk mutation
-    const jsonlLines = allProducts.map(product => {
+    // Generate JSONL content for this chunk
+    const jsonlLines = products.map(product => {
       const margin = product.margin_percent ?? globalMargin
       const priceWithMargin = product.sell_price * (1 + margin / 100)
       const priceInDkk = priceWithMargin * eurToDkkRate
@@ -146,7 +135,7 @@ Deno.serve(async (req) => {
       })
     }).join('\n')
 
-    console.log(`Generated JSONL with ${allProducts.length} lines`)
+    console.log(`Generated JSONL with ${products.length} lines`)
 
     // Step 1: Stage the JSONL file
     const stagedUploadResult = await stageUpload(shopifyAccessToken, jsonlLines)
@@ -166,12 +155,15 @@ Deno.serve(async (req) => {
 
     console.log(`Bulk operation started: ${bulkResult.operationId}`)
 
+    const remainingAfterThis = totalRemaining - products.length
+
     return new Response(JSON.stringify({ 
       success: true, 
       message: 'Bulk operation started',
       operationId: bulkResult.operationId,
-      productsCount: allProducts.length,
-      estimatedTime: `${Math.ceil(allProducts.length / 100)} minutes`
+      productsInThisChunk: products.length,
+      remainingProducts: remainingAfterThis,
+      done: remainingAfterThis <= 0
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' }
     })
@@ -189,7 +181,6 @@ Deno.serve(async (req) => {
 async function stageUpload(accessToken: string, jsonlContent: string): Promise<{ success: boolean; key?: string; error?: string }> {
   const shopifyAdminUrl = `https://${SHOPIFY_STORE_DOMAIN}/admin/api/${SHOPIFY_API_VERSION}/graphql.json`
 
-  // Create staged upload
   const stageQuery = `
     mutation stagedUploadsCreate($input: [StagedUploadInput!]!) {
       stagedUploadsCreate(input: $input) {
@@ -237,7 +228,7 @@ async function stageUpload(accessToken: string, jsonlContent: string): Promise<{
 
   const target = stageData.data.stagedUploadsCreate.stagedTargets[0]
   
-  console.log('Staged target:', JSON.stringify(target, null, 2))
+  console.log('Uploading file to staged location...')
   
   // Upload the file to Google Cloud Storage
   const formData = new FormData()
@@ -254,15 +245,14 @@ async function stageUpload(accessToken: string, jsonlContent: string): Promise<{
   if (!uploadResponse.ok) {
     const errorText = await uploadResponse.text()
     console.error('Upload failed:', errorText)
-    return { success: false, error: `Upload failed: ${uploadResponse.status} - ${errorText}` }
+    return { success: false, error: `Upload failed: ${uploadResponse.status}` }
   }
 
   console.log('File uploaded successfully')
 
-  // Find the 'key' parameter - this is what Shopify needs for the bulk mutation
+  // Find the 'key' parameter
   const keyParam = target.parameters.find((p: {name: string; value: string}) => p.name === 'key')
   if (!keyParam) {
-    console.error('No key parameter found in staged upload response')
     return { success: false, error: 'No key parameter in staged upload response' }
   }
 
