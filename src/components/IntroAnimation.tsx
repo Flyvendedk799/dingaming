@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
-import { motion, AnimatePresence, useMotionValue, useSpring, useTransform } from "framer-motion";
+import { motion, AnimatePresence, useMotionValue, useSpring } from "framer-motion";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { Check, Key, Zap } from "lucide-react";
 import game1 from "@/assets/game-1.jpg";
@@ -24,10 +24,24 @@ interface IntroAnimationProps {
 
 const IntroAnimation = ({ onComplete }: IntroAnimationProps) => {
   const [phase, setPhase] = useState<'init' | 'scanning' | 'locked' | 'payment' | 'delivery' | 'exit'>('init');
-  const [selectedGame] = useState(() => games[Math.floor(Math.random() * games.length)]);
+  const [selectedIndex] = useState(() => Math.floor(Math.random() * games.length));
+  const selectedGame = games[selectedIndex];
   const [generatedKey, setGeneratedKey] = useState('');
   const [paymentProgress, setPaymentProgress] = useState(0);
   const isMobile = useIsMobile();
+
+  // Positions for floating game cards (pre-calculated for smooth animation)
+  const gamePositions = useMemo(() => {
+    const radius = isMobile ? 90 : 130;
+    return games.map((_, i) => {
+      const angle = (i / games.length) * Math.PI * 2 - Math.PI / 2;
+      return {
+        x: Math.cos(angle) * radius,
+        y: Math.sin(angle) * radius,
+        rotation: (Math.random() - 0.5) * 10,
+      };
+    });
+  }, [isMobile]);
 
   // Smooth scope position with spring physics
   const scopeX = useMotionValue(0);
@@ -38,12 +52,6 @@ const IntroAnimation = ({ onComplete }: IntroAnimationProps) => {
   // Rotation for scanning effect
   const scanRotation = useMotionValue(0);
   const smoothRotation = useSpring(scanRotation, { stiffness: 20, damping: 15 });
-
-  // Pre-compute transforms for target position (can't use hooks in JSX)
-  const targetOffsetX = isMobile ? 50 : 70;
-  const targetOffsetY = isMobile ? 70 : 95;
-  const targetX = useTransform(smoothX, (v) => v - targetOffsetX);
-  const targetY = useTransform(smoothY, (v) => v - targetOffsetY);
 
   // Generate key on mount
   useEffect(() => {
@@ -61,36 +69,62 @@ const IntroAnimation = ({ onComplete }: IntroAnimationProps) => {
     return () => clearTimeout(timer);
   }, []);
 
-  // Smooth scanning movement
+  // Smooth scanning movement - scope moves between game cards
   useEffect(() => {
     if (phase !== 'scanning') return;
 
     let frame = 0;
+    const totalFrames = 160;
+    const gamesCount = games.length;
+    
     const animate = () => {
       frame++;
-      // Smooth figure-8 / infinity pattern that converges to center
-      const progress = Math.min(frame / 120, 1);
-      const decay = 1 - progress * 0.9;
-      const speed = 0.02;
+      const progress = frame / totalFrames;
       
-      scopeX.set(Math.sin(frame * speed) * 80 * decay + Math.sin(frame * speed * 2.3) * 30 * decay);
-      scopeY.set(Math.cos(frame * speed * 1.7) * 50 * decay + Math.cos(frame * speed * 0.7) * 20 * decay);
-      scanRotation.set(Math.sin(frame * 0.01) * 3);
+      // Move through each game position, spending time on each
+      const cycleProgress = progress * 2; // Cycle through twice for more scanning feel
+      const currentGameFloat = (cycleProgress * gamesCount) % gamesCount;
+      const currentGame = Math.floor(currentGameFloat);
+      const nextGame = (currentGame + 1) % gamesCount;
+      const lerpFactor = currentGameFloat - currentGame;
+      
+      // Smooth interpolation between game positions
+      const currentPos = gamePositions[currentGame];
+      const nextPos = gamePositions[nextGame];
+      
+      // Add some organic wobble
+      const wobbleX = Math.sin(frame * 0.08) * 8;
+      const wobbleY = Math.cos(frame * 0.06) * 6;
+      
+      // As we get closer to end, converge toward selected game
+      const convergeFactor = Math.max(0, (progress - 0.7) / 0.3);
+      const selectedPos = gamePositions[selectedIndex];
+      
+      const targetX = currentPos.x + (nextPos.x - currentPos.x) * lerpFactor;
+      const targetY = currentPos.y + (nextPos.y - currentPos.y) * lerpFactor;
+      
+      scopeX.set(
+        targetX * (1 - convergeFactor) + selectedPos.x * convergeFactor + wobbleX * (1 - convergeFactor)
+      );
+      scopeY.set(
+        targetY * (1 - convergeFactor) + selectedPos.y * convergeFactor + wobbleY * (1 - convergeFactor)
+      );
+      scanRotation.set(Math.sin(frame * 0.02) * 2 * (1 - convergeFactor));
 
-      if (frame < 140) {
+      if (frame < totalFrames) {
         requestAnimationFrame(animate);
       } else {
-        // Converge to center
-        scopeX.set(0);
-        scopeY.set(0);
+        // Lock onto selected game
+        scopeX.set(selectedPos.x);
+        scopeY.set(selectedPos.y);
         scanRotation.set(0);
-        setTimeout(() => setPhase('locked'), 200);
+        setTimeout(() => setPhase('locked'), 150);
       }
     };
 
     const raf = requestAnimationFrame(animate);
     return () => cancelAnimationFrame(raf);
-  }, [phase, scopeX, scopeY, scanRotation]);
+  }, [phase, scopeX, scopeY, scanRotation, gamePositions, selectedIndex]);
 
   // Phase progression
   useEffect(() => {
@@ -326,45 +360,101 @@ const IntroAnimation = ({ onComplete }: IntroAnimationProps) => {
                     </motion.div>
                   ))}
 
-                  {/* Target game image */}
-                  <motion.div
-                    className="absolute top-1/2 left-1/2 rounded-xl overflow-hidden shadow-2xl"
-                    style={{
-                      width: isMobile ? 100 : 140,
-                      height: isMobile ? 140 : 190,
-                      x: targetX,
-                      y: targetY,
-                    }}
-                  >
-                    <motion.img
-                      src={selectedGame.image}
-                      alt={selectedGame.name}
-                      className="w-full h-full object-cover"
-                      animate={phase === 'locked' ? { scale: 1.05 } : { scale: 1 }}
-                      transition={{ duration: 0.3 }}
-                    />
+                  {/* All game cards floating in circle */}
+                  {games.map((game, i) => {
+                    const pos = gamePositions[i];
+                    const isSelected = i === selectedIndex;
+                    const cardWidth = isMobile ? 70 : 95;
+                    const cardHeight = isMobile ? 95 : 130;
                     
-                    {/* Lock overlay */}
-                    <AnimatePresence>
-                      {phase === 'locked' && (
-                        <motion.div
-                          className="absolute inset-0 flex items-center justify-center"
-                          style={{ background: 'rgba(16, 185, 129, 0.2)' }}
-                          initial={{ opacity: 0 }}
-                          animate={{ opacity: 1 }}
-                          exit={{ opacity: 0 }}
-                        >
+                    return (
+                      <motion.div
+                        key={i}
+                        className="absolute top-1/2 left-1/2 rounded-lg overflow-hidden"
+                        style={{
+                          width: cardWidth,
+                          height: cardHeight,
+                          marginLeft: -cardWidth / 2,
+                          marginTop: -cardHeight / 2,
+                          boxShadow: isSelected && phase === 'locked' 
+                            ? '0 0 30px rgba(16, 185, 129, 0.6), 0 10px 30px rgba(0,0,0,0.4)'
+                            : '0 8px 25px rgba(0,0,0,0.4)',
+                        }}
+                        initial={{ 
+                          x: pos.x, 
+                          y: pos.y, 
+                          rotate: pos.rotation,
+                          opacity: 0,
+                          scale: 0.8,
+                        }}
+                        animate={{ 
+                          x: pos.x, 
+                          y: pos.y, 
+                          rotate: phase === 'locked' ? 0 : pos.rotation,
+                          opacity: phase === 'locked' ? (isSelected ? 1 : 0.3) : 1,
+                          scale: phase === 'locked' ? (isSelected ? 1.15 : 0.85) : 1,
+                          filter: phase === 'locked' && !isSelected ? 'grayscale(0.5) brightness(0.6)' : 'none',
+                        }}
+                        transition={{ 
+                          duration: 0.4,
+                          delay: phase === 'init' ? i * 0.08 : 0,
+                        }}
+                      >
+                        <img
+                          src={game.image}
+                          alt={game.name}
+                          className="w-full h-full object-cover"
+                        />
+                        
+                        {/* Border highlight for selected */}
+                        {isSelected && phase === 'locked' && (
                           <motion.div
-                            className="w-14 h-14 rounded-full bg-emerald-500/90 flex items-center justify-center"
-                            initial={{ scale: 0 }}
-                            animate={{ scale: 1 }}
-                            transition={{ type: 'spring', stiffness: 400, damping: 15 }}
-                          >
-                            <Check className="w-7 h-7 text-black" strokeWidth={3} />
-                          </motion.div>
-                        </motion.div>
-                      )}
-                    </AnimatePresence>
+                            className="absolute inset-0 border-2 border-emerald-400 rounded-lg"
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                          />
+                        )}
+                        
+                        {/* Lock overlay for selected */}
+                        <AnimatePresence>
+                          {isSelected && phase === 'locked' && (
+                            <motion.div
+                              className="absolute inset-0 flex items-center justify-center"
+                              style={{ background: 'rgba(16, 185, 129, 0.25)' }}
+                              initial={{ opacity: 0 }}
+                              animate={{ opacity: 1 }}
+                              exit={{ opacity: 0 }}
+                            >
+                              <motion.div
+                                className="w-10 h-10 md:w-12 md:h-12 rounded-full bg-emerald-500 flex items-center justify-center"
+                                initial={{ scale: 0 }}
+                                animate={{ scale: 1 }}
+                                transition={{ type: 'spring', stiffness: 400, damping: 15, delay: 0.1 }}
+                              >
+                                <Check className="w-5 h-5 md:w-6 md:h-6 text-black" strokeWidth={3} />
+                              </motion.div>
+                            </motion.div>
+                          )}
+                        </AnimatePresence>
+                      </motion.div>
+                    );
+                  })}
+
+                  {/* Scope crosshair that follows the scan */}
+                  <motion.div
+                    className="absolute top-1/2 left-1/2 w-16 h-16 -ml-8 -mt-8 pointer-events-none"
+                    style={{ x: smoothX, y: smoothY }}
+                  >
+                    <div className="absolute top-1/2 left-0 right-0 h-[1px] bg-emerald-400/60" />
+                    <div className="absolute left-1/2 top-0 bottom-0 w-[1px] bg-emerald-400/60" />
+                    <motion.div
+                      className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-3 h-3 border border-emerald-400 rotate-45"
+                      animate={phase === 'locked' ? {
+                        scale: [1, 1.3, 1],
+                        borderColor: '#10b981',
+                      } : {}}
+                      transition={{ duration: 0.2 }}
+                    />
                   </motion.div>
 
                   {/* Status text */}
