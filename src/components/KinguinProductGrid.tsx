@@ -118,6 +118,15 @@ const KinguinProductGrid = () => {
               Game keys til alle platforme • 30% rabat
             </p>
           </div>
+          <Button 
+            onClick={handleSync} 
+            disabled={isSyncing}
+            variant="outline"
+            className="shrink-0"
+          >
+            <RefreshCw className={`w-4 h-4 mr-2 ${isSyncing ? 'animate-spin' : ''}`} />
+            {isSyncing ? 'Synkroniserer...' : 'Synkroniser fra Kinguin'}
+          </Button>
         </div>
 
         {/* Products Grid */}
