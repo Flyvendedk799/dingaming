@@ -49,13 +49,14 @@ Deno.serve(async (req) => {
       }
     }
 
-    // Fetch products from local DB
+    // Fetch products from local DB that are NOT yet on Shopify
     const { data: products, error: fetchError } = await supabase
       .from('kinguin_products')
       .select('*')
       .eq('is_available', true)
+      .is('shopify_product_id', null)  // Only products not yet synced
       .order('kinguin_id', { ascending: true })
-      .range(offset, offset + limit - 1)
+      .limit(limit)
 
     if (fetchError) {
       throw fetchError
