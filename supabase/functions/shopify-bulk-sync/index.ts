@@ -29,6 +29,14 @@ Deno.serve(async (req) => {
     const url = new URL(req.url)
     const action = url.searchParams.get('action') || 'start'
 
+    // Reconcile - fetch existing Shopify products and update our DB
+    if (action === 'reconcile') {
+      const result = await reconcileShopifyProducts(shopifyAccessToken, supabase)
+      return new Response(JSON.stringify(result), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      })
+    }
+
     // Check for existing bulk operation status
     if (action === 'status') {
       const status = await checkBulkOperationStatus(shopifyAccessToken, supabase)
@@ -469,5 +477,95 @@ async function processCompletedBulkOperation(resultUrl: string, supabase: any): 
     }
     
     console.log(`Updated ${updatedCount} products in database`)
+  }
+}
+
+// Reconcile function - fetch existing Shopify products and update our DB
+async function reconcileShopifyProducts(accessToken: string, supabase: any): Promise<any> {
+  const shopifyAdminUrl = `https://${SHOPIFY_STORE_DOMAIN}/admin/api/${SHOPIFY_API_VERSION}/graphql.json`
+  
+  let cursor: string | null = null
+  let totalUpdated = 0
+  let totalFound = 0
+  let hasNextPage = true
+  
+  console.log('Starting Shopify product reconciliation...')
+  
+  while (hasNextPage) {
+    const query = `
+      query getProducts($cursor: String) {
+        products(first: 250, after: $cursor, query: "handle:kinguin-*") {
+          pageInfo {
+            hasNextPage
+            endCursor
+          }
+          edges {
+            node {
+              id
+              handle
+            }
+          }
+        }
+      }
+    `
+    
+    const response: Response = await fetch(shopifyAdminUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Shopify-Access-Token': accessToken
+      },
+      body: JSON.stringify({ query, variables: { cursor } })
+    })
+    
+    const data: any = await response.json()
+    
+    if (data.errors) {
+      console.error('Shopify query error:', data.errors)
+      throw new Error(data.errors[0]?.message || 'Shopify query failed')
+    }
+    
+    const products = data.data?.products?.edges || []
+    const pageInfo: any = data.data?.products?.pageInfo
+    
+    console.log(`Fetched ${products.length} products from Shopify`)
+    totalFound += products.length
+    
+    // Update database for each product
+    for (const { node } of products) {
+      const match = node.handle?.match(/kinguin-(\d+)/)
+      if (match) {
+        const kinguinId = parseInt(match[1])
+        const { error } = await supabase
+          .from('kinguin_products')
+          .update({ 
+            shopify_product_id: node.id,
+            last_synced_to_shopify: new Date().toISOString()
+          })
+          .eq('kinguin_id', kinguinId)
+          .is('shopify_product_id', null) // Only update if not already set
+        
+        if (!error) {
+          totalUpdated++
+        }
+      }
+    }
+    
+    hasNextPage = pageInfo?.hasNextPage || false
+    cursor = pageInfo?.endCursor || null
+    
+    console.log(`Progress: ${totalFound} found, ${totalUpdated} updated`)
+    
+    // Small delay to avoid rate limits
+    await new Promise(resolve => setTimeout(resolve, 500))
+  }
+  
+  console.log(`Reconciliation complete: ${totalFound} products found, ${totalUpdated} updated in DB`)
+  
+  return {
+    success: true,
+    totalFound,
+    totalUpdated,
+    message: `Found ${totalFound} Shopify products, updated ${totalUpdated} in database`
   }
 }

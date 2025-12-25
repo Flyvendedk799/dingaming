@@ -266,6 +266,34 @@ const AdminPage = () => {
     }
   };
 
+  const triggerReconcile = async () => {
+    toast.info('Henter eksisterende produkter fra Shopify...');
+    try {
+      const response = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/shopify-bulk-sync?action=reconcile`,
+        {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+            'Content-Type': 'application/json'
+          }
+        }
+      );
+
+      const result = await response.json();
+      
+      if (result.error) {
+        toast.error(result.error);
+      } else {
+        toast.success(`Fundet ${result.totalFound} produkter i Shopify, opdateret ${result.totalUpdated} i databasen`);
+        loadData();
+      }
+    } catch (error) {
+      console.error('Reconcile error:', error);
+      toast.error('Kunne ikke hente eksisterende produkter');
+    }
+  };
+
   const triggerBackfill = async () => {
     setBackfilling(true);
     setBackfillProgress({ page: Number(settings.backfill_last_page) || 1, synced: 0 });
@@ -478,7 +506,7 @@ const AdminPage = () => {
                       {stats?.notSyncedToShopify === 0 ? 'Synkroniseret' : 'Mangler synk'}
                     </Badge>
                   </div>
-                  <div className="grid grid-cols-2 gap-2">
+                  <div className="grid grid-cols-3 gap-2">
                     <Button 
                       onClick={triggerShopifySync} 
                       disabled={syncingShopify || stats?.notSyncedToShopify === 0}
@@ -493,6 +521,13 @@ const AdminPage = () => {
                     >
                       <RefreshCw className="w-4 h-4 mr-2" />
                       Tjek Status
+                    </Button>
+                    <Button 
+                      onClick={triggerReconcile} 
+                      variant="secondary"
+                    >
+                      <Download className="w-4 h-4 mr-2" />
+                      Hent Eksisterende
                     </Button>
                   </div>
                 </CardContent>
