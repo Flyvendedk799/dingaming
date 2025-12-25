@@ -140,38 +140,69 @@ const AdminPage = () => {
   const triggerShopifySync = async () => {
     setSyncingShopify(true);
     try {
-      let offset = 0;
-      let totalSynced = 0;
-      const limit = 100; // 100 products per batch
-
-      while (true) {
-        const response = await fetch(
-          `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/sync-db-to-shopify?offset=${offset}&limit=${limit}`,
-          {
-            method: 'POST',
-            headers: {
-              'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
-              'Content-Type': 'application/json'
-            }
+      // Start bulk operation
+      const response = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/shopify-bulk-sync?action=start`,
+        {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+            'Content-Type': 'application/json'
           }
-        );
+        }
+      );
 
-        const result = await response.json();
-        totalSynced += result.synced || 0;
-        
-        toast.info(`Synkroniseret ${totalSynced} produkter til Shopify...`);
-
-        if (result.done) break;
-        offset = result.nextOffset;
+      const result = await response.json();
+      
+      if (result.error) {
+        toast.error(result.error);
+        return;
       }
 
-      toast.success(`Shopify synk fuldført: ${totalSynced} produkter`);
-      loadData();
+      if (result.count === 0) {
+        toast.info('Ingen produkter at synkronisere');
+        return;
+      }
+
+      toast.success(`Bulk operation startet! ${result.productsCount} produkter uploades...`);
+      toast.info(`Estimeret tid: ${result.estimatedTime}. Tjek status med knappen.`);
+      
     } catch (error) {
       console.error('Shopify sync error:', error);
-      toast.error('Kunne ikke synkronisere til Shopify');
+      toast.error('Kunne ikke starte bulk synk');
     } finally {
       setSyncingShopify(false);
+    }
+  };
+
+  const checkBulkStatus = async () => {
+    try {
+      const response = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/shopify-bulk-sync?action=status`,
+        {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+            'Content-Type': 'application/json'
+          }
+        }
+      );
+
+      const status = await response.json();
+      
+      if (status.status === 'COMPLETED') {
+        toast.success(`Bulk operation fuldført! ${status.objectCount || 0} produkter oprettet.`);
+        loadData();
+      } else if (status.status === 'RUNNING') {
+        toast.info(`Status: ${status.status} - ${status.objectCount || 0} produkter behandlet...`);
+      } else if (status.status === 'NO_OPERATION') {
+        toast.info('Ingen aktiv bulk operation');
+      } else {
+        toast.info(`Status: ${status.status}`);
+      }
+    } catch (error) {
+      console.error('Status check error:', error);
+      toast.error('Kunne ikke hente status');
     }
   };
 
@@ -369,10 +400,10 @@ const AdminPage = () => {
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
                     <ShoppingBag className="w-5 h-5" />
-                    Database → Shopify
+                    Database → Shopify (Bulk)
                   </CardTitle>
                   <CardDescription>
-                    Push produkter til Shopify butik
+                    Upload alle produkter til Shopify på én gang (~10-30 min)
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
@@ -380,22 +411,30 @@ const AdminPage = () => {
                     <div>
                       <p className="text-sm font-medium">Status</p>
                       <p className="text-xs text-muted-foreground">
-                        {stats?.notSyncedToShopify} produkter mangler
+                        {stats?.notSyncedToShopify?.toLocaleString()} produkter mangler
                       </p>
                     </div>
                     <Badge variant={stats?.notSyncedToShopify === 0 ? 'default' : 'secondary'}>
                       {stats?.notSyncedToShopify === 0 ? 'Synkroniseret' : 'Mangler synk'}
                     </Badge>
                   </div>
-                  <Button 
-                    onClick={triggerShopifySync} 
-                    disabled={syncingShopify || stats?.notSyncedToShopify === 0}
-                    className="w-full"
-                    variant="secondary"
-                  >
-                    <ShoppingBag className={`w-4 h-4 mr-2 ${syncingShopify ? 'animate-pulse' : ''}`} />
-                    {syncingShopify ? 'Synkroniserer...' : `Synk ${stats?.notSyncedToShopify} produkter`}
-                  </Button>
+                  <div className="grid grid-cols-2 gap-2">
+                    <Button 
+                      onClick={triggerShopifySync} 
+                      disabled={syncingShopify || stats?.notSyncedToShopify === 0}
+                      variant="default"
+                    >
+                      <ShoppingBag className={`w-4 h-4 mr-2 ${syncingShopify ? 'animate-pulse' : ''}`} />
+                      {syncingShopify ? 'Starter...' : 'Start Bulk Sync'}
+                    </Button>
+                    <Button 
+                      onClick={checkBulkStatus} 
+                      variant="outline"
+                    >
+                      <RefreshCw className="w-4 h-4 mr-2" />
+                      Tjek Status
+                    </Button>
+                  </div>
                 </CardContent>
               </Card>
             </div>
