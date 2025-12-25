@@ -107,13 +107,32 @@ export async function syncProducts(
 
 export async function syncDbToShopify(
   startOffset = 0,
-  onProgress?: (offset: number, totalSynced: number) => void
+  onProgress?: (nextOffset: number, totalSynced: number) => void
 ): Promise<{ success: boolean; synced: number }> {
+  const OFFSET_KEY = 'kinguin_shopify_sync_offset';
+  const IN_PROGRESS_KEY = 'kinguin_shopify_sync_in_progress';
+
+  const persistSet = (key: string, value: string) => {
+    if (typeof window === 'undefined') return;
+    window.localStorage.setItem(key, value);
+  };
+
+  const persistRemove = (key: string) => {
+    if (typeof window === 'undefined') return;
+    window.localStorage.removeItem(key);
+  };
+
   let totalSynced = 0;
   let offset = startOffset;
   const limit = 50; // Smaller batches for Shopify API rate limits
-  
+
+  persistSet(IN_PROGRESS_KEY, 'true');
+  persistSet(OFFSET_KEY, String(offset));
+
   while (true) {
+    // Persist before each request so refreshes can resume safely
+    persistSet(OFFSET_KEY, String(offset));
+
     const response = await fetch(
       `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/sync-db-to-shopify?offset=${offset}&limit=${limit}`,
       {
@@ -127,22 +146,29 @@ export async function syncDbToShopify(
 
     if (!response.ok) {
       console.error(`Sync error at offset ${offset}:`, await response.text());
+      // Leave persisted offset + in-progress flag so we can resume later
       break;
     }
 
     const result = await response.json();
     const syncedThisBatch = result.synced || 0;
     totalSynced += syncedThisBatch;
-    
+
+    const nextOffset: number = result.nextOffset ?? offset + limit;
+
     console.log(`Offset ${offset}: synced ${syncedThisBatch} to Shopify (total: ${totalSynced})`);
-    
-    onProgress?.(offset, totalSynced);
-    
+
+    // Report the NEXT offset (where we will resume from)
+    onProgress?.(nextOffset, totalSynced);
+    persistSet(OFFSET_KEY, String(nextOffset));
+
     if (result.done) {
+      persistRemove(IN_PROGRESS_KEY);
+      persistRemove(OFFSET_KEY);
       break;
     }
-    
-    offset = result.nextOffset;
+
+    offset = nextOffset;
   }
 
   return { success: true, synced: totalSynced };
