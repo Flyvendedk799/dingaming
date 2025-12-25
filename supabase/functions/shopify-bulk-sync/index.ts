@@ -8,8 +8,8 @@ const corsHeaders = {
 const SHOPIFY_STORE_DOMAIN = 'dingaming-js6x0.myshopify.com'
 const SHOPIFY_API_VERSION = '2025-07'
 
-// Process 3000 products per bulk operation to stay within memory limits
-const CHUNK_SIZE = 3000
+// Process 10000 products per bulk operation - Shopify supports up to 20MB JSONL files
+const CHUNK_SIZE = 10000
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
