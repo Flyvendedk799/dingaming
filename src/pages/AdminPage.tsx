@@ -1,0 +1,445 @@
+import { useState, useEffect } from "react";
+import { supabase } from "@/integrations/supabase/client";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Badge } from "@/components/ui/badge";
+import { toast } from "sonner";
+import { RefreshCw, Settings, Database, ShoppingBag, Clock, TrendingUp, Package, AlertTriangle } from "lucide-react";
+import Header from "@/components/Header";
+
+interface StoreSetting {
+  key: string;
+  value: any;
+}
+
+interface SyncStats {
+  totalProducts: number;
+  availableProducts: number;
+  syncedToShopify: number;
+  notSyncedToShopify: number;
+}
+
+const AdminPage = () => {
+  const [settings, setSettings] = useState<Record<string, any>>({});
+  const [stats, setStats] = useState<SyncStats | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [syncing, setSyncing] = useState(false);
+  const [syncingShopify, setSyncingShopify] = useState(false);
+
+  useEffect(() => {
+    loadData();
+  }, []);
+
+  const loadData = async () => {
+    setLoading(true);
+    try {
+      // Load settings
+      const { data: settingsData } = await supabase
+        .from('store_settings')
+        .select('key, value');
+
+      const settingsMap: Record<string, any> = {};
+      settingsData?.forEach(s => {
+        settingsMap[s.key] = typeof s.value === 'string' ? s.value.replace(/"/g, '') : s.value;
+      });
+      setSettings(settingsMap);
+
+      // Load stats
+      const { count: totalProducts } = await supabase
+        .from('kinguin_products')
+        .select('*', { count: 'exact', head: true });
+
+      const { count: availableProducts } = await supabase
+        .from('kinguin_products')
+        .select('*', { count: 'exact', head: true })
+        .eq('is_available', true);
+
+      const { count: syncedToShopify } = await supabase
+        .from('kinguin_products')
+        .select('*', { count: 'exact', head: true })
+        .not('shopify_product_id', 'is', null);
+
+      const { count: notSyncedToShopify } = await supabase
+        .from('kinguin_products')
+        .select('*', { count: 'exact', head: true })
+        .is('shopify_product_id', null)
+        .eq('is_available', true);
+
+      setStats({
+        totalProducts: totalProducts || 0,
+        availableProducts: availableProducts || 0,
+        syncedToShopify: syncedToShopify || 0,
+        notSyncedToShopify: notSyncedToShopify || 0
+      });
+    } catch (error) {
+      console.error('Error loading data:', error);
+      toast.error('Kunne ikke hente data');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const saveSetting = async (key: string, value: any) => {
+    setSaving(true);
+    try {
+      const { error } = await supabase
+        .from('store_settings')
+        .update({ value: JSON.stringify(value) })
+        .eq('key', key);
+
+      if (error) throw error;
+
+      setSettings(prev => ({ ...prev, [key]: value }));
+      toast.success('Indstilling gemt');
+    } catch (error) {
+      console.error('Error saving setting:', error);
+      toast.error('Kunne ikke gemme indstilling');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const triggerKinguinSync = async () => {
+    setSyncing(true);
+    try {
+      const response = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/kinguin-auto-sync`,
+        {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+            'Content-Type': 'application/json'
+          }
+        }
+      );
+
+      const result = await response.json();
+      
+      if (result.success) {
+        toast.success(`Synk fuldført: ${result.newProducts} nye, ${result.updatedProducts} opdaterede`);
+        loadData();
+      } else {
+        toast.error(result.error || 'Synk fejlede');
+      }
+    } catch (error) {
+      console.error('Sync error:', error);
+      toast.error('Kunne ikke starte synk');
+    } finally {
+      setSyncing(false);
+    }
+  };
+
+  const triggerShopifySync = async () => {
+    setSyncingShopify(true);
+    try {
+      let offset = 0;
+      let totalSynced = 0;
+      const limit = 20;
+
+      while (true) {
+        const response = await fetch(
+          `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/sync-db-to-shopify?offset=${offset}&limit=${limit}`,
+          {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+              'Content-Type': 'application/json'
+            }
+          }
+        );
+
+        const result = await response.json();
+        totalSynced += result.synced || 0;
+        
+        toast.info(`Synkroniseret ${totalSynced} produkter til Shopify...`);
+
+        if (result.done) break;
+        offset = result.nextOffset;
+      }
+
+      toast.success(`Shopify synk fuldført: ${totalSynced} produkter`);
+      loadData();
+    } catch (error) {
+      console.error('Shopify sync error:', error);
+      toast.error('Kunne ikke synkronisere til Shopify');
+    } finally {
+      setSyncingShopify(false);
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-background">
+        <Header />
+        <div className="container mx-auto px-4 py-8">
+          <div className="flex items-center justify-center py-20">
+            <RefreshCw className="w-8 h-8 animate-spin text-primary" />
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen bg-background">
+      <Header />
+      <div className="container mx-auto px-4 py-8">
+        <div className="mb-8">
+          <h1 className="text-3xl font-bold text-foreground mb-2">Admin Dashboard</h1>
+          <p className="text-muted-foreground">Administrer produkter, priser og synkronisering</p>
+        </div>
+
+        {/* Stats Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+          <Card>
+            <CardContent className="p-6">
+              <div className="flex items-center gap-4">
+                <div className="p-3 bg-primary/10 rounded-lg">
+                  <Database className="w-6 h-6 text-primary" />
+                </div>
+                <div>
+                  <p className="text-sm text-muted-foreground">Produkter i DB</p>
+                  <p className="text-2xl font-bold">{stats?.totalProducts.toLocaleString()}</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardContent className="p-6">
+              <div className="flex items-center gap-4">
+                <div className="p-3 bg-green-500/10 rounded-lg">
+                  <Package className="w-6 h-6 text-green-500" />
+                </div>
+                <div>
+                  <p className="text-sm text-muted-foreground">Tilgængelige</p>
+                  <p className="text-2xl font-bold">{stats?.availableProducts.toLocaleString()}</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardContent className="p-6">
+              <div className="flex items-center gap-4">
+                <div className="p-3 bg-blue-500/10 rounded-lg">
+                  <ShoppingBag className="w-6 h-6 text-blue-500" />
+                </div>
+                <div>
+                  <p className="text-sm text-muted-foreground">På Shopify</p>
+                  <p className="text-2xl font-bold">{stats?.syncedToShopify.toLocaleString()}</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardContent className="p-6">
+              <div className="flex items-center gap-4">
+                <div className="p-3 bg-orange-500/10 rounded-lg">
+                  <AlertTriangle className="w-6 h-6 text-orange-500" />
+                </div>
+                <div>
+                  <p className="text-sm text-muted-foreground">Mangler på Shopify</p>
+                  <p className="text-2xl font-bold">{stats?.notSyncedToShopify.toLocaleString()}</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+
+        <Tabs defaultValue="sync" className="space-y-6">
+          <TabsList>
+            <TabsTrigger value="sync" className="gap-2">
+              <RefreshCw className="w-4 h-4" />
+              Synkronisering
+            </TabsTrigger>
+            <TabsTrigger value="pricing" className="gap-2">
+              <TrendingUp className="w-4 h-4" />
+              Priser & Margin
+            </TabsTrigger>
+            <TabsTrigger value="settings" className="gap-2">
+              <Settings className="w-4 h-4" />
+              Indstillinger
+            </TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="sync" className="space-y-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Database className="w-5 h-5" />
+                    Kinguin → Database
+                  </CardTitle>
+                  <CardDescription>
+                    Hent nye og opdaterede produkter fra Kinguin
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
+                    <div>
+                      <p className="text-sm font-medium">Sidste synk</p>
+                      <p className="text-xs text-muted-foreground">
+                        {settings.last_kinguin_sync_timestamp 
+                          ? new Date(settings.last_kinguin_sync_timestamp).toLocaleString('da-DK')
+                          : 'Aldrig'}
+                      </p>
+                    </div>
+                    <Badge variant="outline">
+                      <Clock className="w-3 h-3 mr-1" />
+                      Hver time
+                    </Badge>
+                  </div>
+                  <Button 
+                    onClick={triggerKinguinSync} 
+                    disabled={syncing}
+                    className="w-full"
+                  >
+                    <RefreshCw className={`w-4 h-4 mr-2 ${syncing ? 'animate-spin' : ''}`} />
+                    {syncing ? 'Synkroniserer...' : 'Synk nu'}
+                  </Button>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <ShoppingBag className="w-5 h-5" />
+                    Database → Shopify
+                  </CardTitle>
+                  <CardDescription>
+                    Push produkter til Shopify butik
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
+                    <div>
+                      <p className="text-sm font-medium">Status</p>
+                      <p className="text-xs text-muted-foreground">
+                        {stats?.notSyncedToShopify} produkter mangler
+                      </p>
+                    </div>
+                    <Badge variant={stats?.notSyncedToShopify === 0 ? 'default' : 'secondary'}>
+                      {stats?.notSyncedToShopify === 0 ? 'Synkroniseret' : 'Mangler synk'}
+                    </Badge>
+                  </div>
+                  <Button 
+                    onClick={triggerShopifySync} 
+                    disabled={syncingShopify || stats?.notSyncedToShopify === 0}
+                    className="w-full"
+                    variant="secondary"
+                  >
+                    <ShoppingBag className={`w-4 h-4 mr-2 ${syncingShopify ? 'animate-pulse' : ''}`} />
+                    {syncingShopify ? 'Synkroniserer...' : `Synk ${stats?.notSyncedToShopify} produkter`}
+                  </Button>
+                </CardContent>
+              </Card>
+            </div>
+          </TabsContent>
+
+          <TabsContent value="pricing" className="space-y-6">
+            <Card>
+              <CardHeader>
+                <CardTitle>Prisindstillinger</CardTitle>
+                <CardDescription>
+                  Konfigurer margin og valutakurs for alle produkter
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div className="space-y-2">
+                    <Label htmlFor="margin">Global margin (%)</Label>
+                    <div className="flex gap-2">
+                      <Input
+                        id="margin"
+                        type="number"
+                        value={settings.global_margin_percent || 30}
+                        onChange={(e) => setSettings(prev => ({ ...prev, global_margin_percent: e.target.value }))}
+                        className="flex-1"
+                      />
+                      <Button 
+                        onClick={() => saveSetting('global_margin_percent', Number(settings.global_margin_percent))}
+                        disabled={saving}
+                      >
+                        Gem
+                      </Button>
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      Tillægges alle produkter uden individuel margin
+                    </p>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="rate">EUR → DKK kurs</Label>
+                    <div className="flex gap-2">
+                      <Input
+                        id="rate"
+                        type="number"
+                        step="0.01"
+                        value={settings.eur_to_dkk_rate || 7.46}
+                        onChange={(e) => setSettings(prev => ({ ...prev, eur_to_dkk_rate: e.target.value }))}
+                        className="flex-1"
+                      />
+                      <Button 
+                        onClick={() => saveSetting('eur_to_dkk_rate', Number(settings.eur_to_dkk_rate))}
+                        disabled={saving}
+                      >
+                        Gem
+                      </Button>
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      Brugt til at konvertere EUR priser til DKK
+                    </p>
+                  </div>
+                </div>
+
+                <div className="p-4 bg-muted/50 rounded-lg">
+                  <h4 className="font-medium mb-2">Priseksempel</h4>
+                  <p className="text-sm text-muted-foreground">
+                    Produkt til €10 → €10 × {1 + (Number(settings.global_margin_percent) || 30) / 100} × {settings.eur_to_dkk_rate || 7.46} = 
+                    <span className="font-bold text-foreground ml-1">
+                      {(10 * (1 + (Number(settings.global_margin_percent) || 30) / 100) * (Number(settings.eur_to_dkk_rate) || 7.46)).toFixed(2)} kr.
+                    </span>
+                  </p>
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="settings" className="space-y-6">
+            <Card>
+              <CardHeader>
+                <CardTitle>Automatisk synkronisering</CardTitle>
+                <CardDescription>
+                  Konfigurer automatisk synk af produkter
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <Label>Auto-synk aktiveret</Label>
+                    <p className="text-sm text-muted-foreground">
+                      Synkroniser automatisk hver time
+                    </p>
+                  </div>
+                  <Switch
+                    checked={settings.auto_sync_enabled === true || settings.auto_sync_enabled === 'true'}
+                    onCheckedChange={(checked) => saveSetting('auto_sync_enabled', checked)}
+                  />
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+        </Tabs>
+      </div>
+    </div>
+  );
+};
+
+export default AdminPage;
