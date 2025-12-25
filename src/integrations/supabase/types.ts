@@ -14,7 +14,129 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      kinguin_orders: {
+        Row: {
+          created_at: string
+          id: string
+          keys: Json | null
+          order_external_id: string | null
+          order_id: string
+          products: Json
+          status: string
+          total_price: number
+          updated_at: string
+          user_email: string | null
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          keys?: Json | null
+          order_external_id?: string | null
+          order_id: string
+          products: Json
+          status?: string
+          total_price: number
+          updated_at?: string
+          user_email?: string | null
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          keys?: Json | null
+          order_external_id?: string | null
+          order_id?: string
+          products?: Json
+          status?: string
+          total_price?: number
+          updated_at?: string
+          user_email?: string | null
+        }
+        Relationships: []
+      }
+      kinguin_products: {
+        Row: {
+          cover_image: string | null
+          created_at: string
+          description: string | null
+          genres: string[] | null
+          id: string
+          is_available: boolean | null
+          kinguin_id: number
+          name: string
+          original_price: number
+          platform: string | null
+          product_id: string | null
+          qty: number | null
+          region_id: number | null
+          region_name: string | null
+          release_date: string | null
+          screenshots: string[] | null
+          sell_price: number
+          updated_at: string
+        }
+        Insert: {
+          cover_image?: string | null
+          created_at?: string
+          description?: string | null
+          genres?: string[] | null
+          id?: string
+          is_available?: boolean | null
+          kinguin_id: number
+          name: string
+          original_price: number
+          platform?: string | null
+          product_id?: string | null
+          qty?: number | null
+          region_id?: number | null
+          region_name?: string | null
+          release_date?: string | null
+          screenshots?: string[] | null
+          sell_price: number
+          updated_at?: string
+        }
+        Update: {
+          cover_image?: string | null
+          created_at?: string
+          description?: string | null
+          genres?: string[] | null
+          id?: string
+          is_available?: boolean | null
+          kinguin_id?: number
+          name?: string
+          original_price?: number
+          platform?: string | null
+          product_id?: string | null
+          qty?: number | null
+          region_id?: number | null
+          region_name?: string | null
+          release_date?: string | null
+          screenshots?: string[] | null
+          sell_price?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      kinguin_webhook_logs: {
+        Row: {
+          event_type: string
+          id: string
+          payload: Json
+          processed_at: string
+        }
+        Insert: {
+          event_type: string
+          id?: string
+          payload: Json
+          processed_at?: string
+        }
+        Update: {
+          event_type?: string
+          id?: string
+          payload?: Json
+          processed_at?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never

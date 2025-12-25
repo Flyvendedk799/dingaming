@@ -1,9 +1,9 @@
 import { useEffect, useState } from "react";
 import { useParams, Link } from "react-router-dom";
-import { fetchProductByHandle, CartItem, ShopifyProduct } from "@/lib/shopify";
-import { useCartStore } from "@/stores/cartStore";
+import { fetchKinguinProductById, KinguinProduct, formatPrice } from "@/lib/kinguin";
+import { useCartStore, CartItem } from "@/stores/cartStore";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, ShoppingCart, CheckCircle2, Loader2, Shield, Zap } from "lucide-react";
+import { ArrowLeft, ShoppingCart, CheckCircle2, Loader2, Shield, Zap, Globe } from "lucide-react";
 import { toast } from "sonner";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
@@ -11,9 +11,8 @@ import { CartDrawer } from "@/components/CartDrawer";
 
 const ProductPage = () => {
   const { handle } = useParams<{ handle: string }>();
-  const [product, setProduct] = useState<any>(null);
+  const [product, setProduct] = useState<KinguinProduct | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [selectedVariantIndex, setSelectedVariantIndex] = useState(0);
   const [isAdding, setIsAdding] = useState(false);
   const addItem = useCartStore(state => state.addItem);
 
@@ -21,8 +20,13 @@ const ProductPage = () => {
     const loadProduct = async () => {
       if (!handle) return;
       setIsLoading(true);
-      const data = await fetchProductByHandle(handle);
-      setProduct(data);
+      
+      // Handle is the kinguin_id
+      const kinguinId = parseInt(handle);
+      if (!isNaN(kinguinId)) {
+        const data = await fetchKinguinProductById(kinguinId);
+        setProduct(data);
+      }
       setIsLoading(false);
     };
     loadProduct();
@@ -51,37 +55,32 @@ const ProductPage = () => {
     );
   }
 
-  const selectedVariant = product.variants.edges[selectedVariantIndex]?.node;
-  const images = product.images.edges;
-  const price = parseFloat(selectedVariant?.price.amount || "0");
-  const currency = selectedVariant?.price.currencyCode || "DKK";
-
   const handleAddToCart = () => {
-    if (!selectedVariant) return;
-
-    const shopifyProduct: ShopifyProduct = {
-      node: product
-    };
-
     const cartItem: CartItem = {
-      product: shopifyProduct,
-      variantId: selectedVariant.id,
-      variantTitle: selectedVariant.title,
-      price: selectedVariant.price,
+      variantId: product.kinguin_id.toString(),
+      title: product.name,
       quantity: 1,
-      selectedOptions: selectedVariant.selectedOptions || []
+      price: {
+        amount: product.sell_price.toString(),
+        currencyCode: 'EUR'
+      },
+      image: product.cover_image || undefined,
+      kinguinId: product.kinguin_id,
+      originalPrice: product.original_price
     };
     
     addItem(cartItem);
     setIsAdding(true);
     
     toast.success("Tilføjet til kurv", {
-      description: product.title,
+      description: product.name,
       position: "top-center"
     });
     
     setTimeout(() => setIsAdding(false), 1500);
   };
+
+  const regionLabel = product.region_name || (product.region_id === 3 ? 'Worldwide' : 'Europe');
 
   return (
     <div className="min-h-screen bg-background">
@@ -106,10 +105,10 @@ const ProductPage = () => {
           {/* Images */}
           <div className="space-y-4">
             <div className="aspect-square bg-muted rounded-xl overflow-hidden">
-              {images[0]?.node ? (
+              {product.cover_image ? (
                 <img
-                  src={images[0].node.url}
-                  alt={images[0].node.altText || product.title}
+                  src={product.cover_image}
+                  alt={product.name}
                   className="w-full h-full object-cover"
                 />
               ) : (
@@ -119,13 +118,13 @@ const ProductPage = () => {
               )}
             </div>
             
-            {images.length > 1 && (
+            {product.screenshots && product.screenshots.length > 0 && (
               <div className="grid grid-cols-4 gap-2">
-                {images.slice(0, 4).map((img: any, i: number) => (
+                {product.screenshots.slice(0, 4).map((screenshot, i) => (
                   <div key={i} className="aspect-square bg-muted rounded-lg overflow-hidden">
                     <img
-                      src={img.node.url}
-                      alt={img.node.altText || `${product.title} ${i + 1}`}
+                      src={screenshot}
+                      alt={`${product.name} screenshot ${i + 1}`}
                       className="w-full h-full object-cover"
                     />
                   </div>
@@ -136,50 +135,50 @@ const ProductPage = () => {
 
           {/* Product Info */}
           <div>
+            <div className="flex items-center gap-2 mb-4">
+              {product.platform && (
+                <span className="px-3 py-1 bg-muted rounded-md text-sm font-medium">
+                  {product.platform}
+                </span>
+              )}
+              <span className="px-3 py-1 bg-primary/10 text-primary rounded-md text-sm font-medium flex items-center gap-1">
+                <Globe className="w-3 h-3" />
+                {regionLabel}
+              </span>
+            </div>
+
             <h1 className="font-heading text-3xl lg:text-4xl text-foreground mb-4">
-              {product.title}
+              {product.name}
             </h1>
 
             <div className="flex items-baseline gap-3 mb-6">
               <span className="text-3xl font-bold text-primary">
-                {price.toFixed(2)} {currency}
+                {formatPrice(product.sell_price)}
               </span>
+              {product.original_price !== product.sell_price && (
+                <span className="text-lg text-muted-foreground line-through">
+                  {formatPrice(product.original_price * 1.3)}
+                </span>
+              )}
             </div>
 
-            {/* Variants */}
-            {product.options && product.options.length > 0 && product.options[0].name !== 'Title' && (
-              <div className="mb-6">
-                {product.options.map((option: any) => (
-                  <div key={option.name} className="mb-4">
-                    <label className="block text-sm font-medium text-foreground mb-2">
-                      {option.name}
-                    </label>
-                    <div className="flex flex-wrap gap-2">
-                      {option.values.map((value: string, i: number) => (
-                        <button
-                          key={value}
-                          onClick={() => setSelectedVariantIndex(i)}
-                          className={`px-4 py-2 rounded-lg border text-sm font-medium transition-colors ${
-                            selectedVariantIndex === i
-                              ? 'border-primary bg-primary/10 text-primary'
-                              : 'border-border hover:border-primary/50'
-                          }`}
-                        >
-                          {value}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                ))}
-              </div>
+            {/* Stock */}
+            {product.qty > 0 && (
+              <p className="text-sm text-muted-foreground mb-6">
+                {product.qty <= 5 ? (
+                  <span className="text-destructive">Kun {product.qty} på lager</span>
+                ) : (
+                  <span className="text-green-500">På lager</span>
+                )}
+              </p>
             )}
 
             {/* Add to Cart */}
             <Button
-              size="xl"
-              className="w-full mb-6 bg-primary text-primary-foreground hover:bg-primary/90"
+              size="lg"
+              className="w-full mb-6 bg-primary text-primary-foreground hover:bg-primary/90 h-14 text-lg"
               onClick={handleAddToCart}
-              disabled={isAdding || !selectedVariant?.availableForSale}
+              disabled={isAdding || !product.is_available}
             >
               {isAdding ? (
                 <>
@@ -189,7 +188,7 @@ const ProductPage = () => {
               ) : (
                 <>
                   <ShoppingCart className="w-5 h-5 mr-2" />
-                  {selectedVariant?.availableForSale ? 'Tilføj til kurv' : 'Udsolgt'}
+                  {product.is_available ? 'Tilføj til kurv' : 'Udsolgt'}
                 </>
               )}
             </Button>
@@ -217,6 +216,20 @@ const ProductPage = () => {
                 <p className="text-muted-foreground leading-relaxed">
                   {product.description}
                 </p>
+              </div>
+            )}
+
+            {/* Genres */}
+            {product.genres && product.genres.length > 0 && (
+              <div className="mt-6">
+                <h3 className="text-sm font-medium text-foreground mb-2">Genres</h3>
+                <div className="flex flex-wrap gap-2">
+                  {product.genres.map((genre, i) => (
+                    <span key={i} className="px-3 py-1 bg-muted rounded-full text-sm">
+                      {genre}
+                    </span>
+                  ))}
+                </div>
               </div>
             )}
           </div>

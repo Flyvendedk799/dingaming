@@ -2,8 +2,8 @@ import { Button } from "@/components/ui/button";
 import { ShoppingCart, Star, CheckCircle2 } from "lucide-react";
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { ShopifyProduct, CartItem } from "@/lib/shopify";
-import { useCartStore } from "@/stores/cartStore";
+import { ShopifyProduct } from "@/lib/shopify";
+import { useCartStore, CartItem } from "@/stores/cartStore";
 import { toast } from "sonner";
 import { Link } from "react-router-dom";
 
@@ -30,12 +30,11 @@ const ShopifyProductCard = ({ product, index = 0 }: ShopifyProductCardProps) => 
     if (!firstVariant) return;
 
     const cartItem: CartItem = {
-      product,
       variantId: firstVariant.id,
-      variantTitle: firstVariant.title,
+      title: node.title,
       price: firstVariant.price,
       quantity: 1,
-      selectedOptions: firstVariant.selectedOptions || []
+      image: firstImage?.url
     };
     
     addItem(cartItem);

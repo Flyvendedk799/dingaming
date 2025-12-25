@@ -1,11 +1,22 @@
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
-import { CartItem, createStorefrontCheckout } from '@/lib/shopify';
+
+export interface CartItem {
+  variantId: string;
+  title: string;
+  quantity: number;
+  price: {
+    amount: string;
+    currencyCode: string;
+  };
+  image?: string;
+  // Kinguin specific fields
+  kinguinId?: number;
+  originalPrice?: number;
+}
 
 interface CartStore {
   items: CartItem[];
-  cartId: string | null;
-  checkoutUrl: string | null;
   isLoading: boolean;
   
   // Actions
@@ -13,20 +24,16 @@ interface CartStore {
   updateQuantity: (variantId: string, quantity: number) => void;
   removeItem: (variantId: string) => void;
   clearCart: () => void;
-  setCartId: (cartId: string) => void;
-  setCheckoutUrl: (url: string) => void;
   setLoading: (loading: boolean) => void;
-  createCheckout: () => Promise<string | null>;
   getTotalItems: () => number;
   getTotalPrice: () => number;
+  getKinguinItems: () => { kinguinId: number; price: number; qty: number; name: string; sellPrice: number; coverImage?: string }[];
 }
 
 export const useCartStore = create<CartStore>()(
   persist(
     (set, get) => ({
       items: [],
-      cartId: null,
-      checkoutUrl: null,
       isLoading: false,
 
       addItem: (item) => {
@@ -66,29 +73,10 @@ export const useCartStore = create<CartStore>()(
       },
 
       clearCart: () => {
-        set({ items: [], cartId: null, checkoutUrl: null });
+        set({ items: [] });
       },
 
-      setCartId: (cartId) => set({ cartId }),
-      setCheckoutUrl: (checkoutUrl) => set({ checkoutUrl }),
       setLoading: (isLoading) => set({ isLoading }),
-
-      createCheckout: async () => {
-        const { items, setLoading, setCheckoutUrl } = get();
-        if (items.length === 0) return null;
-
-        setLoading(true);
-        try {
-          const checkoutUrl = await createStorefrontCheckout(items);
-          setCheckoutUrl(checkoutUrl);
-          return checkoutUrl;
-        } catch (error) {
-          console.error('Failed to create checkout:', error);
-          return null;
-        } finally {
-          setLoading(false);
-        }
-      },
 
       getTotalItems: () => {
         return get().items.reduce((sum, item) => sum + item.quantity, 0);
@@ -96,6 +84,19 @@ export const useCartStore = create<CartStore>()(
 
       getTotalPrice: () => {
         return get().items.reduce((sum, item) => sum + (parseFloat(item.price.amount) * item.quantity), 0);
+      },
+
+      getKinguinItems: () => {
+        return get().items
+          .filter(item => item.kinguinId)
+          .map(item => ({
+            kinguinId: item.kinguinId!,
+            price: item.originalPrice || parseFloat(item.price.amount),
+            sellPrice: parseFloat(item.price.amount),
+            qty: item.quantity,
+            name: item.title,
+            coverImage: item.image
+          }));
       }
     }),
     {

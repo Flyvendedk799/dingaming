@@ -9,33 +9,38 @@ import {
   SheetTitle,
   SheetTrigger,
 } from "@/components/ui/sheet";
-import { ShoppingCart, Minus, Plus, Trash2, ExternalLink, Loader2 } from "lucide-react";
+import { ShoppingCart, Minus, Plus, Trash2, CreditCard, Loader2 } from "lucide-react";
 import { useCartStore } from "@/stores/cartStore";
+import { formatPrice } from "@/lib/kinguin";
+import { toast } from "sonner";
 
 export const CartDrawer = () => {
   const [isOpen, setIsOpen] = useState(false);
+  const [isCheckingOut, setIsCheckingOut] = useState(false);
   const { 
     items, 
     isLoading, 
     updateQuantity, 
-    removeItem, 
-    createCheckout 
+    removeItem,
+    clearCart,
+    getTotalPrice,
+    getTotalItems
   } = useCartStore();
   
-  const totalItems = items.reduce((sum, item) => sum + item.quantity, 0);
-  const totalPrice = items.reduce((sum, item) => sum + (parseFloat(item.price.amount) * item.quantity), 0);
-  const currency = items[0]?.price.currencyCode || 'DKK';
+  const totalItems = getTotalItems();
+  const totalPrice = getTotalPrice();
+  const currency = items[0]?.price.currencyCode || 'EUR';
 
   const handleCheckout = async () => {
-    try {
-      const checkoutUrl = await createCheckout();
-      if (checkoutUrl) {
-        window.open(checkoutUrl, '_blank');
-        setIsOpen(false);
-      }
-    } catch (error) {
-      console.error('Checkout failed:', error);
-    }
+    setIsCheckingOut(true);
+    
+    // For now, show a message that checkout will be implemented
+    // When you have Stripe or another payment processor, integrate here
+    toast.info("Checkout kommer snart!", {
+      description: "Vi arbejder på at integrere betalingsløsning"
+    });
+    
+    setIsCheckingOut(false);
   };
 
   return (
@@ -75,22 +80,19 @@ export const CartDrawer = () => {
                   {items.map((item) => (
                     <div key={item.variantId} className="flex gap-4 p-3 bg-muted/30 rounded-lg">
                       <div className="w-16 h-16 bg-secondary/20 rounded-md overflow-hidden flex-shrink-0">
-                        {item.product.node.images?.edges?.[0]?.node && (
+                        {item.image && (
                           <img
-                            src={item.product.node.images.edges[0].node.url}
-                            alt={item.product.node.title}
+                            src={item.image}
+                            alt={item.title}
                             className="w-full h-full object-cover"
                           />
                         )}
                       </div>
                       
                       <div className="flex-1 min-w-0">
-                        <h4 className="font-medium truncate text-sm">{item.product.node.title}</h4>
-                        {item.variantTitle !== 'Default Title' && (
-                          <p className="text-xs text-muted-foreground">{item.variantTitle}</p>
-                        )}
+                        <h4 className="font-medium truncate text-sm">{item.title}</h4>
                         <p className="font-semibold text-primary mt-1">
-                          {parseFloat(item.price.amount).toFixed(2)} {item.price.currencyCode}
+                          {formatPrice(parseFloat(item.price.amount))}
                         </p>
                       </div>
                       
@@ -133,7 +135,7 @@ export const CartDrawer = () => {
                 <div className="flex justify-between items-center">
                   <span className="text-lg font-semibold">Total</span>
                   <span className="text-xl font-bold text-primary">
-                    {totalPrice.toFixed(2)} {currency}
+                    {formatPrice(totalPrice)}
                   </span>
                 </div>
                 
@@ -141,16 +143,16 @@ export const CartDrawer = () => {
                   onClick={handleCheckout}
                   className="w-full bg-primary text-primary-foreground hover:bg-primary/90" 
                   size="lg"
-                  disabled={items.length === 0 || isLoading}
+                  disabled={items.length === 0 || isCheckingOut}
                 >
-                  {isLoading ? (
+                  {isCheckingOut ? (
                     <>
                       <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                      Opretter checkout...
+                      Behandler...
                     </>
                   ) : (
                     <>
-                      <ExternalLink className="w-4 h-4 mr-2" />
+                      <CreditCard className="w-4 h-4 mr-2" />
                       Gå til betaling
                     </>
                   )}
