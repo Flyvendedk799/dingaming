@@ -1,7 +1,25 @@
+import { Link } from "react-router-dom";
 import { Facebook, Instagram, Twitter, Youtube, Shield, Zap, CreditCard, Mail, ArrowRight, CheckCircle2 } from "lucide-react";
 import { Button } from "./ui/button";
 
 const Footer = () => {
+  const gameLinks = [
+    { label: "Alle Spil", href: "/#spil" },
+    { label: "Steam Keys", href: "/categories" },
+    { label: "PlayStation", href: "/categories" },
+    { label: "Xbox", href: "/categories" },
+    { label: "Nintendo Switch", href: "/categories" },
+    { label: "PC Games", href: "/categories" },
+  ];
+
+  const helpLinks = [
+    { label: "Kontakt Os", href: "/support" },
+    { label: "FAQ", href: "/support" },
+    { label: "Aktiveringsguide", href: "/support" },
+    { label: "Refundering", href: "/support" },
+    { label: "Handelsbetingelser", href: "/support" },
+    { label: "Privatlivspolitik", href: "/support" },
+  ];
   return (
     <footer className="bg-card border-t border-border">
       {/* Newsletter */}
@@ -69,9 +87,9 @@ const Footer = () => {
           <div>
             <h4 className="font-heading font-semibold text-foreground mb-5">Spil</h4>
             <ul className="space-y-3 text-sm">
-              {["Alle Spil", "Steam Keys", "PlayStation", "Xbox", "Nintendo Switch", "PC Games"].map((link) => (
-                <li key={link}>
-                  <a href="#" className="text-muted-foreground hover:text-primary transition-colors">{link}</a>
+              {gameLinks.map((link) => (
+                <li key={link.label}>
+                  <Link to={link.href} className="text-muted-foreground hover:text-primary transition-colors">{link.label}</Link>
                 </li>
               ))}
             </ul>
@@ -80,9 +98,9 @@ const Footer = () => {
           <div>
             <h4 className="font-heading font-semibold text-foreground mb-5">Hjælp</h4>
             <ul className="space-y-3 text-sm">
-              {["Kontakt Os", "FAQ", "Aktiveringsguide", "Refundering", "Handelsbetingelser", "Privatlivspolitik"].map((link) => (
-                <li key={link}>
-                  <a href="#" className="text-muted-foreground hover:text-primary transition-colors">{link}</a>
+              {helpLinks.map((link) => (
+                <li key={link.label}>
+                  <Link to={link.href} className="text-muted-foreground hover:text-primary transition-colors">{link.label}</Link>
                 </li>
               ))}
             </ul>
