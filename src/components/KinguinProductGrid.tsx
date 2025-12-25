@@ -45,14 +45,26 @@ const KinguinProductGrid = () => {
     }
   };
 
-  const handleSyncToShopify = async (startOffset = 0) => {
+  const handleSyncToShopify = async (startOffset?: number) => {
+    const OFFSET_KEY = 'kinguin_shopify_sync_offset';
+    const IN_PROGRESS_KEY = 'kinguin_shopify_sync_in_progress';
+
+    const savedOffset = typeof window !== 'undefined'
+      ? parseInt(window.localStorage.getItem(OFFSET_KEY) || '0')
+      : 0;
+
+    const effectiveOffset = startOffset ?? savedOffset;
+
     setIsSyncingToShopify(true);
-    setShopifyProgress({ offset: startOffset, total: 0 });
+    setShopifyProgress({ offset: effectiveOffset, total: 0 });
+
     try {
-      toast.info(`Synkroniserer DB produkter til Shopify fra offset ${startOffset}...`);
-      const result = await syncDbToShopify(startOffset, (offset, total) => {
-        setShopifyProgress({ offset, total });
+      toast.info(`Synkroniserer DB produkter til Shopify fra offset ${effectiveOffset}...`);
+
+      const result = await syncDbToShopify(effectiveOffset, (nextOffset, total) => {
+        setShopifyProgress({ offset: nextOffset, total });
       });
+
       toast.success(`Synkroniserede ${result.synced} produkter til Shopify`);
     } catch (error) {
       console.error('Shopify sync error:', error);
@@ -60,11 +72,33 @@ const KinguinProductGrid = () => {
     } finally {
       setIsSyncingToShopify(false);
       setShopifyProgress(null);
+
+      // If the sync is still marked as in-progress, keep the saved offset for resume.
+      const stillInProgress = typeof window !== 'undefined'
+        ? window.localStorage.getItem(IN_PROGRESS_KEY) === 'true'
+        : false;
+
+      if (!stillInProgress && typeof window !== 'undefined') {
+        window.localStorage.removeItem(OFFSET_KEY);
+      }
     }
   };
 
   useEffect(() => {
     loadProducts();
+
+    // Auto-resume Shopify sync if a previous run was interrupted.
+    if (typeof window !== 'undefined') {
+      const inProgress = window.localStorage.getItem('kinguin_shopify_sync_in_progress') === 'true';
+      const resumeOffset = parseInt(window.localStorage.getItem('kinguin_shopify_sync_offset') || '0');
+
+      if (inProgress && !isSyncingToShopify) {
+        toast.info(`Fandt en afbrudt Shopify-synk. Fortsætter fra offset ${resumeOffset}...`);
+        setTimeout(() => {
+          handleSyncToShopify(resumeOffset);
+        }, 300);
+      }
+    }
   }, []);
 
   if (isLoading) {
