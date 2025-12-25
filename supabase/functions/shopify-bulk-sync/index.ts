@@ -146,14 +146,14 @@ Deno.serve(async (req) => {
       })
     }
 
-    // Fetch ONE chunk of products (3000 max to stay within memory)
+    // Fetch ONE chunk of products - use range() to bypass 1000 row limit
     const { data: products, error: fetchError } = await supabase
       .from('kinguin_products')
       .select('*')
       .eq('is_available', true)
       .is('shopify_product_id', null)
       .order('kinguin_id', { ascending: true })
-      .limit(CHUNK_SIZE)
+      .range(0, CHUNK_SIZE - 1) // range is inclusive, so 0-9999 = 10000 rows
 
     if (fetchError) throw fetchError
 
