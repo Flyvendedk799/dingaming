@@ -660,13 +660,13 @@ async function startReconcileBulkQuery(accessToken: string): Promise<any> {
   // Always start a fresh bulk query so we pick up newly created products
   console.log('Starting bulk query for reconciliation...')
 
-  // Query all products - we'll filter by handle prefix in code
+  // Fetch only our generated products (handle prefix). Shopify Bulk Ops will paginate beyond `first` automatically.
   const bulkQueryMutation = `
     mutation {
       bulkOperationRunQuery(
         query: """
         {
-          products {
+          products(first: 250, query: \"handle:kinguin-\") {
             edges {
               node {
                 id
@@ -693,26 +693,79 @@ async function startReconcileBulkQuery(accessToken: string): Promise<any> {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      'X-Shopify-Access-Token': accessToken
+      'X-Shopify-Access-Token': accessToken,
     },
-    body: JSON.stringify({ query: bulkQueryMutation })
+    body: JSON.stringify({ query: bulkQueryMutation }),
   })
 
-  const startData = await startResponse.json()
-
-  if (startData.errors || startData.data?.bulkOperationRunQuery?.userErrors?.length > 0) {
-    const error = startData.errors?.[0]?.message || startData.data?.bulkOperationRunQuery?.userErrors?.[0]?.message
-    return { success: false, error: `Failed to start bulk query: ${error}` }
+  const startText = await startResponse.text()
+  let startData: any = null
+  try {
+    startData = JSON.parse(startText)
+  } catch (_err) {
+    console.error('Failed to parse Shopify response as JSON', {
+      status: startResponse.status,
+      statusText: startResponse.statusText,
+      bodyPreview: startText?.slice?.(0, 500),
+    })
+    return { success: false, error: `Failed to start bulk query: Shopify returned HTTP ${startResponse.status}` }
   }
 
-  const operationId = startData.data?.bulkOperationRunQuery?.bulkOperation?.id
+  if (!startResponse.ok) {
+    console.error('Shopify bulk start HTTP error', {
+      status: startResponse.status,
+      statusText: startResponse.statusText,
+      body: startData,
+    })
+
+    const topErrors = startData?.errors
+    const topErrorMsg = Array.isArray(topErrors)
+      ? topErrors.map((e: any) => e?.message ?? String(e)).join('; ')
+      : typeof topErrors === 'string'
+        ? topErrors
+        : topErrors
+          ? JSON.stringify(topErrors)
+          : undefined
+
+    return {
+      success: false,
+      error: `Failed to start bulk query: ${topErrorMsg ?? `HTTP ${startResponse.status}`}`,
+    }
+  }
+
+  const topErrors = startData?.errors
+  const userErrors = startData?.data?.bulkOperationRunQuery?.userErrors
+
+  const topErrorMsg = Array.isArray(topErrors)
+    ? topErrors.map((e: any) => e?.message ?? String(e)).join('; ')
+    : typeof topErrors === 'string'
+      ? topErrors
+      : topErrors
+        ? JSON.stringify(topErrors)
+        : undefined
+
+  const userErrorMsg = Array.isArray(userErrors) && userErrors.length > 0
+    ? userErrors.map((e: any) => e?.message ?? JSON.stringify(e)).join('; ')
+    : undefined
+
+  if (topErrorMsg || userErrorMsg) {
+    console.error('Shopify bulk start GraphQL error', { topErrors, userErrors })
+    return { success: false, error: `Failed to start bulk query: ${topErrorMsg ?? userErrorMsg}` }
+  }
+
+  const operationId = startData?.data?.bulkOperationRunQuery?.bulkOperation?.id
+  if (!operationId) {
+    console.error('Shopify bulk start missing operationId', startData)
+    return { success: false, error: 'Failed to start bulk query: missing operationId from Shopify response' }
+  }
+
   console.log('Bulk query started:', operationId)
 
   return {
     success: true,
     status: 'CREATED',
     operationId,
-    message: 'Bulk query started. Poll status to monitor progress.'
+    message: 'Bulk query started. Poll status to monitor progress.',
   }
 }
 
