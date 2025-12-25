@@ -665,7 +665,7 @@ async function startReconcileBulkQuery(accessToken: string): Promise<any> {
       bulkOperationRunQuery(
         query: """
         {
-          products(query: "handle:kinguin-") {
+          products(query: "handle:kinguin-*") {
             edges {
               node {
                 id
