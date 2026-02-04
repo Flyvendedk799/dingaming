@@ -11,7 +11,7 @@ import IntroAnimation from "@/components/IntroAnimation";
 import MobileNav from "@/components/MobileNav";
 import MobileHome from "@/components/MobileHome";
 import MobileGameCard from "@/components/MobileGameCard";
-import { CartDrawer } from "@/components/CartDrawer";
+
 import { AnimatePresence } from "framer-motion";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useCartStore } from "@/stores/cartStore";
@@ -75,11 +75,6 @@ const Index = () => {
           /* Desktop Layout */
           <>
             <Header />
-            
-            {/* Fixed Cart Drawer */}
-            <div className="fixed top-24 right-4 z-50">
-              <CartDrawer />
-            </div>
             
             <main>
               <Hero />
