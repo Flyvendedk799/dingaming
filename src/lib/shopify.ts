@@ -182,10 +182,10 @@ const STOREFRONT_PRODUCT_BY_HANDLE_QUERY = `
   }
 `;
 
-// Query to get variant ID by product handle (for checkout)
-const STOREFRONT_VARIANT_BY_HANDLE_QUERY = `
-  query GetVariantByHandle($handle: String!) {
-    product(handle: $handle) {
+// Query to get variant ID by product ID (for checkout)
+const STOREFRONT_VARIANT_BY_PRODUCT_ID_QUERY = `
+  query GetVariantByProductId($id: ID!) {
+    product(id: $id) {
       variants(first: 1) {
         edges {
           node {
@@ -264,14 +264,32 @@ export async function fetchProductByHandle(handle: string) {
   }
 }
 
-// Fetch the Shopify variant ID for a product by its handle (for checkout)
+// Fetch the Shopify variant ID for a product using its Shopify product ID from the database
 export async function getShopifyVariantId(kinguinId: number): Promise<string | null> {
   try {
-    const handle = `kinguin-${kinguinId}`;
-    const data = await storefrontApiRequest(STOREFRONT_VARIANT_BY_HANDLE_QUERY, { handle });
+    // First, fetch the shopify_product_id from our database
+    const { supabase } = await import('@/integrations/supabase/client');
+    
+    const { data: product, error } = await supabase
+      .from('kinguin_products')
+      .select('shopify_product_id')
+      .eq('kinguin_id', kinguinId)
+      .single();
+    
+    if (error || !product?.shopify_product_id) {
+      console.log('Product not synced to Shopify yet:', kinguinId);
+      return null;
+    }
+    
+    // Now use the Shopify product ID to get the variant
+    const data = await storefrontApiRequest(STOREFRONT_VARIANT_BY_PRODUCT_ID_QUERY, { 
+      id: product.shopify_product_id 
+    });
+    
     if (!data?.data?.product?.variants?.edges?.[0]?.node?.id) {
       return null;
     }
+    
     return data.data.product.variants.edges[0].node.id;
   } catch (error) {
     console.error('Error fetching Shopify variant ID:', error);
