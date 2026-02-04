@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useParams, Link } from "react-router-dom";
-import { fetchKinguinProductById, KinguinProduct, formatPrice } from "@/lib/kinguin";
+import { fetchKinguinProductById, KinguinProduct } from "@/lib/kinguin";
+import { usePricing } from "@/lib/pricing";
 import { useCartStore } from "@/stores/cartStore";
 import { Button } from "@/components/ui/button";
 import { ArrowLeft, ShoppingCart, CheckCircle2, Loader2, Shield, Zap, Globe } from "lucide-react";
@@ -8,13 +9,13 @@ import { toast } from "sonner";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 
-
 const ProductPage = () => {
   const { handle } = useParams<{ handle: string }>();
   const [product, setProduct] = useState<KinguinProduct | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isAdding, setIsAdding] = useState(false);
   const addItem = useCartStore(state => state.addItem);
+  const { getPrice, formatDKK } = usePricing();
 
   useEffect(() => {
     const loadProduct = async () => {
@@ -55,14 +56,17 @@ const ProductPage = () => {
     );
   }
 
+  const priceDKK = getPrice(product.sell_price, product.margin_percent);
+  const originalPriceDKK = getPrice(product.original_price, product.margin_percent);
+
   const handleAddToCart = () => {
     addItem({
       variantId: `kinguin-${product.kinguin_id}`,
       title: product.name,
       quantity: 1,
       price: {
-        amount: product.sell_price.toString(),
-        currencyCode: 'EUR'
+        amount: priceDKK.toString(),
+        currencyCode: 'DKK'
       },
       image: product.cover_image || undefined,
       sku: `KINGUIN-${product.kinguin_id}`
@@ -147,11 +151,11 @@ const ProductPage = () => {
 
             <div className="flex items-baseline gap-3 mb-6">
               <span className="text-3xl font-bold text-primary">
-                {formatPrice(product.sell_price)}
+                {formatDKK(priceDKK)}
               </span>
               {product.original_price !== product.sell_price && (
                 <span className="text-lg text-muted-foreground line-through">
-                  {formatPrice(product.original_price * 1.3)}
+                  {formatDKK(originalPriceDKK * 1.1)}
                 </span>
               )}
             </div>
