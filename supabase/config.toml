@@ -44,6 +44,9 @@ verify_jwt = false
 [functions.kinguin-sync-products]
 verify_jwt = false
 
+[functions.shopify-bulk-sync]
+verify_jwt = false
+
 [functions.kinguin-place-order]
 verify_jwt = true
 
