@@ -19,12 +19,43 @@ const COLORS = {
   orange: '#FF6B35',
 };
 
-// Genre color themes (abstract - just colors/energy, no literal game UI)
-const GENRE_THEMES = [
-  { primary: '#39FF14', secondary: '#00FF00', name: 'action' },      // Green energy - action/fps vibe
-  { primary: '#00E5FF', secondary: '#FF00FF', name: 'speed' },       // Cyan/magenta - racing/speed vibe  
-  { primary: '#8B5CF6', secondary: '#FFD700', name: 'fantasy' },     // Purple/gold - rpg/fantasy vibe
-  { primary: '#FF6B35', secondary: '#FF0000', name: 'intensity' },   // Orange/red - strategy/intensity vibe
+// Genre dimension themes - each is a distinct animated world
+const GENRE_DIMENSIONS = [
+  { 
+    name: 'adventure',
+    primary: '#4ADE80',    // Forest green
+    secondary: '#22C55E',
+    accent: '#FFD700',
+    environment: 'jungle'
+  },
+  { 
+    name: 'fps',
+    primary: '#EF4444',    // Tactical red
+    secondary: '#DC2626',
+    accent: '#22D3EE',
+    environment: 'urban'
+  },
+  { 
+    name: 'racing',
+    primary: '#F97316',    // Speed orange
+    secondary: '#FB923C',
+    accent: '#06B6D4',
+    environment: 'highway'
+  },
+  { 
+    name: 'fighting',
+    primary: '#A855F7',    // Electric purple
+    secondary: '#C084FC',
+    accent: '#FACC15',
+    environment: 'arena'
+  },
+  { 
+    name: 'scifi',
+    primary: '#06B6D4',    // Cyber cyan
+    secondary: '#22D3EE',
+    accent: '#F0ABFC',
+    environment: 'space'
+  },
 ];
 
 const TIMING = {
@@ -215,181 +246,283 @@ const IntroAnimation = ({ onComplete }: IntroAnimationProps) => {
         }
       }
 
-      // ========== PHASE: WIREFRAME (world renders) ==========
+      // ========== PHASE: WIREFRAME/FLY (Flying through genre dimensions) ==========
       if (currentPhase === 'wireframe' || currentPhase === 'fly') {
-        const wp = currentPhase === 'wireframe' 
-          ? (elapsed - timing.wireframe.start) / (timing.wireframe.end - timing.wireframe.start)
-          : 1;
-
-        // Draw perspective grid (vanishing point at center)
-        ctx.save();
-        ctx.translate(centerX, centerY);
+        const combinedStart = timing.wireframe.start;
+        const combinedEnd = timing.fly.end;
+        const totalP = (elapsed - combinedStart) / (combinedEnd - combinedStart);
         
-        // Horizontal lines with perspective
-        const horizonY = 0;
-        for (let i = 1; i <= 15; i++) {
-          const lineProgress = Math.min(1, (wp - i * 0.02) * 2);
-          if (lineProgress > 0) {
-            const y = i * 30;
-            const perspectiveScale = 1 + i * 0.15;
-            
-            ctx.strokeStyle = `rgba(0, 229, 255, ${lineProgress * 0.5})`;
-            ctx.lineWidth = 1;
-            ctx.beginPath();
-            ctx.moveTo(-width * perspectiveScale, y);
-            ctx.lineTo(width * perspectiveScale, y);
-            ctx.stroke();
-            
-            ctx.beginPath();
-            ctx.moveTo(-width * perspectiveScale, -y);
-            ctx.lineTo(width * perspectiveScale, -y);
-            ctx.stroke();
+        const genreCount = GENRE_DIMENSIONS.length;
+        const genreIndex = Math.min(Math.floor(totalP * genreCount), genreCount - 1);
+        const genreLocalP = (totalP * genreCount) % 1;
+        const dimension = GENRE_DIMENSIONS[genreIndex];
+        
+        // ===== COMMON: Forward flying tunnel effect =====
+        const tunnelDepth = 40;
+        for (let ring = 0; ring < tunnelDepth; ring++) {
+          const ringP = ((ring / tunnelDepth) + t * 2.5) % 1;
+          const z = ringP;
+          const scale = 1 / (z + 0.1);
+          const radius = scale * 80;
+          const opacity = (1 - ringP) * 0.4;
+          
+          ctx.strokeStyle = `${dimension.primary}${Math.floor(opacity * 255).toString(16).padStart(2, '0')}`;
+          ctx.lineWidth = Math.max(1, (1 - ringP) * 3);
+          ctx.beginPath();
+          
+          // Different tunnel shapes per genre
+          if (dimension.environment === 'jungle') {
+            // Organic, irregular tunnel
+            for (let a = 0; a < 12; a++) {
+              const angle = (a / 12) * Math.PI * 2;
+              const wobble = Math.sin(angle * 3 + t * 2 + ring * 0.2) * 20 * (1 - ringP);
+              const px = centerX + Math.cos(angle) * (radius + wobble);
+              const py = centerY + Math.sin(angle) * (radius + wobble) * 0.7;
+              if (a === 0) ctx.moveTo(px, py);
+              else ctx.lineTo(px, py);
+            }
+            ctx.closePath();
+          } else if (dimension.environment === 'urban') {
+            // Sharp rectangular tunnel
+            const size = radius * 0.8;
+            ctx.strokeRect(centerX - size, centerY - size * 0.6, size * 2, size * 1.2);
+          } else if (dimension.environment === 'highway') {
+            // Wide horizontal tunnel (road)
+            ctx.moveTo(centerX - radius * 2, centerY + radius * 0.3);
+            ctx.lineTo(centerX + radius * 2, centerY + radius * 0.3);
+            ctx.moveTo(centerX - radius * 1.5, centerY - radius * 0.2);
+            ctx.lineTo(centerX + radius * 1.5, centerY - radius * 0.2);
+          } else if (dimension.environment === 'arena') {
+            // Hexagonal arena shape
+            for (let a = 0; a < 6; a++) {
+              const angle = (a / 6) * Math.PI * 2 - Math.PI / 6;
+              const px = centerX + Math.cos(angle) * radius;
+              const py = centerY + Math.sin(angle) * radius * 0.8;
+              if (a === 0) ctx.moveTo(px, py);
+              else ctx.lineTo(px, py);
+            }
+            ctx.closePath();
+          } else {
+            // Circular (space)
+            ctx.arc(centerX, centerY, radius, 0, Math.PI * 2);
           }
+          ctx.stroke();
         }
 
-        // Vertical lines converging to horizon
-        for (let i = -20; i <= 20; i++) {
-          const lineProgress = Math.min(1, (wp - Math.abs(i) * 0.01) * 2);
-          if (lineProgress > 0) {
-            ctx.strokeStyle = `rgba(255, 0, 255, ${lineProgress * 0.4})`;
-            ctx.lineWidth = 1;
+        // ===== GENRE-SPECIFIC ENVIRONMENTAL ELEMENTS =====
+        
+        // ADVENTURE: Floating vines, leaves, ancient symbols
+        if (dimension.environment === 'jungle') {
+          // Floating leaf particles
+          for (let i = 0; i < 30; i++) {
+            const leafP = ((i * 0.08 + t * 1.5) % 1);
+            const angle = i * 0.5 + Math.sin(t + i) * 0.3;
+            const dist = leafP * Math.max(width, height) * 0.6;
+            const lx = centerX + Math.cos(angle) * dist;
+            const ly = centerY + Math.sin(angle) * dist + Math.sin(t * 2 + i) * 20;
+            const size = 8 + (1 - leafP) * 12;
+            
+            ctx.fillStyle = `${dimension.primary}${Math.floor((1 - leafP) * 180).toString(16).padStart(2, '0')}`;
             ctx.beginPath();
-            ctx.moveTo(i * 40, -height);
-            ctx.lineTo(i * 8, height);
-            ctx.stroke();
+            ctx.ellipse(lx, ly, size, size * 0.4, angle + t, 0, Math.PI * 2);
+            ctx.fill();
+          }
+          
+          // Ancient rune symbols floating
+          const runes = ['◊', '△', '○', '☆', '◇'];
+          ctx.font = `${isMobile ? 20 : 30}px serif`;
+          ctx.textAlign = 'center';
+          for (let i = 0; i < 8; i++) {
+            const runeP = ((i * 0.15 + t * 0.8) % 1);
+            const rx = centerX + Math.sin(i * 2 + t) * 200 * (1 - runeP);
+            const ry = centerY + Math.cos(i * 1.5 + t) * 150 * (1 - runeP);
+            ctx.fillStyle = `${dimension.accent}${Math.floor((1 - runeP) * 150).toString(16).padStart(2, '0')}`;
+            ctx.fillText(runes[i % runes.length], rx, ry);
           }
         }
-
-        // Floating polygons
-        const polyCount = isMobile ? 5 : 10;
-        for (let i = 0; i < polyCount; i++) {
-          const polyProgress = Math.min(1, (wp - 0.3 - i * 0.05) * 3);
-          if (polyProgress > 0) {
-            const angle = t * 0.5 + i * 0.7;
-            const dist = 100 + i * 50;
-            const px = Math.cos(angle) * dist;
-            const py = Math.sin(angle * 0.6) * dist * 0.5;
-            const size = 20 + Math.sin(t + i) * 10;
+        
+        // FPS: Bullet tracers, crosshairs, tactical grid
+        if (dimension.environment === 'urban') {
+          // Bullet tracers flying past
+          for (let i = 0; i < 20; i++) {
+            const bulletP = ((i * 0.1 + t * 8) % 1);
+            const startX = Math.random() * width;
+            const bx = startX + (centerX - startX) * (1 - bulletP);
+            const by = height * bulletP;
             
-            ctx.strokeStyle = `rgba(245, 166, 35, ${polyProgress * 0.7})`;
+            ctx.strokeStyle = `${dimension.accent}${Math.floor((1 - bulletP) * 200).toString(16).padStart(2, '0')}`;
             ctx.lineWidth = 2;
             ctx.beginPath();
-            const sides = 3 + (i % 4);
-            for (let s = 0; s <= sides; s++) {
-              const a = (s / sides) * Math.PI * 2 + t;
-              const sx = px + Math.cos(a) * size * polyProgress;
-              const sy = py + Math.sin(a) * size * polyProgress;
-              if (s === 0) ctx.moveTo(sx, sy);
-              else ctx.lineTo(sx, sy);
-            }
+            ctx.moveTo(bx, by);
+            ctx.lineTo(bx + (bx - centerX) * 0.1, by - 30);
             ctx.stroke();
           }
-        }
-
-        // Data streams (vertical flowing particles)
-        if (currentPhase === 'wireframe') {
-          for (let i = 0; i < 30; i++) {
-            const streamX = (i - 15) * 50;
-            const streamY = ((t * 200 + i * 100) % (height * 2)) - height;
-            const opacity = wp * 0.5;
-            
-            ctx.fillStyle = `rgba(0, 229, 255, ${opacity})`;
-            ctx.fillRect(streamX - 1, streamY, 2, 20 + Math.random() * 30);
+          
+          // Tactical crosshair in center
+          const crossSize = 40 + Math.sin(t * 5) * 5;
+          ctx.strokeStyle = `${dimension.primary}90`;
+          ctx.lineWidth = 2;
+          ctx.beginPath();
+          ctx.moveTo(centerX - crossSize, centerY);
+          ctx.lineTo(centerX - 10, centerY);
+          ctx.moveTo(centerX + 10, centerY);
+          ctx.lineTo(centerX + crossSize, centerY);
+          ctx.moveTo(centerX, centerY - crossSize);
+          ctx.lineTo(centerX, centerY - 10);
+          ctx.moveTo(centerX, centerY + 10);
+          ctx.lineTo(centerX, centerY + crossSize);
+          ctx.stroke();
+          
+          // Muzzle flash effect
+          if (Math.random() > 0.92) {
+            ctx.fillStyle = `${dimension.primary}40`;
+            ctx.beginPath();
+            ctx.arc(centerX, centerY, 100 + Math.random() * 50, 0, Math.PI * 2);
+            ctx.fill();
           }
         }
-
-        ctx.restore();
-
-        // UI elements snapping into place
-        if (wp > 0.6) {
-          const uiProgress = (wp - 0.6) / 0.4;
-          const shake = (1 - uiProgress) * 5;
+        
+        // RACING: Speed lines, road markings, motion blur
+        if (dimension.environment === 'highway') {
+          // Road rushing toward camera
+          ctx.save();
+          ctx.translate(centerX, centerY);
           
-          // Health bar shape (top left)
-          ctx.strokeStyle = `rgba(0, 229, 255, ${uiProgress})`;
-          ctx.lineWidth = 2;
-          ctx.strokeRect(40 + Math.random() * shake, 40 + Math.random() * shake, 120, 16);
+          // Road surface
+          for (let i = 0; i < 30; i++) {
+            const roadP = ((i * 0.05 + t * 4) % 1);
+            const roadWidth = 300 * (1 - roadP * 0.8);
+            const roadY = height * 0.5 * roadP;
+            
+            ctx.fillStyle = `${dimension.secondary}${Math.floor((1 - roadP) * 100).toString(16).padStart(2, '0')}`;
+            ctx.fillRect(-roadWidth / 2, roadY - 2, roadWidth, 4);
+          }
           
-          // Minimap shape (top right)
-          ctx.strokeRect(width - 140 + Math.random() * shake, 40 + Math.random() * shake, 100, 100);
+          // Center dashed lines
+          for (let i = 0; i < 20; i++) {
+            const dashP = ((i * 0.08 + t * 6) % 1);
+            const dashY = height * 0.5 * dashP;
+            const dashWidth = 30 * (1 - dashP);
+            
+            ctx.fillStyle = `${dimension.accent}${Math.floor((1 - dashP) * 255).toString(16).padStart(2, '0')}`;
+            ctx.fillRect(-dashWidth / 2, dashY, dashWidth, 8 * (1 - dashP));
+          }
           
-          // Bottom HUD elements
-          ctx.strokeRect(40 + Math.random() * shake, height - 60 + Math.random() * shake, 200, 30);
+          ctx.restore();
+          
+          // Speed indicator
+          const speed = Math.floor(200 + genreLocalP * 150);
+          ctx.font = `bold ${isMobile ? 24 : 36}px monospace`;
+          ctx.fillStyle = `${dimension.primary}CC`;
+          ctx.textAlign = 'right';
+          ctx.fillText(`${speed} MPH`, width - 40, height - 40);
         }
-      }
-
-      // ========== PHASE: FLY (through abstract genre worlds) ==========
-      if (currentPhase === 'fly') {
-        const fp = (elapsed - timing.fly.start) / (timing.fly.end - timing.fly.start);
-        const genreCount = isMobile ? 2 : 4;
-        const genreIndex = Math.min(Math.floor(fp * genreCount), genreCount - 1);
-        const genreLocalP = (fp * genreCount) % 1;
-        const theme = GENRE_THEMES[genreIndex];
-
-        // Forward flying tunnel effect
-        const tunnelRings = 30;
-        for (let ring = 0; ring < tunnelRings; ring++) {
-          const ringP = ((ring / tunnelRings) + t * 3) % 1;
-          const radius = ringP * Math.max(width, height);
-          const opacity = (1 - ringP) * 0.5;
+        
+        // FIGHTING: Energy waves, combo counter, impact effects
+        if (dimension.environment === 'arena') {
+          // Energy waves radiating
+          for (let i = 0; i < 8; i++) {
+            const waveP = ((i * 0.15 + t * 3) % 1);
+            const waveRadius = waveP * Math.max(width, height) * 0.4;
+            const waveOpacity = (1 - waveP) * 0.6;
+            
+            ctx.strokeStyle = `${dimension.secondary}${Math.floor(waveOpacity * 255).toString(16).padStart(2, '0')}`;
+            ctx.lineWidth = 4 * (1 - waveP);
+            ctx.beginPath();
+            ctx.arc(centerX, centerY, waveRadius, 0, Math.PI * 2);
+            ctx.stroke();
+          }
           
-          ctx.strokeStyle = `${theme.primary}${Math.floor(opacity * 255).toString(16).padStart(2, '0')}`;
-          ctx.lineWidth = 2 + (1 - ringP) * 4;
-          ctx.beginPath();
-          ctx.arc(centerX, centerY, Math.max(5, radius), 0, Math.PI * 2);
-          ctx.stroke();
+          // Lightning/energy bolts
+          for (let i = 0; i < 5; i++) {
+            if (Math.random() > 0.7) {
+              const boltAngle = Math.random() * Math.PI * 2;
+              const boltDist = 50 + Math.random() * 150;
+              
+              ctx.strokeStyle = `${dimension.accent}80`;
+              ctx.lineWidth = 2;
+              ctx.beginPath();
+              ctx.moveTo(centerX, centerY);
+              
+              let bx = centerX, by = centerY;
+              for (let s = 0; s < 5; s++) {
+                bx += Math.cos(boltAngle) * (boltDist / 5) + (Math.random() - 0.5) * 30;
+                by += Math.sin(boltAngle) * (boltDist / 5) + (Math.random() - 0.5) * 30;
+                ctx.lineTo(bx, by);
+              }
+              ctx.stroke();
+            }
+          }
+          
+          // Combo counter
+          const combo = Math.floor(genreLocalP * 50) + 1;
+          ctx.font = `bold ${isMobile ? 40 : 60}px sans-serif`;
+          ctx.fillStyle = `${dimension.accent}`;
+          ctx.textAlign = 'center';
+          ctx.shadowColor = dimension.primary;
+          ctx.shadowBlur = 20;
+          ctx.fillText(`${combo} HIT!`, centerX, 80);
+          ctx.shadowBlur = 0;
         }
-
-        // Speed lines radiating outward
-        const lineCount = 50;
-        for (let i = 0; i < lineCount; i++) {
-          const angle = (i / lineCount) * Math.PI * 2;
-          const lineP = ((i * 0.05 + t * 5) % 1);
-          const innerR = lineP * 50;
-          const outerR = innerR + 100 + lineP * 200;
+        
+        // SCI-FI: Stars, planets, warp effect
+        if (dimension.environment === 'space') {
+          // Stars streaming past (warp speed)
+          for (let i = 0; i < 100; i++) {
+            const starP = ((i * 0.02 + t * 3) % 1);
+            const angle = (i / 100) * Math.PI * 2 + i * 0.1;
+            const dist = starP * Math.max(width, height) * 0.7;
+            const sx = centerX + Math.cos(angle) * dist;
+            const sy = centerY + Math.sin(angle) * dist;
+            
+            // Star streak
+            ctx.strokeStyle = `${i % 3 === 0 ? dimension.accent : '#FFFFFF'}${Math.floor((1 - starP) * 200).toString(16).padStart(2, '0')}`;
+            ctx.lineWidth = 1 + (1 - starP) * 2;
+            ctx.beginPath();
+            ctx.moveTo(sx, sy);
+            ctx.lineTo(
+              centerX + Math.cos(angle) * (dist - 30 - starP * 50),
+              centerY + Math.sin(angle) * (dist - 30 - starP * 50)
+            );
+            ctx.stroke();
+          }
           
-          ctx.strokeStyle = `${theme.secondary}${Math.floor((1 - lineP) * 150).toString(16).padStart(2, '0')}`;
-          ctx.lineWidth = 2;
-          ctx.beginPath();
-          ctx.moveTo(centerX + Math.cos(angle) * innerR, centerY + Math.sin(angle) * innerR);
-          ctx.lineTo(centerX + Math.cos(angle) * outerR, centerY + Math.sin(angle) * outerR);
-          ctx.stroke();
-        }
-
-        // Energy bursts / motion blur particles flying past
-        for (let i = 0; i < 20; i++) {
-          const burstP = ((i * 0.1 + t * 4) % 1);
-          const burstAngle = i * 0.5 + genreIndex;
-          const burstDist = burstP * Math.max(width, height) * 0.7;
-          const bx = centerX + Math.cos(burstAngle) * burstDist;
-          const by = centerY + Math.sin(burstAngle) * burstDist;
-          const bSize = 5 + burstP * 15;
+          // Distant planet
+          const planetX = centerX + Math.sin(t * 0.5) * 200;
+          const planetY = centerY - 150 + Math.cos(t * 0.3) * 30;
+          const planetR = 40;
           
-          ctx.fillStyle = `${theme.primary}${Math.floor((1 - burstP) * 200).toString(16).padStart(2, '0')}`;
+          const planetGrad = ctx.createRadialGradient(planetX - 10, planetY - 10, 0, planetX, planetY, planetR);
+          planetGrad.addColorStop(0, dimension.accent);
+          planetGrad.addColorStop(0.7, dimension.primary);
+          planetGrad.addColorStop(1, '#000000');
+          
+          ctx.fillStyle = planetGrad;
           ctx.beginPath();
-          ctx.arc(bx, by, bSize, 0, Math.PI * 2);
+          ctx.arc(planetX, planetY, planetR, 0, Math.PI * 2);
           ctx.fill();
-        }
-
-        // Pixel particles scattered
-        for (let i = 0; i < 40; i++) {
-          const px = (Math.sin(i * 7 + t * 3) * 0.5 + 0.5) * width;
-          const py = (Math.cos(i * 5 + t * 2) * 0.5 + 0.5) * height;
           
-          ctx.fillStyle = `${i % 2 === 0 ? theme.primary : theme.secondary}80`;
-          ctx.fillRect(px, py, 3, 3);
+          // Ring around planet
+          ctx.strokeStyle = `${dimension.secondary}60`;
+          ctx.lineWidth = 3;
+          ctx.beginPath();
+          ctx.ellipse(planetX, planetY, planetR * 1.8, planetR * 0.3, 0.3, 0, Math.PI * 2);
+          ctx.stroke();
         }
 
-        // Flash between genres
-        if (genreLocalP > 0.85) {
-          const flashIntensity = (genreLocalP - 0.85) / 0.15;
-          ctx.fillStyle = `rgba(255, 255, 255, ${flashIntensity * 0.7})`;
+        // ===== DIMENSION TRANSITION FLASH =====
+        if (genreLocalP > 0.9) {
+          const flashIntensity = (genreLocalP - 0.9) / 0.1;
+          ctx.fillStyle = `rgba(255, 255, 255, ${flashIntensity * 0.8})`;
           ctx.fillRect(0, 0, width, height);
         }
 
-        // Motion blur overlay
-        ctx.fillStyle = `${theme.primary}10`;
-        ctx.fillRect(0, 0, width, height);
+        // ===== GENRE NAME INDICATOR =====
+        const nameOpacity = genreLocalP < 0.2 ? genreLocalP * 5 : (genreLocalP > 0.8 ? (1 - genreLocalP) * 5 : 1);
+        ctx.font = `bold ${isMobile ? 18 : 28}px monospace`;
+        ctx.fillStyle = `${dimension.primary}${Math.floor(nameOpacity * 200).toString(16).padStart(2, '0')}`;
+        ctx.textAlign = 'center';
+        ctx.fillText(dimension.name.toUpperCase(), centerX, height - 60);
       }
 
       // ========== PHASE: COLLAPSE (data streams down) ==========
