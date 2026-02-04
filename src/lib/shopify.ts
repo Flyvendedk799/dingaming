@@ -264,6 +264,32 @@ export async function fetchProductByHandle(handle: string) {
   }
 }
 
+async function ensurePublishedToOnlineStore(kinguinId: number) {
+  try {
+    const response = await fetch(
+      `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/shopify-publish-online-store`,
+      {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ kinguinId }),
+      },
+    );
+
+    const data = await response.json().catch(() => null);
+    return response.ok && data?.success === true;
+  } catch (e) {
+    console.error('Failed to ensure product is published:', e);
+    return false;
+  }
+}
+
+function delay(ms: number) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
 // Fetch the Shopify variant ID for a product using its Shopify product ID from the database
 export async function getShopifyVariantId(kinguinId: number): Promise<string | null> {
   try {
@@ -281,16 +307,31 @@ export async function getShopifyVariantId(kinguinId: number): Promise<string | n
       return null;
     }
     
+    const fetchVariant = async () => {
+      const data = await storefrontApiRequest(STOREFRONT_VARIANT_BY_PRODUCT_ID_QUERY, {
+        id: product.shopify_product_id,
+      });
+
+      return {
+        variantId: data?.data?.product?.variants?.edges?.[0]?.node?.id as string | undefined,
+        productIsNull: data?.data?.product === null,
+      };
+    };
+
     // Now use the Shopify product ID to get the variant
-    const data = await storefrontApiRequest(STOREFRONT_VARIANT_BY_PRODUCT_ID_QUERY, { 
-      id: product.shopify_product_id 
-    });
-    
-    if (!data?.data?.product?.variants?.edges?.[0]?.node?.id) {
-      return null;
+    let result = await fetchVariant();
+
+    // If the product exists in Admin (we have an ID) but is invisible in Storefront,
+    // it's usually not published to the Online Store channel yet.
+    if (!result.variantId && result.productIsNull) {
+      const published = await ensurePublishedToOnlineStore(kinguinId);
+      if (published) {
+        await delay(800);
+        result = await fetchVariant();
+      }
     }
-    
-    return data.data.product.variants.edges[0].node.id;
+
+    return result.variantId ?? null;
   } catch (error) {
     console.error('Error fetching Shopify variant ID:', error);
     return null;

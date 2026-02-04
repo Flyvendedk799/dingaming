@@ -6,7 +6,7 @@ const corsHeaders = {
 }
 
 const SHOPIFY_STORE_DOMAIN = 'dingaming-js6x0.myshopify.com'
-const SHOPIFY_API_VERSION = '2025-01'
+const SHOPIFY_API_VERSION = '2025-07'
 const DELAY_BETWEEN_PRODUCTS_MS = 700
 
 function json(body: unknown, init: ResponseInit = {}) {
@@ -20,6 +20,104 @@ function delay(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms))
 }
 
+async function getOnlineStorePublicationId(
+  accessToken: string,
+  shopifyAdminUrl: string,
+  supabase: any,
+): Promise<string | null> {
+  const CACHE_KEY = 'shopify_online_store_publication_id'
+
+  try {
+    const { data: cached } = await supabase
+      .from('store_settings')
+      .select('value')
+      .eq('key', CACHE_KEY)
+      .maybeSingle()
+
+    const raw = cached?.value as unknown
+    const cachedId =
+      typeof raw === 'string' ? raw.replace(/^"|"$/g, '') : (typeof raw === 'number' ? String(raw) : null)
+
+    if (cachedId && cachedId.startsWith('gid://shopify/Publication/')) return cachedId
+  } catch {
+    // ignore cache errors
+  }
+
+  try {
+    const response = await fetch(shopifyAdminUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Shopify-Access-Token': accessToken,
+      },
+      body: JSON.stringify({
+        query: `
+          query Publications($first: Int!) {
+            publications(first: $first) {
+              edges { node { id name } }
+            }
+          }
+        `,
+        variables: { first: 50 },
+      }),
+    })
+
+    if (!response.ok) return null
+    const data = await response.json().catch(() => null)
+    const edges: any[] = data?.data?.publications?.edges || []
+    const onlineStore = edges.find((e) => (e?.node?.name || '').toLowerCase().includes('online store'))?.node
+    const publicationId = onlineStore?.id as string | undefined
+    if (!publicationId) return null
+
+    await supabase.from('store_settings').upsert({ key: CACHE_KEY, value: publicationId }, { onConflict: 'key' })
+    return publicationId
+  } catch (e) {
+    console.warn('Failed to fetch publications:', e)
+    return null
+  }
+}
+
+async function publishToOnlineStore(
+  accessToken: string,
+  shopifyAdminUrl: string,
+  productId: string,
+  publicationId: string,
+): Promise<{ ok: boolean; error?: string }> {
+  try {
+    const response = await fetch(shopifyAdminUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Shopify-Access-Token': accessToken,
+      },
+      body: JSON.stringify({
+        query: `
+          mutation Publish($id: ID!, $input: [PublicationInput!]!) {
+            publishablePublish(id: $id, input: $input) {
+              userErrors { field message }
+            }
+          }
+        `,
+        variables: {
+          id: productId,
+          input: [{ publicationId }],
+        },
+      }),
+    })
+
+    const data = await response.json().catch(() => null)
+    const userErrors = data?.data?.publishablePublish?.userErrors || []
+    if (userErrors.length > 0) {
+      const msg = userErrors.map((e: any) => e?.message).filter(Boolean).join('; ')
+      return { ok: false, error: msg || 'publishablePublish failed' }
+    }
+
+    return { ok: true }
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : String(e) }
+  }
+}
+
 // Background sync task - runs after response is sent
 async function runBackgroundSync(batchSize: number, maxBatches: number) {
   const shopifyAccessToken = Deno.env.get('SHOPIFY_ACCESS_TOKEN')
@@ -27,10 +125,14 @@ async function runBackgroundSync(batchSize: number, maxBatches: number) {
   const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
   const supabase = createClient(supabaseUrl, supabaseKey)
 
+  const shopifyAdminUrl = `https://${SHOPIFY_STORE_DOMAIN}/admin/api/${SHOPIFY_API_VERSION}/graphql.json`
+
   if (!shopifyAccessToken) {
     console.error('[Background Sync] Missing SHOPIFY_ACCESS_TOKEN')
     return
   }
+
+  const onlineStorePublicationId = await getOnlineStorePublicationId(shopifyAccessToken, shopifyAdminUrl, supabase)
 
   // Get settings
   const { data: settingsData } = await supabase
@@ -82,7 +184,14 @@ async function runBackgroundSync(batchSize: number, maxBatches: number) {
     // Process products sequentially
     for (const product of products) {
       try {
-        const result = await createOrUpdateShopifyProduct(product, shopifyAccessToken, globalMargin, eurToDkkRate, supabase)
+         const result = await createOrUpdateShopifyProduct(
+           product,
+           shopifyAccessToken,
+           globalMargin,
+           eurToDkkRate,
+           supabase,
+           onlineStorePublicationId,
+         )
         
         if (result.fatalError) {
           console.error(`[Background Sync] Fatal error: ${result.fatalError}`)
@@ -131,6 +240,7 @@ async function createOrUpdateShopifyProduct(
   globalMargin: number,
   eurToDkkRate: number,
   supabase: any,
+  onlineStorePublicationId: string | null,
 ): Promise<{ success: boolean; shopifyId?: string; fatalError?: string; skipped?: boolean; error?: string }> {
   const shopifyAdminUrl = `https://${SHOPIFY_STORE_DOMAIN}/admin/api/${SHOPIFY_API_VERSION}/graphql.json`
 
@@ -182,6 +292,14 @@ async function createOrUpdateShopifyProduct(
           last_synced_to_shopify: new Date().toISOString(),
         })
         .eq('kinguin_id', product.kinguin_id)
+
+      // Ensure product is visible in Storefront (best-effort)
+      if (onlineStorePublicationId) {
+        const publishResult = await publishToOnlineStore(accessToken, shopifyAdminUrl, existingProduct.id, onlineStorePublicationId)
+        if (!publishResult.ok) {
+          console.warn(`Publish failed for ${existingProduct.id}:`, publishResult.error)
+        }
+      }
 
       return { success: true, shopifyId: existingProduct.id, skipped: false }
     }
@@ -277,6 +395,14 @@ async function createOrUpdateShopifyProduct(
           last_synced_to_shopify: new Date().toISOString(),
         })
         .eq('kinguin_id', product.kinguin_id)
+
+      // Ensure product is visible in Storefront (best-effort)
+      if (onlineStorePublicationId) {
+        const publishResult = await publishToOnlineStore(accessToken, shopifyAdminUrl, createdProduct.id, onlineStorePublicationId)
+        if (!publishResult.ok) {
+          console.warn(`Publish failed for ${createdProduct.id}:`, publishResult.error)
+        }
+      }
 
       // Add image async (fire and forget)
       if (product.cover_image) {
