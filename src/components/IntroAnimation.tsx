@@ -99,6 +99,20 @@ const randomRange = (min: number, max: number) => Math.random() * (max - min) + 
 const hslToString = (h: number, s: number, l: number, a: number = 1) => 
   `hsla(${h}, ${s}%, ${l}%, ${a})`;
 
+// Helper function to draw hexagons for strategy genre
+const drawHexagon = (ctx: CanvasRenderingContext2D, x: number, y: number, size: number) => {
+  ctx.beginPath();
+  for (let i = 0; i < 6; i++) {
+    const angle = (i / 6) * Math.PI * 2 - Math.PI / 6;
+    const px = x + Math.cos(angle) * size;
+    const py = y + Math.sin(angle) * size;
+    if (i === 0) ctx.moveTo(px, py);
+    else ctx.lineTo(px, py);
+  }
+  ctx.closePath();
+  ctx.stroke();
+};
+
 // ============================================================================
 // DIGITAL WORLD ENGINE HOOK
 // ============================================================================
@@ -569,145 +583,307 @@ const useDigitalWorldEngine = (
       case 'chaos': {
         const chaosProgress = (elapsedTime - timing.chaos.start / 1000) / ((timing.chaos.end - timing.chaos.start) / 1000);
         const genres: Genre[] = isMobile ? ['fps', 'racing'] : ['fps', 'racing', 'rpg', 'strategy'];
+        const genreDuration = 1 / genres.length;
         const genreIndex = Math.floor(chaosProgress * genres.length);
         const currentGenre = genres[Math.min(genreIndex, genres.length - 1)];
+        const genreLocalProgress = (chaosProgress % genreDuration) / genreDuration;
         
-        // RGB split / glitch effect
-        const glitchIntensity = Math.sin(chaosProgress * Math.PI * genres.length) * 0.5 + 0.5;
+        // Forward flying tunnel effect - always present
+        const tunnelDepth = 40;
+        const maxRadius = Math.max(width, height) * 1.2;
         
-        // Genre-specific rendering
+        // Draw tunnel rings zooming toward camera
+        for (let ring = 0; ring < tunnelDepth; ring++) {
+          const ringProgress = ((ring / tunnelDepth) + elapsedTime * 2) % 1;
+          const ringRadius = ringProgress * maxRadius;
+          const ringOpacity = (1 - ringProgress) * 0.4;
+          
+          if (ringOpacity > 0.02) {
+            ctx.strokeStyle = `rgba(245, 166, 35, ${ringOpacity})`;
+            ctx.lineWidth = 1 + (1 - ringProgress) * 3;
+            ctx.beginPath();
+            ctx.arc(centerX, centerY, Math.max(5, ringRadius), 0, Math.PI * 2);
+            ctx.stroke();
+          }
+        }
+
+        // Speed lines from center outward (flying forward effect)
+        const speedLineCount = 60;
+        for (let i = 0; i < speedLineCount; i++) {
+          const angle = (i / speedLineCount) * Math.PI * 2;
+          const lineProgress = ((i * 0.1 + elapsedTime * 4) % 1);
+          const innerR = lineProgress * maxRadius * 0.3;
+          const outerR = innerR + 80 + lineProgress * 150;
+          
+          ctx.strokeStyle = `rgba(255, 255, 255, ${(1 - lineProgress) * 0.3})`;
+          ctx.lineWidth = 2;
+          ctx.beginPath();
+          ctx.moveTo(centerX + Math.cos(angle) * innerR, centerY + Math.sin(angle) * innerR);
+          ctx.lineTo(centerX + Math.cos(angle) * outerR, centerY + Math.sin(angle) * outerR);
+          ctx.stroke();
+        }
+
+        // World portal frame (the "window" into each genre)
+        const portalScale = 0.5 + genreLocalProgress * 0.5;
+        const portalSize = Math.min(width, height) * 0.7 * portalScale;
+        
         ctx.save();
+        ctx.translate(centerX, centerY);
         
-        // Screen shake
-        const shakeIntensity = 8 * glitchIntensity;
-        ctx.translate(
-          Math.sin(elapsedTime * 30) * shakeIntensity,
-          Math.cos(elapsedTime * 25) * shakeIntensity
-        );
-
+        // Genre-specific world environments
         switch (currentGenre) {
-          case 'fps':
-            // Crosshair
-            ctx.strokeStyle = COLORS.lime;
-            ctx.lineWidth = 2;
-            ctx.shadowColor = COLORS.lime;
-            ctx.shadowBlur = 15;
-            
-            const crossSize = 30;
+          case 'fps': {
+            // FPS World: Dark industrial corridor with green tactical elements
+            const fpsGradient = ctx.createRadialGradient(0, 0, 0, 0, 0, portalSize);
+            fpsGradient.addColorStop(0, 'rgba(20, 40, 20, 0.9)');
+            fpsGradient.addColorStop(0.7, 'rgba(10, 30, 10, 0.8)');
+            fpsGradient.addColorStop(1, 'transparent');
+            ctx.fillStyle = fpsGradient;
             ctx.beginPath();
-            ctx.moveTo(centerX - crossSize, centerY);
-            ctx.lineTo(centerX - 10, centerY);
-            ctx.moveTo(centerX + 10, centerY);
-            ctx.lineTo(centerX + crossSize, centerY);
-            ctx.moveTo(centerX, centerY - crossSize);
-            ctx.lineTo(centerX, centerY - 10);
-            ctx.moveTo(centerX, centerY + 10);
-            ctx.lineTo(centerX, centerY + crossSize);
-            ctx.stroke();
+            ctx.arc(0, 0, portalSize, 0, Math.PI * 2);
+            ctx.fill();
             
-            // Ammo counter
-            ctx.fillStyle = COLORS.lime;
-            ctx.font = 'bold 24px monospace';
-            ctx.fillText('30 / 90', width - 120, height - 40);
-            
-            // Radar pulse
-            ctx.beginPath();
-            ctx.arc(80, height - 80, 40, 0, Math.PI * 2);
-            ctx.strokeStyle = `rgba(0, 255, 0, ${0.5 + Math.sin(elapsedTime * 10) * 0.3})`;
-            ctx.stroke();
-            ctx.shadowBlur = 0;
-            break;
-
-          case 'racing':
-            // Speed lines
-            ctx.strokeStyle = COLORS.cyan;
-            ctx.lineWidth = 3;
-            for (let i = 0; i < 20; i++) {
-              const angle = (i / 20) * Math.PI * 2;
-              const innerR = 100;
-              const outerR = 300 + Math.random() * 200;
+            // Tactical grid floor receding into distance
+            ctx.strokeStyle = 'rgba(0, 255, 0, 0.3)';
+            ctx.lineWidth = 1;
+            for (let z = 0; z < 15; z++) {
+              const zOffset = ((z * 0.1 + elapsedTime * 2) % 1);
+              const perspectiveY = (zOffset - 0.5) * portalSize * 1.5;
+              const perspectiveScale = 1 - zOffset * 0.8;
+              
+              ctx.globalAlpha = (1 - zOffset) * 0.5;
               ctx.beginPath();
-              ctx.moveTo(centerX + Math.cos(angle) * innerR, centerY + Math.sin(angle) * innerR);
-              ctx.lineTo(centerX + Math.cos(angle) * outerR, centerY + Math.sin(angle) * outerR);
-              ctx.globalAlpha = 0.5 + Math.random() * 0.5;
+              ctx.moveTo(-portalSize * perspectiveScale, perspectiveY);
+              ctx.lineTo(portalSize * perspectiveScale, perspectiveY);
               ctx.stroke();
             }
             ctx.globalAlpha = 1;
             
-            // Speedometer
+            // Crosshair in center
+            ctx.strokeStyle = COLORS.lime;
+            ctx.lineWidth = 3;
+            ctx.shadowColor = COLORS.lime;
+            ctx.shadowBlur = 20;
+            const crossSize = 50 * portalScale;
             ctx.beginPath();
-            ctx.arc(width - 100, height - 100, 60, Math.PI * 0.7, Math.PI * 2.3);
-            ctx.strokeStyle = COLORS.magenta;
-            ctx.lineWidth = 4;
+            ctx.moveTo(-crossSize, 0); ctx.lineTo(-15, 0);
+            ctx.moveTo(15, 0); ctx.lineTo(crossSize, 0);
+            ctx.moveTo(0, -crossSize); ctx.lineTo(0, -15);
+            ctx.moveTo(0, 15); ctx.lineTo(0, crossSize);
             ctx.stroke();
             
-            ctx.fillStyle = COLORS.white;
-            ctx.font = 'bold 28px monospace';
-            ctx.fillText('280', width - 130, height - 90);
+            // Muzzle flashes
+            if (Math.random() > 0.7) {
+              ctx.fillStyle = 'rgba(255, 200, 50, 0.8)';
+              ctx.beginPath();
+              ctx.arc(randomRange(-100, 100), randomRange(-50, 50), randomRange(10, 30), 0, Math.PI * 2);
+              ctx.fill();
+            }
+            ctx.shadowBlur = 0;
             break;
+          }
 
-          case 'rpg':
-            // Health orb
-            const orbGradient = ctx.createRadialGradient(100, height - 100, 0, 100, height - 100, 50);
-            orbGradient.addColorStop(0, 'rgba(255, 50, 50, 0.8)');
-            orbGradient.addColorStop(1, 'rgba(150, 0, 0, 0.6)');
-            ctx.fillStyle = orbGradient;
+          case 'racing': {
+            // Racing World: Neon highway with motion blur
+            const racingGradient = ctx.createLinearGradient(0, -portalSize, 0, portalSize);
+            racingGradient.addColorStop(0, 'rgba(10, 10, 40, 0.9)');
+            racingGradient.addColorStop(0.4, 'rgba(20, 10, 50, 0.8)');
+            racingGradient.addColorStop(1, 'rgba(40, 20, 60, 0.7)');
+            ctx.fillStyle = racingGradient;
             ctx.beginPath();
-            ctx.arc(100, height - 100, 50, 0, Math.PI * 2);
+            ctx.arc(0, 0, portalSize, 0, Math.PI * 2);
             ctx.fill();
             
-            // Mana bar
-            ctx.fillStyle = 'rgba(50, 100, 255, 0.8)';
-            ctx.fillRect(width - 200, height - 50, 180, 20);
-            ctx.strokeStyle = COLORS.cyan;
-            ctx.strokeRect(width - 200, height - 50, 180, 20);
+            // Neon road lines rushing toward camera
+            for (let lane = -2; lane <= 2; lane++) {
+              for (let seg = 0; seg < 20; seg++) {
+                const segProgress = ((seg * 0.1 + elapsedTime * 5) % 1);
+                const perspectiveScale = segProgress;
+                const y = (segProgress - 0.5) * portalSize * 2;
+                const x = lane * 60 * perspectiveScale;
+                const lineWidth = 5 + segProgress * 20;
+                const lineHeight = 40 * perspectiveScale;
+                
+                ctx.fillStyle = lane === 0 
+                  ? `rgba(255, 0, 255, ${(1 - segProgress) * 0.8})` 
+                  : `rgba(0, 229, 255, ${(1 - segProgress) * 0.5})`;
+                ctx.shadowColor = lane === 0 ? COLORS.magenta : COLORS.cyan;
+                ctx.shadowBlur = 15;
+                ctx.fillRect(x - lineWidth/2, y - lineHeight/2, lineWidth, lineHeight);
+              }
+            }
             
-            // Quest marker
-            ctx.fillStyle = COLORS.gold;
-            ctx.font = 'bold 32px sans-serif';
-            ctx.fillText('!', centerX, 80);
+            // Speed indicator
+            ctx.shadowBlur = 0;
+            ctx.fillStyle = COLORS.magenta;
+            ctx.font = `bold ${40 * portalScale}px monospace`;
+            ctx.textAlign = 'center';
+            ctx.shadowColor = COLORS.magenta;
+            ctx.shadowBlur = 20;
+            ctx.fillText(`${Math.floor(200 + genreLocalProgress * 120)} KM/H`, 0, portalSize * 0.6);
+            ctx.shadowBlur = 0;
             break;
+          }
 
-          case 'strategy':
-            // Grid tiles
-            const tileSize = 50;
-            ctx.strokeStyle = COLORS.cyan;
+          case 'rpg': {
+            // RPG World: Mystical fantasy with magical particles
+            const rpgGradient = ctx.createRadialGradient(0, 0, 0, 0, 0, portalSize);
+            rpgGradient.addColorStop(0, 'rgba(60, 20, 80, 0.9)');
+            rpgGradient.addColorStop(0.5, 'rgba(40, 15, 60, 0.8)');
+            rpgGradient.addColorStop(1, 'transparent');
+            ctx.fillStyle = rpgGradient;
+            ctx.beginPath();
+            ctx.arc(0, 0, portalSize, 0, Math.PI * 2);
+            ctx.fill();
+            
+            // Floating magical runes in a circle
+            const runeCount = 8;
+            for (let r = 0; r < runeCount; r++) {
+              const runeAngle = (r / runeCount) * Math.PI * 2 + elapsedTime;
+              const runeRadius = portalSize * 0.5;
+              const rx = Math.cos(runeAngle) * runeRadius;
+              const ry = Math.sin(runeAngle) * runeRadius * 0.4;
+              
+              ctx.fillStyle = `rgba(255, 215, 0, ${0.5 + Math.sin(elapsedTime * 3 + r) * 0.3})`;
+              ctx.shadowColor = COLORS.goldLight;
+              ctx.shadowBlur = 15;
+              ctx.font = `${20 + Math.sin(elapsedTime * 2 + r) * 5}px serif`;
+              ctx.fillText(['✦', '◇', '✧', '⬡', '◆', '✶', '⬢', '✴'][r], rx, ry);
+            }
+            
+            // Central magic orb
+            const orbPulse = 0.8 + Math.sin(elapsedTime * 4) * 0.2;
+            const orbGradient = ctx.createRadialGradient(0, 0, 0, 0, 0, 60 * orbPulse);
+            orbGradient.addColorStop(0, 'rgba(150, 100, 255, 0.9)');
+            orbGradient.addColorStop(0.5, 'rgba(100, 50, 200, 0.6)');
+            orbGradient.addColorStop(1, 'transparent');
+            ctx.fillStyle = orbGradient;
+            ctx.beginPath();
+            ctx.arc(0, 0, 60 * orbPulse, 0, Math.PI * 2);
+            ctx.fill();
+            
+            // Sparkle particles floating up
+            for (let sp = 0; sp < 25; sp++) {
+              const spProgress = ((sp * 0.08 + elapsedTime * 1.5) % 1);
+              const spX = Math.sin(sp * 2.5 + elapsedTime) * portalSize * 0.6;
+              const spY = portalSize * 0.5 - spProgress * portalSize;
+              
+              ctx.fillStyle = `rgba(255, 220, 150, ${(1 - spProgress) * 0.7})`;
+              ctx.beginPath();
+              ctx.arc(spX, spY, 3 + (1 - spProgress) * 4, 0, Math.PI * 2);
+              ctx.fill();
+            }
+            ctx.shadowBlur = 0;
+            break;
+          }
+
+          case 'strategy': {
+            // Strategy World: Top-down battlefield with unit movements
+            const stratGradient = ctx.createRadialGradient(0, 0, 0, 0, 0, portalSize);
+            stratGradient.addColorStop(0, 'rgba(20, 35, 20, 0.9)');
+            stratGradient.addColorStop(1, 'transparent');
+            ctx.fillStyle = stratGradient;
+            ctx.beginPath();
+            ctx.arc(0, 0, portalSize, 0, Math.PI * 2);
+            ctx.fill();
+            
+            // Hex grid rotating toward camera
+            const hexSize = 40;
+            ctx.strokeStyle = 'rgba(0, 229, 255, 0.3)';
             ctx.lineWidth = 1;
-            for (let gx = 0; gx < width / tileSize; gx++) {
-              for (let gy = 0; gy < height / tileSize; gy++) {
-                ctx.globalAlpha = 0.2 + Math.random() * 0.3;
-                ctx.strokeRect(gx * tileSize, gy * tileSize, tileSize, tileSize);
+            for (let hx = -5; hx <= 5; hx++) {
+              for (let hy = -4; hy <= 4; hy++) {
+                const offsetX = (hy % 2) * hexSize * 0.87;
+                const x = hx * hexSize * 1.74 + offsetX;
+                const y = hy * hexSize * 1.5;
+                const dist = Math.sqrt(x*x + y*y);
+                
+                if (dist < portalSize * 0.8) {
+                  ctx.globalAlpha = 0.3 + Math.sin(elapsedTime * 2 + hx + hy) * 0.2;
+                  drawHexagon(ctx, x, y, hexSize * 0.9);
+                }
               }
             }
             ctx.globalAlpha = 1;
             
-            // Unit icons
-            const units = [[200, 200], [350, 280], [480, 220]];
-            units.forEach(([ux, uy]) => {
+            // Moving unit indicators
+            const unitPositions = [
+              { x: -80, y: -40, color: COLORS.lime, moving: true },
+              { x: 60, y: 20, color: '#FF4444', moving: true },
+              { x: -30, y: 60, color: COLORS.lime, moving: false },
+              { x: 100, y: -60, color: '#FF4444', moving: false },
+            ];
+            
+            unitPositions.forEach((unit, i) => {
+              const moveOffset = unit.moving ? Math.sin(elapsedTime * 3 + i) * 10 : 0;
+              ctx.fillStyle = unit.color;
+              ctx.shadowColor = unit.color;
+              ctx.shadowBlur = 10;
               ctx.beginPath();
-              ctx.arc(ux, uy, 20, 0, Math.PI * 2);
-              ctx.fillStyle = COLORS.lime;
+              ctx.arc(unit.x + moveOffset, unit.y, 12, 0, Math.PI * 2);
               ctx.fill();
+              
+              // Movement path
+              if (unit.moving) {
+                ctx.strokeStyle = `${unit.color}80`;
+                ctx.lineWidth = 2;
+                ctx.setLineDash([5, 5]);
+                ctx.beginPath();
+                ctx.moveTo(unit.x + moveOffset, unit.y);
+                ctx.lineTo(unit.x + moveOffset + 50, unit.y + 30);
+                ctx.stroke();
+                ctx.setLineDash([]);
+              }
             });
             
-            // Resource counter
-            ctx.fillStyle = COLORS.gold;
-            ctx.font = 'bold 20px monospace';
-            ctx.fillText('⬢ 1,250  ◆ 890  ⬡ 450', 20, 30);
+            // Command cursor
+            ctx.strokeStyle = COLORS.gold;
+            ctx.lineWidth = 2;
+            ctx.shadowColor = COLORS.gold;
+            ctx.shadowBlur = 10;
+            ctx.beginPath();
+            ctx.arc(0, 0, 25 + Math.sin(elapsedTime * 5) * 5, 0, Math.PI * 2);
+            ctx.stroke();
+            ctx.shadowBlur = 0;
             break;
+          }
         }
-
+        
         ctx.restore();
 
-        // Burst particles
+        // Portal edge glow (frame around the world)
+        const portalGlow = ctx.createRadialGradient(centerX, centerY, portalSize * 0.9, centerX, centerY, portalSize * 1.1);
+        portalGlow.addColorStop(0, 'transparent');
+        portalGlow.addColorStop(0.5, 'rgba(245, 166, 35, 0.5)');
+        portalGlow.addColorStop(1, 'transparent');
+        ctx.fillStyle = portalGlow;
+        ctx.beginPath();
+        ctx.arc(centerX, centerY, portalSize * 1.1, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Transition flash between genres
+        const transitionPoint = genreLocalProgress > 0.9;
+        if (transitionPoint) {
+          const flashIntensity = (genreLocalProgress - 0.9) * 10;
+          ctx.fillStyle = `rgba(255, 255, 255, ${flashIntensity * 0.6})`;
+          ctx.fillRect(0, 0, width, height);
+        }
+
+        // Burst particles flying past camera
         particlesRef.current.forEach(p => {
           if (p.type !== 'burst') return;
           
+          // Make particles fly outward from center (toward camera effect)
+          const dx = p.x - centerX;
+          const dy = p.y - centerY;
+          const dist = Math.sqrt(dx * dx + dy * dy);
+          
+          p.vx = (dx / dist) * 8;
+          p.vy = (dy / dist) * 8;
           p.x += p.vx * delta * 60;
           p.y += p.vy * delta * 60;
-          p.vx *= 0.98;
-          p.vy *= 0.98;
-          p.opacity = Math.max(0, p.opacity - delta * 2);
+          p.opacity = Math.max(0, p.opacity - delta * 1.5);
+          p.size += delta * 5; // Grow as they approach camera
 
           if (p.opacity > 0) {
             ctx.beginPath();
@@ -716,16 +892,6 @@ const useDigitalWorldEngine = (
             ctx.fill();
           }
         });
-
-        // Glitch lines
-        if (glitchIntensity > 0.7) {
-          for (let i = 0; i < 5; i++) {
-            const y = Math.random() * height;
-            const h = Math.random() * 10 + 2;
-            ctx.fillStyle = `rgba(${Math.random() > 0.5 ? '255, 0, 255' : '0, 255, 255'}, ${Math.random() * 0.5})`;
-            ctx.fillRect(0, y, width, h);
-          }
-        }
         break;
       }
 
