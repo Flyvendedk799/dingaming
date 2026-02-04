@@ -64,8 +64,10 @@ const COLORS = {
   cyan: '#00E5FF',
   magenta: '#FF00FF',
   lime: '#00FF00',
-  gold: '#E59500',
-  white: '#E8E8E8',
+  gold: '#F5A623',
+  goldDark: '#C68B1E',
+  goldLight: '#FFD700',
+  white: '#F5F5F5',
 };
 
 const TIMING = {
@@ -288,15 +290,43 @@ const useDigitalWorldEngine = (
     // Phase-specific rendering
     switch (phase) {
       case 'void': {
-        // Blinking cursor
+        // "LOADING..." text with typing effect
+        const loadingText = "INITIALIZING";
+        const visibleChars = Math.floor((elapsedTime / (timing.void.end / 1000)) * loadingText.length);
+        const displayText = loadingText.substring(0, Math.min(visibleChars, loadingText.length));
+        
+        ctx.font = 'bold 16px monospace';
+        ctx.textAlign = 'center';
+        ctx.fillStyle = COLORS.gold;
+        ctx.shadowColor = COLORS.gold;
+        ctx.shadowBlur = 8;
+        ctx.fillText(displayText, centerX, centerY - 40);
+        ctx.shadowBlur = 0;
+
+        // Blinking cursor after text
         const cursorBlink = Math.sin(elapsedTime * 8) > 0;
+        const textWidth = ctx.measureText(displayText).width;
         if (cursorBlink) {
-          ctx.fillStyle = COLORS.cyan;
-          ctx.shadowColor = COLORS.cyan;
-          ctx.shadowBlur = 10;
-          ctx.fillRect(centerX - 6, centerY - 12, 12, 24);
+          ctx.fillStyle = COLORS.gold;
+          ctx.shadowColor = COLORS.gold;
+          ctx.shadowBlur = 15;
+          ctx.fillRect(centerX + textWidth / 2 + 4, centerY - 52, 3, 20);
           ctx.shadowBlur = 0;
         }
+
+        // Animated progress dots
+        const dots = Math.floor(elapsedTime * 3) % 4;
+        ctx.fillStyle = COLORS.gold;
+        ctx.font = 'bold 24px monospace';
+        ctx.fillText('.'.repeat(dots), centerX, centerY - 10);
+
+        // Outer ring pulsing
+        const pulseScale = 0.8 + Math.sin(elapsedTime * 4) * 0.2;
+        ctx.strokeStyle = `rgba(245, 166, 35, ${0.3 + Math.sin(elapsedTime * 4) * 0.2})`;
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.arc(centerX, centerY - 20, 80 * pulseScale, 0, Math.PI * 2);
+        ctx.stroke();
 
         // Scanlines
         ctx.strokeStyle = 'rgba(255, 255, 255, 0.02)';
@@ -307,10 +337,10 @@ const useDigitalWorldEngine = (
           ctx.stroke();
         }
 
-        // Subtle noise
-        const noiseIntensity = 0.03;
-        for (let i = 0; i < 50; i++) {
-          ctx.fillStyle = `rgba(255, 255, 255, ${Math.random() * noiseIntensity})`;
+        // Subtle noise with gold tint
+        const noiseIntensity = 0.04;
+        for (let i = 0; i < 60; i++) {
+          ctx.fillStyle = `rgba(245, 166, 35, ${Math.random() * noiseIntensity})`;
           ctx.fillRect(
             Math.random() * width,
             Math.random() * height,
@@ -876,7 +906,7 @@ const ProgressBar = ({ progress, visible }: { progress: number; visible: boolean
 // LOGO REVEAL COMPONENT
 // ============================================================================
 
-const LogoReveal = ({ visible, onEnterClick }: { visible: boolean; onEnterClick: () => void }) => {
+const LogoReveal = ({ visible }: { visible: boolean }) => {
   const tagline = "Instant worlds. One click away.";
   
   return (
@@ -895,10 +925,10 @@ const LogoReveal = ({ visible, onEnterClick }: { visible: boolean; onEnterClick:
             transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
             className="text-5xl md:text-7xl font-bold mb-6 relative"
             style={{
-              background: 'linear-gradient(135deg, #00E5FF 0%, #FF00FF 50%, #E59500 100%)',
+              background: 'linear-gradient(135deg, #FFD700 0%, #F5A623 40%, #C68B1E 100%)',
               WebkitBackgroundClip: 'text',
               WebkitTextFillColor: 'transparent',
-              textShadow: '0 0 60px rgba(0, 229, 255, 0.5), 0 0 120px rgba(255, 0, 255, 0.3)',
+              filter: 'drop-shadow(0 0 30px rgba(245, 166, 35, 0.6)) drop-shadow(0 0 60px rgba(255, 215, 0, 0.4))',
             }}
           >
             DinGaming
@@ -909,7 +939,8 @@ const LogoReveal = ({ visible, onEnterClick }: { visible: boolean; onEnterClick:
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.3, duration: 0.5 }}
-            className="text-lg md:text-xl text-gray-300 mb-10 tracking-wider"
+            className="text-lg md:text-xl mb-10 tracking-wider"
+            style={{ color: '#F5F5F5' }}
           >
             {tagline.split('').map((char, i) => (
               <motion.span
@@ -922,48 +953,6 @@ const LogoReveal = ({ visible, onEnterClick }: { visible: boolean; onEnterClick:
               </motion.span>
             ))}
           </motion.p>
-
-          {/* Enter Button */}
-          <motion.button
-            initial={{ opacity: 0, scale: 0.8 }}
-            animate={{ opacity: 1, scale: 1 }}
-            transition={{ delay: 0.6, duration: 0.4 }}
-            onClick={onEnterClick}
-            className="group relative px-8 py-4 text-lg font-semibold tracking-wider overflow-hidden rounded-lg"
-            style={{
-              background: 'linear-gradient(135deg, rgba(0, 229, 255, 0.2) 0%, rgba(255, 0, 255, 0.2) 100%)',
-              border: '2px solid rgba(0, 229, 255, 0.8)',
-              color: '#00E5FF',
-            }}
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.98 }}
-          >
-            {/* Pulse animation */}
-            <motion.span
-              className="absolute inset-0 bg-gradient-to-r from-cyan-500/30 to-fuchsia-500/30"
-              initial={{ scale: 1, opacity: 0.5 }}
-              animate={{ scale: 1.5, opacity: 0 }}
-              transition={{ duration: 1.5, repeat: 0 }}
-            />
-            
-            {/* Shimmer effect */}
-            <motion.span
-              className="absolute inset-0 opacity-0 group-hover:opacity-100"
-              style={{
-                background: 'linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent)',
-              }}
-              animate={{
-                x: ['-100%', '100%'],
-              }}
-              transition={{
-                duration: 1,
-                repeat: Infinity,
-                repeatDelay: 0.5,
-              }}
-            />
-            
-            <span className="relative z-10">ENTER STORE</span>
-          </motion.button>
         </motion.div>
       )}
     </AnimatePresence>
@@ -1052,22 +1041,23 @@ const IntroAnimation = ({ onComplete }: IntroAnimationProps) => {
       } else if (elapsed < timing.reveal.end) {
         setPhase('reveal');
         setShowLogo(true);
+      } else {
+        // Auto-complete after reveal phase ends
+        if (!isExiting) {
+          setIsExiting(true);
+          setTimeout(onComplete, 600);
+        }
       }
 
-      if (elapsed < totalDuration + 500) {
+      if (elapsed < totalDuration + 1500) {
         requestAnimationFrame(tick);
       }
     };
 
     const animationId = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(animationId);
-  }, [timing, totalDuration, prefersReducedMotion, onComplete]);
+  }, [timing, totalDuration, prefersReducedMotion, onComplete, isExiting]);
 
-  // Handle enter store click
-  const handleEnterStore = () => {
-    setIsExiting(true);
-    setTimeout(onComplete, 600);
-  };
 
   // Handle skip
   const handleSkip = useCallback(() => {
@@ -1085,16 +1075,8 @@ const IntroAnimation = ({ onComplete }: IntroAnimationProps) => {
   }, [handleSkip]);
 
   if (prefersReducedMotion) {
-    return (
-      <div className="fixed inset-0 z-50 bg-[#0a0a1a] flex items-center justify-center">
-        <button
-          onClick={handleEnterStore}
-          className="px-8 py-4 text-lg font-semibold text-cyan-400 border-2 border-cyan-500 rounded-lg hover:bg-cyan-500/20 transition-colors"
-        >
-          ENTER STORE
-        </button>
-      </div>
-    );
+    // Auto-enter for reduced motion users
+    return null;
   }
 
   return (
@@ -1139,10 +1121,7 @@ const IntroAnimation = ({ onComplete }: IntroAnimationProps) => {
       />
 
       {/* Logo Reveal */}
-      <LogoReveal 
-        visible={showLogo} 
-        onEnterClick={handleEnterStore} 
-      />
+      <LogoReveal visible={showLogo} />
 
       {/* Skip Button */}
       {!showLogo && (
