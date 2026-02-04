@@ -225,17 +225,24 @@ const ProductPage = () => {
       </div>
 
       <main className="container mx-auto px-4 py-8 lg:py-12">
-        <div className="grid lg:grid-cols-5 gap-8 lg:gap-12">
-          {/* Left Column - Images */}
+        <div className="grid lg:grid-cols-12 gap-8 lg:gap-10">
+          {/* Left Column - Images, Description & Details */}
           <motion.div
             initial={{ opacity: 0, x: -30 }}
             animate={{ opacity: 1, x: 0 }}
             transition={{ delay: 0.2 }}
-            className="lg:col-span-2 space-y-4"
+            className="lg:col-span-7 xl:col-span-8 space-y-8"
           >
+            {/* Title - Mobile & Desktop */}
+            <div className="lg:hidden">
+              <h1 className="font-heading text-2xl sm:text-3xl text-foreground leading-tight">
+                {product.name}
+              </h1>
+            </div>
+
             {/* Main Image */}
             <div 
-              className="relative aspect-[4/3] bg-card rounded-2xl overflow-hidden border border-border/50 cursor-pointer group"
+              className="relative aspect-video bg-card rounded-2xl overflow-hidden border border-border/50 cursor-pointer group"
               onClick={() => setIsLightboxOpen(true)}
             >
               <motion.img
@@ -284,7 +291,7 @@ const ProductPage = () => {
                     whileHover={{ scale: 1.05 }}
                     whileTap={{ scale: 0.95 }}
                     onClick={() => setSelectedImage(i)}
-                    className={`relative w-20 h-20 flex-shrink-0 rounded-lg overflow-hidden border-2 transition-all ${
+                    className={`relative w-20 h-14 flex-shrink-0 rounded-lg overflow-hidden border-2 transition-all ${
                       selectedImage === i 
                         ? 'border-primary ring-2 ring-primary/20' 
                         : 'border-border/50 hover:border-primary/50'
@@ -295,179 +302,237 @@ const ProductPage = () => {
                 ))}
               </div>
             )}
-          </motion.div>
 
-          {/* Right Column - Product Info */}
-          <motion.div
-            initial={{ opacity: 0, x: 30 }}
-            animate={{ opacity: 1, x: 0 }}
-            transition={{ delay: 0.3 }}
-            className="lg:col-span-3"
-          >
-            {/* Title */}
-            <h1 className="font-heading text-3xl lg:text-4xl xl:text-5xl text-foreground mb-6 leading-tight">
-              {product.name}
-            </h1>
-
-            {/* Price Card */}
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.4 }}
-              className="bg-card rounded-2xl border border-border/50 p-6 mb-6"
-            >
-              <div className="flex items-end gap-4 mb-4">
-                <span className="text-4xl lg:text-5xl font-bold text-primary">
-                  {formatDKK(priceDKK)}
-                </span>
-                {product.original_price !== product.sell_price && (
-                  <span className="text-xl text-muted-foreground line-through pb-1">
-                    {formatDKK(originalPriceDKK * 1.1)}
-                  </span>
-                )}
-              </div>
-
-              {/* Stock status */}
-              <div className="flex items-center gap-4 mb-6">
-                {product.qty > 0 ? (
-                  <div className="flex items-center gap-2">
-                    <span className={`w-2.5 h-2.5 rounded-full ${product.qty <= 5 ? 'bg-destructive animate-pulse' : 'bg-success'}`} />
-                    <span className={`text-sm font-medium ${product.qty <= 5 ? 'text-destructive' : 'text-success'}`}>
-                      {product.qty <= 5 ? `Kun ${product.qty} på lager` : 'På lager'}
-                    </span>
-                  </div>
-                ) : (
-                  <div className="flex items-center gap-2">
-                    <span className="w-2.5 h-2.5 rounded-full bg-muted-foreground" />
-                    <span className="text-sm font-medium text-muted-foreground">Udsolgt</span>
-                  </div>
-                )}
-              </div>
-
-              {/* Add to Cart Button */}
-              <motion.div whileTap={{ scale: 0.98 }}>
-                <Button
-                  size="lg"
-                  className="w-full h-14 text-lg font-semibold gap-2 bg-primary hover:bg-primary/90 text-primary-foreground"
-                  onClick={handleAddToCart}
-                  disabled={isAdding || !product.is_available}
-                >
-                  {isAdding ? (
-                    <>
-                      <CheckCircle2 className="w-5 h-5" />
-                      Tilføjet til kurv!
-                    </>
-                  ) : (
-                    <>
-                      <ShoppingCart className="w-5 h-5" />
-                      {product.is_available ? 'Tilføj til kurv' : 'Udsolgt'}
-                    </>
-                  )}
-                </Button>
+            {/* Description Section */}
+            {product.description && (
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.5 }}
+                className="bg-card rounded-2xl border border-border/50 p-6 lg:p-8"
+              >
+                <h2 className="font-heading text-xl lg:text-2xl text-foreground mb-4 flex items-center gap-2">
+                  <Gamepad2 className="w-5 h-5 text-primary" />
+                  Om spillet
+                </h2>
+                <div className="prose prose-invert prose-sm max-w-none">
+                  <p className="text-muted-foreground leading-relaxed whitespace-pre-line text-sm lg:text-base">
+                    {product.description}
+                  </p>
+                </div>
               </motion.div>
-            </motion.div>
+            )}
 
-            {/* Trust Badges */}
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.5 }}
-              className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-8"
-            >
-              <div className="flex items-center gap-3 p-4 bg-card rounded-xl border border-border/50">
-                <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
-                  <Zap className="w-5 h-5 text-primary" />
-                </div>
-                <div>
-                  <p className="text-sm font-semibold text-foreground">Øjeblikkelig levering</p>
-                  <p className="text-xs text-muted-foreground">På under 30 sekunder</p>
-                </div>
-              </div>
-              
-              <div className="flex items-center gap-3 p-4 bg-card rounded-xl border border-border/50">
-                <div className="w-10 h-10 rounded-full bg-success/10 flex items-center justify-center">
-                  <Shield className="w-5 h-5 text-success" />
-                </div>
-                <div>
-                  <p className="text-sm font-semibold text-foreground">Garanti</p>
-                  <p className="text-xs text-muted-foreground">Pengene tilbage</p>
-                </div>
-              </div>
-              
-              <div className="flex items-center gap-3 p-4 bg-card rounded-xl border border-border/50">
-                <div className="w-10 h-10 rounded-full bg-accent/10 flex items-center justify-center">
-                  <CheckCircle2 className="w-5 h-5 text-accent" />
-                </div>
-                <div>
-                  <p className="text-sm font-semibold text-foreground">Officiel key</p>
-                  <p className="text-xs text-muted-foreground">100% ægte</p>
-                </div>
-              </div>
-            </motion.div>
-
-            {/* Product Details */}
+            {/* Product Specifications */}
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.6 }}
-              className="space-y-6"
+              className="bg-card rounded-2xl border border-border/50 p-6 lg:p-8"
             >
-              {/* Quick Info */}
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+              <h2 className="font-heading text-xl lg:text-2xl text-foreground mb-6 flex items-center gap-2">
+                <Package className="w-5 h-5 text-primary" />
+                Produktdetaljer
+              </h2>
+              
+              <div className="grid grid-cols-2 gap-4">
                 {product.platform && (
-                  <div className="p-4 bg-muted/50 rounded-xl">
-                    <Gamepad2 className="w-5 h-5 text-muted-foreground mb-2" />
-                    <p className="text-xs text-muted-foreground">Platform</p>
-                    <p className="text-sm font-semibold">{product.platform}</p>
+                  <div className="p-4 bg-muted/30 rounded-xl">
+                    <div className="flex items-center gap-2 mb-1">
+                      <Gamepad2 className="w-4 h-4 text-muted-foreground" />
+                      <p className="text-xs text-muted-foreground uppercase tracking-wide">Platform</p>
+                    </div>
+                    <p className="text-sm font-semibold text-foreground">{product.platform}</p>
                   </div>
                 )}
-                <div className="p-4 bg-muted/50 rounded-xl">
-                  <Globe className="w-5 h-5 text-muted-foreground mb-2" />
-                  <p className="text-xs text-muted-foreground">Region</p>
-                  <p className="text-sm font-semibold">{regionLabel}</p>
+                <div className="p-4 bg-muted/30 rounded-xl">
+                  <div className="flex items-center gap-2 mb-1">
+                    <Globe className="w-4 h-4 text-muted-foreground" />
+                    <p className="text-xs text-muted-foreground uppercase tracking-wide">Region</p>
+                  </div>
+                  <p className="text-sm font-semibold text-foreground">{regionLabel}</p>
                 </div>
                 {product.release_date && (
-                  <div className="p-4 bg-muted/50 rounded-xl">
-                    <Calendar className="w-5 h-5 text-muted-foreground mb-2" />
-                    <p className="text-xs text-muted-foreground">Udgivelse</p>
-                    <p className="text-sm font-semibold">
-                      {new Date(product.release_date).toLocaleDateString('da-DK', { year: 'numeric' })}
+                  <div className="p-4 bg-muted/30 rounded-xl">
+                    <div className="flex items-center gap-2 mb-1">
+                      <Calendar className="w-4 h-4 text-muted-foreground" />
+                      <p className="text-xs text-muted-foreground uppercase tracking-wide">Udgivelse</p>
+                    </div>
+                    <p className="text-sm font-semibold text-foreground">
+                      {new Date(product.release_date).toLocaleDateString('da-DK', { year: 'numeric', month: 'long' })}
                     </p>
                   </div>
                 )}
-                <div className="p-4 bg-muted/50 rounded-xl">
-                  <Package className="w-5 h-5 text-muted-foreground mb-2" />
-                  <p className="text-xs text-muted-foreground">Type</p>
-                  <p className="text-sm font-semibold">Digital Key</p>
+                <div className="p-4 bg-muted/30 rounded-xl">
+                  <div className="flex items-center gap-2 mb-1">
+                    <Clock className="w-4 h-4 text-muted-foreground" />
+                    <p className="text-xs text-muted-foreground uppercase tracking-wide">Levering</p>
+                  </div>
+                  <p className="text-sm font-semibold text-foreground">Øjeblikkelig</p>
                 </div>
               </div>
 
               {/* Genres */}
               {product.genres && product.genres.length > 0 && (
-                <div>
-                  <h3 className="text-sm font-semibold text-muted-foreground mb-3">Genres</h3>
+                <div className="mt-6 pt-6 border-t border-border/50">
+                  <p className="text-xs text-muted-foreground uppercase tracking-wide mb-3">Genres</p>
                   <div className="flex flex-wrap gap-2">
                     {product.genres.map((genre, i) => (
-                      <Badge key={i} variant="secondary" className="px-3 py-1">
+                      <Badge key={i} variant="secondary" className="px-3 py-1.5 text-xs">
                         {genre}
                       </Badge>
                     ))}
                   </div>
                 </div>
               )}
+            </motion.div>
+          </motion.div>
 
-              {/* Description */}
-              {product.description && (
+          {/* Right Column - Sticky Purchase Card */}
+          <motion.div
+            initial={{ opacity: 0, x: 30 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ delay: 0.3 }}
+            className="lg:col-span-5 xl:col-span-4"
+          >
+            <div className="lg:sticky lg:top-24 space-y-6">
+              {/* Title - Desktop only */}
+              <div className="hidden lg:block">
+                <h1 className="font-heading text-2xl xl:text-3xl text-foreground leading-tight mb-2">
+                  {product.name}
+                </h1>
+                {product.genres && product.genres.length > 0 && (
+                  <div className="flex flex-wrap gap-1.5 mt-3">
+                    {product.genres.slice(0, 3).map((genre, i) => (
+                      <Badge key={i} variant="outline" className="text-xs px-2 py-0.5 text-muted-foreground">
+                        {genre}
+                      </Badge>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* Price Card */}
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.4 }}
+                className="bg-card rounded-2xl border border-border/50 p-6 space-y-5"
+              >
                 <div>
-                  <h2 className="font-heading text-2xl text-foreground mb-4">Om spillet</h2>
-                  <div className="prose prose-invert prose-sm max-w-none">
-                    <p className="text-muted-foreground leading-relaxed whitespace-pre-line">
-                      {product.description}
-                    </p>
+                  <div className="flex items-baseline gap-3">
+                    <span className="text-3xl xl:text-4xl font-bold text-primary">
+                      {formatDKK(priceDKK)}
+                    </span>
+                    {product.original_price !== product.sell_price && (
+                      <span className="text-lg text-muted-foreground line-through">
+                        {formatDKK(originalPriceDKK * 1.1)}
+                      </span>
+                    )}
+                  </div>
+                  {discountPercent > 0 && (
+                    <Badge variant="destructive" className="mt-2">
+                      Spar {discountPercent}%
+                    </Badge>
+                  )}
+                </div>
+
+                {/* Stock status */}
+                <div className="flex items-center gap-2 py-2 px-3 bg-muted/30 rounded-lg">
+                  {product.qty > 0 ? (
+                    <>
+                      <span className={`w-2 h-2 rounded-full ${product.qty <= 5 ? 'bg-destructive animate-pulse' : 'bg-success'}`} />
+                      <span className={`text-sm font-medium ${product.qty <= 5 ? 'text-destructive' : 'text-success'}`}>
+                        {product.qty <= 5 ? `Kun ${product.qty} tilbage` : 'På lager - klar til levering'}
+                      </span>
+                    </>
+                  ) : (
+                    <>
+                      <span className="w-2 h-2 rounded-full bg-muted-foreground" />
+                      <span className="text-sm font-medium text-muted-foreground">Udsolgt</span>
+                    </>
+                  )}
+                </div>
+
+                {/* Add to Cart Button */}
+                <motion.div whileTap={{ scale: 0.98 }}>
+                  <Button
+                    size="lg"
+                    className="w-full h-12 text-base font-semibold gap-2 bg-primary hover:bg-primary/90 text-primary-foreground"
+                    onClick={handleAddToCart}
+                    disabled={isAdding || !product.is_available}
+                  >
+                    {isAdding ? (
+                      <>
+                        <CheckCircle2 className="w-5 h-5" />
+                        Tilføjet!
+                      </>
+                    ) : (
+                      <>
+                        <ShoppingCart className="w-5 h-5" />
+                        {product.is_available ? 'Tilføj til kurv' : 'Udsolgt'}
+                      </>
+                    )}
+                  </Button>
+                </motion.div>
+              </motion.div>
+
+              {/* Trust Badges - Compact */}
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.5 }}
+                className="bg-card rounded-2xl border border-border/50 p-5 space-y-4"
+              >
+                <div className="flex items-center gap-3">
+                  <div className="w-9 h-9 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
+                    <Zap className="w-4 h-4 text-primary" />
+                  </div>
+                  <div>
+                    <p className="text-sm font-semibold text-foreground">Øjeblikkelig levering</p>
+                    <p className="text-xs text-muted-foreground">Din key på under 30 sekunder</p>
                   </div>
                 </div>
-              )}
-            </motion.div>
+                
+                <div className="flex items-center gap-3">
+                  <div className="w-9 h-9 rounded-full bg-success/10 flex items-center justify-center flex-shrink-0">
+                    <Shield className="w-4 h-4 text-success" />
+                  </div>
+                  <div>
+                    <p className="text-sm font-semibold text-foreground">Pengene tilbage garanti</p>
+                    <p className="text-xs text-muted-foreground">Fuld refundering ved problemer</p>
+                  </div>
+                </div>
+                
+                <div className="flex items-center gap-3">
+                  <div className="w-9 h-9 rounded-full bg-accent/10 flex items-center justify-center flex-shrink-0">
+                    <CheckCircle2 className="w-4 h-4 text-accent" />
+                  </div>
+                  <div>
+                    <p className="text-sm font-semibold text-foreground">100% officielle keys</p>
+                    <p className="text-xs text-muted-foreground">Direkte fra autoriserede partnere</p>
+                  </div>
+                </div>
+              </motion.div>
+
+              {/* Quick Info Tags */}
+              <div className="flex flex-wrap gap-2">
+                {product.platform && (
+                  <Badge variant="secondary" className="gap-1.5 py-1.5 px-3">
+                    <Gamepad2 className="w-3.5 h-3.5" />
+                    {product.platform}
+                  </Badge>
+                )}
+                <Badge variant="secondary" className="gap-1.5 py-1.5 px-3">
+                  <Globe className="w-3.5 h-3.5" />
+                  {regionLabel}
+                </Badge>
+                <Badge variant="secondary" className="gap-1.5 py-1.5 px-3">
+                  <Package className="w-3.5 h-3.5" />
+                  Digital Key
+                </Badge>
+              </div>
+            </div>
           </motion.div>
         </div>
       </main>
