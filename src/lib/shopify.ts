@@ -182,6 +182,21 @@ const STOREFRONT_PRODUCT_BY_HANDLE_QUERY = `
   }
 `;
 
+// Query to get variant ID by product handle (for checkout)
+const STOREFRONT_VARIANT_BY_HANDLE_QUERY = `
+  query GetVariantByHandle($handle: String!) {
+    product(handle: $handle) {
+      variants(first: 1) {
+        edges {
+          node {
+            id
+          }
+        }
+      }
+    }
+  }
+`;
+
 const CART_CREATE_MUTATION = `
   mutation cartCreate($input: CartInput!) {
     cartCreate(input: $input) {
@@ -245,6 +260,21 @@ export async function fetchProductByHandle(handle: string) {
     return data.data.product;
   } catch (error) {
     console.error('Error fetching product:', error);
+    return null;
+  }
+}
+
+// Fetch the Shopify variant ID for a product by its handle (for checkout)
+export async function getShopifyVariantId(kinguinId: number): Promise<string | null> {
+  try {
+    const handle = `kinguin-${kinguinId}`;
+    const data = await storefrontApiRequest(STOREFRONT_VARIANT_BY_HANDLE_QUERY, { handle });
+    if (!data?.data?.product?.variants?.edges?.[0]?.node?.id) {
+      return null;
+    }
+    return data.data.product.variants.edges[0].node.id;
+  } catch (error) {
+    console.error('Error fetching Shopify variant ID:', error);
     return null;
   }
 }

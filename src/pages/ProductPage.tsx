@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useParams, Link } from "react-router-dom";
 import { fetchKinguinProductById, KinguinProduct } from "@/lib/kinguin";
+import { getShopifyVariantId } from "@/lib/shopify";
 import { usePricing } from "@/lib/pricing";
 import { useCartStore } from "@/stores/cartStore";
 import { Button } from "@/components/ui/button";
@@ -59,9 +60,23 @@ const ProductPage = () => {
   const priceDKK = getPrice(product.sell_price, product.margin_percent);
   const originalPriceDKK = getPrice(product.original_price, product.margin_percent);
 
-  const handleAddToCart = () => {
+  const handleAddToCart = async () => {
+    setIsAdding(true);
+    
+    // Get the Shopify variant ID for checkout
+    const shopifyVariantId = await getShopifyVariantId(product.kinguin_id);
+    
+    if (!shopifyVariantId) {
+      toast.error("Kunne ikke tilføje til kurv", {
+        description: "Produktet er ikke tilgængeligt i butikken endnu.",
+        position: "top-center"
+      });
+      setIsAdding(false);
+      return;
+    }
+    
     addItem({
-      variantId: `kinguin-${product.kinguin_id}`,
+      variantId: shopifyVariantId, // Use actual Shopify variant ID
       title: product.name,
       quantity: 1,
       price: {
@@ -71,8 +86,6 @@ const ProductPage = () => {
       image: product.cover_image || undefined,
       sku: `KINGUIN-${product.kinguin_id}`
     });
-    
-    setIsAdding(true);
     
     toast.success("Tilføjet til kurv", {
       description: product.name,

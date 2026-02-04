@@ -3,6 +3,7 @@ import { motion } from "framer-motion";
 import { ShoppingCart, Check, Globe, Monitor } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { KinguinProduct } from "@/lib/kinguin";
+import { getShopifyVariantId } from "@/lib/shopify";
 import { usePricing } from "@/lib/pricing";
 import { useCartStore } from "@/stores/cartStore";
 import { toast } from "sonner";
@@ -19,16 +20,27 @@ const KinguinProductCard = ({ product, index }: KinguinProductCardProps) => {
   const addItem = useCartStore((state) => state.addItem);
   const { getPrice, formatDKK, loading } = usePricing();
 
-  const handleAddToCart = (e: React.MouseEvent) => {
+  const handleAddToCart = async (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
     
     setIsAdding(true);
     
+    // Get the Shopify variant ID for checkout
+    const shopifyVariantId = await getShopifyVariantId(product.kinguin_id);
+    
+    if (!shopifyVariantId) {
+      toast.error("Kunne ikke tilføje til kurv", {
+        description: "Produktet er ikke tilgængeligt i butikken endnu."
+      });
+      setIsAdding(false);
+      return;
+    }
+    
     const priceInDkk = getPrice(product.sell_price, product.margin_percent);
     
     addItem({
-      variantId: `kinguin-${product.kinguin_id}`,
+      variantId: shopifyVariantId, // Use actual Shopify variant ID
       title: product.name,
       quantity: 1,
       price: {
@@ -39,13 +51,11 @@ const KinguinProductCard = ({ product, index }: KinguinProductCardProps) => {
       sku: `KINGUIN-${product.kinguin_id}`
     });
 
-    setTimeout(() => {
-      setIsAdding(false);
-      setJustAdded(true);
-      toast.success(`${product.name} tilføjet til kurv`);
-      
-      setTimeout(() => setJustAdded(false), 2000);
-    }, 300);
+    setIsAdding(false);
+    setJustAdded(true);
+    toast.success(`${product.name} tilføjet til kurv`);
+    
+    setTimeout(() => setJustAdded(false), 2000);
   };
 
   const imageUrl = product.cover_image || '/placeholder.svg';
