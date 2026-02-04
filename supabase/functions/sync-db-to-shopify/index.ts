@@ -8,9 +8,6 @@ const corsHeaders = {
 const SHOPIFY_STORE_DOMAIN = 'dingaming-js6x0.myshopify.com'
 const SHOPIFY_API_VERSION = '2025-01'
 
-// Shopify rate limit: ~2 requests/second for queries - use 600ms to be safe
-const DELAY_BETWEEN_PRODUCTS_MS = 600
-
 function json(body: unknown, init: ResponseInit = {}) {
   return new Response(JSON.stringify(body), {
     ...init,
@@ -36,9 +33,7 @@ Deno.serve(async (req) => {
 
     if (shopifyAccessToken.startsWith('shpss_')) {
       return json(
-        {
-          error: 'Access denied: SHOPIFY_ACCESS_TOKEN looks like a Storefront token (shpss_...). Please use an Admin API access token (shpca_/shpat_).',
-        },
+        { error: 'Access denied: SHOPIFY_ACCESS_TOKEN looks like a Storefront token. Please use an Admin API token.' },
         { status: 401 },
       )
     }
@@ -48,8 +43,8 @@ Deno.serve(async (req) => {
     const supabase = createClient(supabaseUrl, supabaseKey)
 
     const url = new URL(req.url)
-    const limitRaw = parseInt(url.searchParams.get('limit') || '100')
-    const limit = Number.isFinite(limitRaw) ? Math.min(Math.max(limitRaw, 1), 250) : 100
+    const limitRaw = parseInt(url.searchParams.get('limit') || '500')
+    const limit = Number.isFinite(limitRaw) ? Math.min(Math.max(limitRaw, 1), 1000) : 500
 
     console.log(`Syncing DB products to Shopify - limit ${limit}`)
 
@@ -96,35 +91,126 @@ Deno.serve(async (req) => {
 
     console.log(`Found ${products.length} products to sync`)
 
-    let synced = 0
-    let reconciled = 0
-    let failed = 0
-
-    // Process sequentially with delay to respect rate limits
-    for (const product of products) {
-      try {
-        const result = await syncProduct(product, shopifyAccessToken, globalMargin, eurToDkkRate, supabase)
-
-        if (result.fatalError) {
-          console.error(`Fatal error: ${result.fatalError}`)
-          break // Stop on fatal errors
-        }
-
-        if (result.reconciled) {
-          reconciled++
-        } else if (result.success) {
-          synced++
-        } else {
-          failed++
-          if (result.error) {
-            console.error(`Failed ${product.kinguin_id}: ${result.error}`)
+    // BATCH STEP 1: Check which products already exist in Shopify by fetching all handles starting with 'kinguin-'
+    // This dramatically reduces API calls by doing one bulk query instead of N individual queries
+    const shopifyAdminUrl = `https://${SHOPIFY_STORE_DOMAIN}/admin/api/${SHOPIFY_API_VERSION}/graphql.json`
+    
+    // Build a map of kinguin_id to product for quick lookup
+    const productsByKinguinId = new Map<number, any>()
+    for (const p of products) {
+      productsByKinguinId.set(p.kinguin_id, p)
+    }
+    
+    // Get SKUs we're looking for
+    const skusToCheck = products.map(p => `KINGUIN-${p.kinguin_id}`)
+    
+    // Batch check existing products - search in chunks to avoid query limits
+    const existingProducts = new Map<string, string>() // SKU -> shopify_product_id
+    const chunkSize = 50
+    
+    for (let i = 0; i < skusToCheck.length; i += chunkSize) {
+      const chunk = skusToCheck.slice(i, i + chunkSize)
+      const searchQuery = chunk.map(sku => `sku:${sku}`).join(' OR ')
+      
+      const searchResponse = await fetch(shopifyAdminUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Shopify-Access-Token': shopifyAccessToken,
+        },
+        body: JSON.stringify({
+          query: `
+            query searchProducts($query: String!) {
+              products(first: 50, query: $query) {
+                edges {
+                  node {
+                    id
+                    variants(first: 1) {
+                      edges {
+                        node { sku }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          `,
+          variables: { query: searchQuery }
+        }),
+      })
+      
+      if (searchResponse.ok) {
+        const searchData = await searchResponse.json()
+        const edges = searchData?.data?.products?.edges || []
+        for (const edge of edges) {
+          const sku = edge?.node?.variants?.edges?.[0]?.node?.sku
+          if (sku && edge?.node?.id) {
+            existingProducts.set(sku, edge.node.id)
           }
         }
-
-        await delay(DELAY_BETWEEN_PRODUCTS_MS)
-      } catch (err) {
-        console.error(`Failed to sync product ${product.kinguin_id}:`, err)
-        failed++
+      }
+      
+      // Small delay between search batches
+      if (i + chunkSize < skusToCheck.length) {
+        await delay(200)
+      }
+    }
+    
+    console.log(`Found ${existingProducts.size} products already in Shopify`)
+    
+    // BATCH STEP 2: Reconcile existing products in our database
+    const reconcileUpdates: { kinguin_id: number; shopify_product_id: string }[] = []
+    const productsToCreate: any[] = []
+    
+    for (const product of products) {
+      const sku = `KINGUIN-${product.kinguin_id}`
+      const existingId = existingProducts.get(sku)
+      
+      if (existingId) {
+        reconcileUpdates.push({ kinguin_id: product.kinguin_id, shopify_product_id: existingId })
+      } else {
+        productsToCreate.push(product)
+      }
+    }
+    
+    // Bulk update reconciled products
+    if (reconcileUpdates.length > 0) {
+      const updatePromises = reconcileUpdates.map(u =>
+        supabase
+          .from('kinguin_products')
+          .update({
+            shopify_product_id: u.shopify_product_id,
+            last_synced_to_shopify: new Date().toISOString(),
+          })
+          .eq('kinguin_id', u.kinguin_id)
+      )
+      await Promise.all(updatePromises)
+      console.log(`Reconciled ${reconcileUpdates.length} existing products`)
+    }
+    
+    // BATCH STEP 3: Create new products with concurrent requests (respecting rate limits)
+    let synced = 0
+    let failed = 0
+    const concurrency = 4 // Process 4 products at a time
+    
+    for (let i = 0; i < productsToCreate.length; i += concurrency) {
+      const batch = productsToCreate.slice(i, i + concurrency)
+      
+      const results = await Promise.all(
+        batch.map(product => createProduct(product, shopifyAccessToken, globalMargin, eurToDkkRate, supabase, shopifyAdminUrl))
+      )
+      
+      for (const result of results) {
+        if (result.success) synced++
+        else {
+          failed++
+          if (result.error) console.error(result.error)
+        }
+      }
+      
+      // Delay between batches to respect rate limits (~2 req/sec per API)
+      if (i + concurrency < productsToCreate.length) {
+        await delay(500)
       }
     }
 
@@ -136,12 +222,12 @@ Deno.serve(async (req) => {
 
     const remainingCount = typeof remaining === 'number' ? remaining : null
 
-    console.log(`Finished: ${synced} new, ${reconciled} reconciled, ${failed} failed. Remaining: ${remainingCount ?? 'unknown'}`)
+    console.log(`Finished: ${synced} new, ${reconcileUpdates.length} reconciled, ${failed} failed. Remaining: ${remainingCount ?? 'unknown'}`)
 
     return json({
       success: true,
       synced,
-      reconciled,
+      reconciled: reconcileUpdates.length,
       failed,
       total: products.length,
       remaining: remainingCount,
@@ -154,91 +240,32 @@ Deno.serve(async (req) => {
   }
 })
 
-async function syncProduct(
+async function createProduct(
   product: any,
   accessToken: string,
   globalMargin: number,
   eurToDkkRate: number,
   supabase: any,
-): Promise<{ success: boolean; reconciled?: boolean; shopifyId?: string; fatalError?: string; error?: string }> {
-  const shopifyAdminUrl = `https://${SHOPIFY_STORE_DOMAIN}/admin/api/${SHOPIFY_API_VERSION}/graphql.json`
+  shopifyAdminUrl: string,
+): Promise<{ success: boolean; shopifyId?: string; error?: string }> {
   const sku = `KINGUIN-${product.kinguin_id}`
+  const margin = product.margin_percent ?? globalMargin
+  const priceWithMargin = product.sell_price * (1 + margin / 100)
+  const priceInDkk = priceWithMargin * eurToDkkRate
+  const regionTag = product.region_id === 3 ? 'Worldwide' : 'Europe'
+  const cleanTitle = (product.name || 'Untitled Product').substring(0, 255)
+  const handle = `kinguin-${product.kinguin_id}`
 
-  // STEP 1: Check if product already exists in Shopify by SKU
-  const searchQuery = `
-    query searchProduct($query: String!) {
-      products(first: 1, query: $query) {
-        edges {
-          node {
-            id
-            handle
-          }
-        }
+  const mutation = `
+    mutation productSet($input: ProductSetInput!, $synchronous: Boolean!) {
+      productSet(input: $input, synchronous: $synchronous) {
+        product { id }
+        userErrors { field message }
       }
     }
   `
 
   try {
-    const searchResponse = await fetch(shopifyAdminUrl, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'X-Shopify-Access-Token': accessToken,
-      },
-      body: JSON.stringify({
-        query: searchQuery,
-        variables: { query: `sku:${sku}` }
-      }),
-    })
-
-    if (!searchResponse.ok) {
-      if (searchResponse.status === 401 || searchResponse.status === 403) {
-        return { success: false, fatalError: `Auth error: ${searchResponse.status}` }
-      }
-      return { success: false, error: `Search failed: HTTP ${searchResponse.status}` }
-    }
-
-    const searchData = await searchResponse.json()
-    
-    if (searchData?.errors) {
-      const msg = Array.isArray(searchData.errors) 
-        ? searchData.errors.map((e: any) => e?.message).join('; ') 
-        : String(searchData.errors)
-      return { success: false, error: `Search error: ${msg}` }
-    }
-
-    const existingProduct = searchData?.data?.products?.edges?.[0]?.node
-
-    if (existingProduct) {
-      // Product exists - reconcile by updating our database
-      await supabase
-        .from('kinguin_products')
-        .update({
-          shopify_product_id: existingProduct.id,
-          last_synced_to_shopify: new Date().toISOString(),
-        })
-        .eq('kinguin_id', product.kinguin_id)
-
-      return { success: true, reconciled: true, shopifyId: existingProduct.id }
-    }
-
-    // STEP 2: Product doesn't exist - create it
-    const margin = product.margin_percent ?? globalMargin
-    const priceWithMargin = product.sell_price * (1 + margin / 100)
-    const priceInDkk = priceWithMargin * eurToDkkRate
-    const regionTag = product.region_id === 3 ? 'Worldwide' : 'Europe'
-    const cleanTitle = (product.name || 'Untitled Product').substring(0, 255)
-    const handle = `kinguin-${product.kinguin_id}`
-
-    const mutation = `
-      mutation productSet($input: ProductSetInput!, $synchronous: Boolean!) {
-        productSet(input: $input, synchronous: $synchronous) {
-          product { id }
-          userErrors { field message }
-        }
-      }
-    `
-
     const createResponse = await fetch(shopifyAdminUrl, {
       method: 'POST',
       headers: {
@@ -279,61 +306,23 @@ async function syncProduct(
     try { 
       createData = JSON.parse(createText) 
     } catch { 
-      return { success: false, error: `Non-JSON response: ${createText.substring(0, 100)}` }
+      return { success: false, error: `Non-JSON: ${createText.substring(0, 100)}` }
     }
 
     if (!createResponse.ok) {
-      if (createResponse.status === 401 || createResponse.status === 403) {
-        return { success: false, fatalError: `Auth error: ${createResponse.status}` }
-      }
-      return { success: false, error: `Create HTTP ${createResponse.status}` }
+      return { success: false, error: `HTTP ${createResponse.status}` }
     }
 
     if (createData?.errors) {
       const msg = Array.isArray(createData.errors) 
         ? createData.errors.map((e: any) => e?.message).join('; ') 
         : String(createData.errors)
-      if (msg.toUpperCase().includes('THROTTLED')) {
-        return { success: false, fatalError: msg }
-      }
       return { success: false, error: msg }
     }
 
     const userErrors = createData?.data?.productSet?.userErrors
     if (userErrors?.length > 0) {
       const msg = userErrors.map((e: any) => `${e?.field}: ${e?.message}`).join('; ')
-      
-      // If handle is taken, try to find existing product by handle
-      if (msg.includes('Handle') && msg.includes('already')) {
-        // Search by handle instead
-        const handleSearchResponse = await fetch(shopifyAdminUrl, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'X-Shopify-Access-Token': accessToken,
-          },
-          body: JSON.stringify({
-            query: searchQuery,
-            variables: { query: `handle:${handle}` }
-          }),
-        })
-        
-        const handleSearchData = await handleSearchResponse.json()
-        const existingByHandle = handleSearchData?.data?.products?.edges?.[0]?.node
-        
-        if (existingByHandle) {
-          await supabase
-            .from('kinguin_products')
-            .update({
-              shopify_product_id: existingByHandle.id,
-              last_synced_to_shopify: new Date().toISOString(),
-            })
-            .eq('kinguin_id', product.kinguin_id)
-
-          return { success: true, reconciled: true, shopifyId: existingByHandle.id }
-        }
-      }
-      
       return { success: false, error: msg }
     }
 
@@ -347,9 +336,9 @@ async function syncProduct(
         })
         .eq('kinguin_id', product.kinguin_id)
 
-      // Add image async
+      // Add image async (fire and forget)
       if (product.cover_image) {
-        addProductImageAsync(createdProduct.id, product.cover_image, cleanTitle, accessToken)
+        addProductImageAsync(createdProduct.id, product.cover_image, cleanTitle, accessToken, shopifyAdminUrl)
       }
 
       return { success: true, shopifyId: createdProduct.id }
@@ -357,14 +346,11 @@ async function syncProduct(
 
     return { success: false, error: 'No product ID in response' }
   } catch (err) {
-    const errorMsg = err instanceof Error ? err.message : String(err)
-    return { success: false, error: errorMsg }
+    return { success: false, error: err instanceof Error ? err.message : String(err) }
   }
 }
 
-function addProductImageAsync(productId: string, imageUrl: string, altText: string, accessToken: string): void {
-  const shopifyAdminUrl = `https://${SHOPIFY_STORE_DOMAIN}/admin/api/${SHOPIFY_API_VERSION}/graphql.json`
-
+function addProductImageAsync(productId: string, imageUrl: string, altText: string, accessToken: string, shopifyAdminUrl: string): void {
   const mutation = `
     mutation productCreateMedia($productId: ID!, $media: [CreateMediaInput!]!) {
       productCreateMedia(productId: $productId, media: $media) {
