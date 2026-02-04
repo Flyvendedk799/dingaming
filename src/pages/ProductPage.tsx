@@ -1,11 +1,29 @@
 import { useEffect, useState } from "react";
 import { useParams, Link } from "react-router-dom";
+import { motion, AnimatePresence } from "framer-motion";
 import { fetchKinguinProductById, KinguinProduct } from "@/lib/kinguin";
 import { getShopifyVariantId } from "@/lib/shopify";
 import { usePricing } from "@/lib/pricing";
 import { useCartStore } from "@/stores/cartStore";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, ShoppingCart, CheckCircle2, Loader2, Shield, Zap, Globe } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { 
+  ArrowLeft, 
+  ShoppingCart, 
+  CheckCircle2, 
+  Loader2, 
+  Shield, 
+  Zap, 
+  Globe, 
+  Clock,
+  Tag,
+  ChevronLeft,
+  ChevronRight,
+  X,
+  Gamepad2,
+  Calendar,
+  Package
+} from "lucide-react";
 import { toast } from "sonner";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
@@ -15,6 +33,8 @@ const ProductPage = () => {
   const [product, setProduct] = useState<KinguinProduct | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isAdding, setIsAdding] = useState(false);
+  const [selectedImage, setSelectedImage] = useState(0);
+  const [isLightboxOpen, setIsLightboxOpen] = useState(false);
   const addItem = useCartStore(state => state.addItem);
   const { getPrice, formatDKK } = usePricing();
 
@@ -23,7 +43,6 @@ const ProductPage = () => {
       if (!handle) return;
       setIsLoading(true);
       
-      // Handle is the kinguin_id
       const kinguinId = parseInt(handle);
       if (!isNaN(kinguinId)) {
         const data = await fetchKinguinProductById(kinguinId);
@@ -34,10 +53,22 @@ const ProductPage = () => {
     loadProduct();
   }, [handle]);
 
+  // Scroll to top on mount
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, [handle]);
+
   if (isLoading) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
-        <Loader2 className="w-8 h-8 animate-spin text-primary" />
+        <motion.div
+          initial={{ opacity: 0, scale: 0.9 }}
+          animate={{ opacity: 1, scale: 1 }}
+          className="flex flex-col items-center gap-4"
+        >
+          <Loader2 className="w-10 h-10 animate-spin text-primary" />
+          <span className="text-muted-foreground">Indlæser produkt...</span>
+        </motion.div>
       </div>
     );
   }
@@ -47,10 +78,20 @@ const ProductPage = () => {
       <div className="min-h-screen bg-background">
         <Header />
         <div className="container mx-auto px-4 py-20 text-center">
-          <h1 className="font-heading text-3xl text-foreground mb-4">Produkt ikke fundet</h1>
-          <Link to="/" className="text-primary hover:underline">
-            Tilbage til forsiden
-          </Link>
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+          >
+            <Gamepad2 className="w-16 h-16 mx-auto mb-4 text-muted-foreground" />
+            <h1 className="font-heading text-3xl text-foreground mb-4">Produkt ikke fundet</h1>
+            <p className="text-muted-foreground mb-6">Det produkt du leder efter eksisterer ikke eller er blevet fjernet.</p>
+            <Link to="/">
+              <Button variant="outline" className="gap-2">
+                <ArrowLeft className="w-4 h-4" />
+                Tilbage til forsiden
+              </Button>
+            </Link>
+          </motion.div>
         </div>
         <Footer />
       </div>
@@ -59,11 +100,18 @@ const ProductPage = () => {
 
   const priceDKK = getPrice(product.sell_price, product.margin_percent);
   const originalPriceDKK = getPrice(product.original_price, product.margin_percent);
+  const discountPercent = product.original_price > product.sell_price 
+    ? Math.round((1 - product.sell_price / product.original_price) * 100)
+    : 0;
+  
+  const allImages = [
+    product.cover_image,
+    ...(product.screenshots || [])
+  ].filter(Boolean) as string[];
 
   const handleAddToCart = async () => {
     setIsAdding(true);
     
-    // Get the Shopify variant ID for checkout
     const shopifyVariantId = await getShopifyVariantId(product.kinguin_id);
     
     if (!shopifyVariantId) {
@@ -76,7 +124,7 @@ const ProductPage = () => {
     }
     
     addItem({
-      variantId: shopifyVariantId, // Use actual Shopify variant ID
+      variantId: shopifyVariantId,
       title: product.name,
       quantity: 1,
       price: {
@@ -97,155 +145,394 @@ const ProductPage = () => {
 
   const regionLabel = product.region_name || (product.region_id === 3 ? 'Worldwide' : 'Europe');
 
+  const nextImage = () => setSelectedImage((prev) => (prev + 1) % allImages.length);
+  const prevImage = () => setSelectedImage((prev) => (prev - 1 + allImages.length) % allImages.length);
+
   return (
     <div className="min-h-screen bg-background">
       <Header />
       
-
-      <main className="container mx-auto px-4 py-8">
-        {/* Back button */}
-        <Link 
-          to="/" 
-          className="inline-flex items-center gap-2 text-muted-foreground hover:text-foreground mb-8 transition-colors"
+      {/* Hero Section with Cover Image */}
+      <div className="relative h-[40vh] lg:h-[50vh] overflow-hidden">
+        <motion.div
+          initial={{ scale: 1.1 }}
+          animate={{ scale: 1 }}
+          transition={{ duration: 1.2, ease: "easeOut" }}
+          className="absolute inset-0"
         >
-          <ArrowLeft className="w-4 h-4" />
-          Tilbage til alle spil
-        </Link>
+          {product.cover_image ? (
+            <img
+              src={product.cover_image}
+              alt={product.name}
+              className="w-full h-full object-cover"
+            />
+          ) : (
+            <div className="w-full h-full bg-gradient-to-br from-primary/20 to-accent/10" />
+          )}
+        </motion.div>
+        
+        {/* Gradient overlays */}
+        <div className="absolute inset-0 bg-gradient-to-t from-background via-background/60 to-transparent" />
+        <div className="absolute inset-0 bg-gradient-to-r from-background/80 via-transparent to-background/80" />
+        
+        {/* Back button */}
+        <motion.div
+          initial={{ opacity: 0, x: -20 }}
+          animate={{ opacity: 1, x: 0 }}
+          transition={{ delay: 0.3 }}
+          className="absolute top-6 left-4 lg:left-8 z-10"
+        >
+          <Link to="/">
+            <Button 
+              variant="outline" 
+              size="sm"
+              className="gap-2 bg-background/80 backdrop-blur-sm border-border/50 hover:bg-background"
+            >
+              <ArrowLeft className="w-4 h-4" />
+              <span className="hidden sm:inline">Tilbage</span>
+            </Button>
+          </Link>
+        </motion.div>
 
-        <div className="grid lg:grid-cols-2 gap-12">
-          {/* Images */}
-          <div className="space-y-4">
-            <div className="aspect-square bg-muted rounded-xl overflow-hidden">
-              {product.cover_image ? (
-                <img
-                  src={product.cover_image}
-                  alt={product.name}
-                  className="w-full h-full object-cover"
-                />
-              ) : (
-                <div className="w-full h-full flex items-center justify-center text-muted-foreground">
-                  No image
+        {/* Badges overlay */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.4 }}
+          className="absolute bottom-0 left-0 right-0 p-4 lg:p-8"
+        >
+          <div className="container mx-auto">
+            <div className="flex flex-wrap items-center gap-2">
+              {product.platform && (
+                <Badge variant="secondary" className="bg-background/90 backdrop-blur-sm text-foreground border-border/50">
+                  <Gamepad2 className="w-3 h-3 mr-1" />
+                  {product.platform}
+                </Badge>
+              )}
+              <Badge className="bg-primary/90 backdrop-blur-sm text-primary-foreground border-0">
+                <Globe className="w-3 h-3 mr-1" />
+                {regionLabel}
+              </Badge>
+              {discountPercent > 0 && (
+                <Badge variant="destructive" className="backdrop-blur-sm">
+                  <Tag className="w-3 h-3 mr-1" />
+                  -{discountPercent}%
+                </Badge>
+              )}
+            </div>
+          </div>
+        </motion.div>
+      </div>
+
+      <main className="container mx-auto px-4 py-8 lg:py-12">
+        <div className="grid lg:grid-cols-5 gap-8 lg:gap-12">
+          {/* Left Column - Images */}
+          <motion.div
+            initial={{ opacity: 0, x: -30 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ delay: 0.2 }}
+            className="lg:col-span-2 space-y-4"
+          >
+            {/* Main Image */}
+            <div 
+              className="relative aspect-[4/3] bg-card rounded-2xl overflow-hidden border border-border/50 cursor-pointer group"
+              onClick={() => setIsLightboxOpen(true)}
+            >
+              <motion.img
+                key={selectedImage}
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={{ duration: 0.3 }}
+                src={allImages[selectedImage] || '/placeholder.svg'}
+                alt={product.name}
+                className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+              />
+              <div className="absolute inset-0 bg-gradient-to-t from-background/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
+              
+              {/* Image navigation */}
+              {allImages.length > 1 && (
+                <>
+                  <button
+                    onClick={(e) => { e.stopPropagation(); prevImage(); }}
+                    className="absolute left-3 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-background/80 backdrop-blur-sm flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity hover:bg-background"
+                  >
+                    <ChevronLeft className="w-5 h-5" />
+                  </button>
+                  <button
+                    onClick={(e) => { e.stopPropagation(); nextImage(); }}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-background/80 backdrop-blur-sm flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity hover:bg-background"
+                  >
+                    <ChevronRight className="w-5 h-5" />
+                  </button>
+                </>
+              )}
+
+              {/* Image counter */}
+              {allImages.length > 1 && (
+                <div className="absolute bottom-3 right-3 px-3 py-1 rounded-full bg-background/80 backdrop-blur-sm text-xs font-medium">
+                  {selectedImage + 1} / {allImages.length}
                 </div>
               )}
             </div>
-            
-            {product.screenshots && product.screenshots.length > 0 && (
-              <div className="grid grid-cols-4 gap-2">
-                {product.screenshots.slice(0, 4).map((screenshot, i) => (
-                  <div key={i} className="aspect-square bg-muted rounded-lg overflow-hidden">
-                    <img
-                      src={screenshot}
-                      alt={`${product.name} screenshot ${i + 1}`}
-                      className="w-full h-full object-cover"
-                    />
-                  </div>
+
+            {/* Thumbnails */}
+            {allImages.length > 1 && (
+              <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide">
+                {allImages.map((img, i) => (
+                  <motion.button
+                    key={i}
+                    whileHover={{ scale: 1.05 }}
+                    whileTap={{ scale: 0.95 }}
+                    onClick={() => setSelectedImage(i)}
+                    className={`relative w-20 h-20 flex-shrink-0 rounded-lg overflow-hidden border-2 transition-all ${
+                      selectedImage === i 
+                        ? 'border-primary ring-2 ring-primary/20' 
+                        : 'border-border/50 hover:border-primary/50'
+                    }`}
+                  >
+                    <img src={img} alt="" className="w-full h-full object-cover" />
+                  </motion.button>
                 ))}
               </div>
             )}
-          </div>
+          </motion.div>
 
-          {/* Product Info */}
-          <div>
-            <div className="flex items-center gap-2 mb-4">
-              {product.platform && (
-                <span className="px-3 py-1 bg-muted rounded-md text-sm font-medium">
-                  {product.platform}
-                </span>
-              )}
-              <span className="px-3 py-1 bg-primary/10 text-primary rounded-md text-sm font-medium flex items-center gap-1">
-                <Globe className="w-3 h-3" />
-                {regionLabel}
-              </span>
-            </div>
-
-            <h1 className="font-heading text-3xl lg:text-4xl text-foreground mb-4">
+          {/* Right Column - Product Info */}
+          <motion.div
+            initial={{ opacity: 0, x: 30 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ delay: 0.3 }}
+            className="lg:col-span-3"
+          >
+            {/* Title */}
+            <h1 className="font-heading text-3xl lg:text-4xl xl:text-5xl text-foreground mb-6 leading-tight">
               {product.name}
             </h1>
 
-            <div className="flex items-baseline gap-3 mb-6">
-              <span className="text-3xl font-bold text-primary">
-                {formatDKK(priceDKK)}
-              </span>
-              {product.original_price !== product.sell_price && (
-                <span className="text-lg text-muted-foreground line-through">
-                  {formatDKK(originalPriceDKK * 1.1)}
-                </span>
-              )}
-            </div>
-
-            {/* Stock */}
-            {product.qty > 0 && (
-              <p className="text-sm text-muted-foreground mb-6">
-                {product.qty <= 5 ? (
-                  <span className="text-destructive">Kun {product.qty} på lager</span>
-                ) : (
-                  <span className="text-green-500">På lager</span>
-                )}
-              </p>
-            )}
-
-            {/* Add to Cart */}
-            <Button
-              size="lg"
-              className="w-full mb-6 bg-primary text-primary-foreground hover:bg-primary/90 h-14 text-lg"
-              onClick={handleAddToCart}
-              disabled={isAdding || !product.is_available}
+            {/* Price Card */}
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.4 }}
+              className="bg-card rounded-2xl border border-border/50 p-6 mb-6"
             >
-              {isAdding ? (
-                <>
-                  <CheckCircle2 className="w-5 h-5 mr-2" />
-                  Tilføjet til kurv!
-                </>
-              ) : (
-                <>
-                  <ShoppingCart className="w-5 h-5 mr-2" />
-                  {product.is_available ? 'Tilføj til kurv' : 'Udsolgt'}
-                </>
-              )}
-            </Button>
+              <div className="flex items-end gap-4 mb-4">
+                <span className="text-4xl lg:text-5xl font-bold text-primary">
+                  {formatDKK(priceDKK)}
+                </span>
+                {product.original_price !== product.sell_price && (
+                  <span className="text-xl text-muted-foreground line-through pb-1">
+                    {formatDKK(originalPriceDKK * 1.1)}
+                  </span>
+                )}
+              </div>
 
-            {/* Trust badges */}
-            <div className="flex flex-wrap gap-4 mb-8">
-              <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                <Zap className="w-4 h-4 text-primary" />
-                <span>Levering på 30 sekunder</span>
-              </div>
-              <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                <Shield className="w-4 h-4 text-primary" />
-                <span>Pengene tilbage garanti</span>
-              </div>
-              <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                <CheckCircle2 className="w-4 h-4 text-primary" />
-                <span>Officiel key</span>
-              </div>
-            </div>
-
-            {/* Description */}
-            {product.description && (
-              <div>
-                <h2 className="font-heading text-xl text-foreground mb-3">Beskrivelse</h2>
-                <p className="text-muted-foreground leading-relaxed">
-                  {product.description}
-                </p>
-              </div>
-            )}
-
-            {/* Genres */}
-            {product.genres && product.genres.length > 0 && (
-              <div className="mt-6">
-                <h3 className="text-sm font-medium text-foreground mb-2">Genres</h3>
-                <div className="flex flex-wrap gap-2">
-                  {product.genres.map((genre, i) => (
-                    <span key={i} className="px-3 py-1 bg-muted rounded-full text-sm">
-                      {genre}
+              {/* Stock status */}
+              <div className="flex items-center gap-4 mb-6">
+                {product.qty > 0 ? (
+                  <div className="flex items-center gap-2">
+                    <span className={`w-2.5 h-2.5 rounded-full ${product.qty <= 5 ? 'bg-destructive animate-pulse' : 'bg-success'}`} />
+                    <span className={`text-sm font-medium ${product.qty <= 5 ? 'text-destructive' : 'text-success'}`}>
+                      {product.qty <= 5 ? `Kun ${product.qty} på lager` : 'På lager'}
                     </span>
-                  ))}
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-2">
+                    <span className="w-2.5 h-2.5 rounded-full bg-muted-foreground" />
+                    <span className="text-sm font-medium text-muted-foreground">Udsolgt</span>
+                  </div>
+                )}
+              </div>
+
+              {/* Add to Cart Button */}
+              <motion.div whileTap={{ scale: 0.98 }}>
+                <Button
+                  size="lg"
+                  className="w-full h-14 text-lg font-semibold gap-2 bg-primary hover:bg-primary/90 text-primary-foreground"
+                  onClick={handleAddToCart}
+                  disabled={isAdding || !product.is_available}
+                >
+                  {isAdding ? (
+                    <>
+                      <CheckCircle2 className="w-5 h-5" />
+                      Tilføjet til kurv!
+                    </>
+                  ) : (
+                    <>
+                      <ShoppingCart className="w-5 h-5" />
+                      {product.is_available ? 'Tilføj til kurv' : 'Udsolgt'}
+                    </>
+                  )}
+                </Button>
+              </motion.div>
+            </motion.div>
+
+            {/* Trust Badges */}
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.5 }}
+              className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-8"
+            >
+              <div className="flex items-center gap-3 p-4 bg-card rounded-xl border border-border/50">
+                <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
+                  <Zap className="w-5 h-5 text-primary" />
+                </div>
+                <div>
+                  <p className="text-sm font-semibold text-foreground">Øjeblikkelig levering</p>
+                  <p className="text-xs text-muted-foreground">På under 30 sekunder</p>
                 </div>
               </div>
-            )}
-          </div>
+              
+              <div className="flex items-center gap-3 p-4 bg-card rounded-xl border border-border/50">
+                <div className="w-10 h-10 rounded-full bg-success/10 flex items-center justify-center">
+                  <Shield className="w-5 h-5 text-success" />
+                </div>
+                <div>
+                  <p className="text-sm font-semibold text-foreground">Garanti</p>
+                  <p className="text-xs text-muted-foreground">Pengene tilbage</p>
+                </div>
+              </div>
+              
+              <div className="flex items-center gap-3 p-4 bg-card rounded-xl border border-border/50">
+                <div className="w-10 h-10 rounded-full bg-accent/10 flex items-center justify-center">
+                  <CheckCircle2 className="w-5 h-5 text-accent" />
+                </div>
+                <div>
+                  <p className="text-sm font-semibold text-foreground">Officiel key</p>
+                  <p className="text-xs text-muted-foreground">100% ægte</p>
+                </div>
+              </div>
+            </motion.div>
+
+            {/* Product Details */}
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.6 }}
+              className="space-y-6"
+            >
+              {/* Quick Info */}
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                {product.platform && (
+                  <div className="p-4 bg-muted/50 rounded-xl">
+                    <Gamepad2 className="w-5 h-5 text-muted-foreground mb-2" />
+                    <p className="text-xs text-muted-foreground">Platform</p>
+                    <p className="text-sm font-semibold">{product.platform}</p>
+                  </div>
+                )}
+                <div className="p-4 bg-muted/50 rounded-xl">
+                  <Globe className="w-5 h-5 text-muted-foreground mb-2" />
+                  <p className="text-xs text-muted-foreground">Region</p>
+                  <p className="text-sm font-semibold">{regionLabel}</p>
+                </div>
+                {product.release_date && (
+                  <div className="p-4 bg-muted/50 rounded-xl">
+                    <Calendar className="w-5 h-5 text-muted-foreground mb-2" />
+                    <p className="text-xs text-muted-foreground">Udgivelse</p>
+                    <p className="text-sm font-semibold">
+                      {new Date(product.release_date).toLocaleDateString('da-DK', { year: 'numeric' })}
+                    </p>
+                  </div>
+                )}
+                <div className="p-4 bg-muted/50 rounded-xl">
+                  <Package className="w-5 h-5 text-muted-foreground mb-2" />
+                  <p className="text-xs text-muted-foreground">Type</p>
+                  <p className="text-sm font-semibold">Digital Key</p>
+                </div>
+              </div>
+
+              {/* Genres */}
+              {product.genres && product.genres.length > 0 && (
+                <div>
+                  <h3 className="text-sm font-semibold text-muted-foreground mb-3">Genres</h3>
+                  <div className="flex flex-wrap gap-2">
+                    {product.genres.map((genre, i) => (
+                      <Badge key={i} variant="secondary" className="px-3 py-1">
+                        {genre}
+                      </Badge>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Description */}
+              {product.description && (
+                <div>
+                  <h2 className="font-heading text-2xl text-foreground mb-4">Om spillet</h2>
+                  <div className="prose prose-invert prose-sm max-w-none">
+                    <p className="text-muted-foreground leading-relaxed whitespace-pre-line">
+                      {product.description}
+                    </p>
+                  </div>
+                </div>
+              )}
+            </motion.div>
+          </motion.div>
         </div>
       </main>
+
+      {/* Lightbox */}
+      <AnimatePresence>
+        {isLightboxOpen && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 bg-background/95 backdrop-blur-xl flex items-center justify-center p-4"
+            onClick={() => setIsLightboxOpen(false)}
+          >
+            <button
+              onClick={() => setIsLightboxOpen(false)}
+              className="absolute top-4 right-4 w-12 h-12 rounded-full bg-card flex items-center justify-center hover:bg-muted transition-colors"
+            >
+              <X className="w-6 h-6" />
+            </button>
+            
+            <motion.img
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+              src={allImages[selectedImage]}
+              alt={product.name}
+              className="max-w-full max-h-[85vh] object-contain rounded-lg"
+              onClick={(e) => e.stopPropagation()}
+            />
+
+            {allImages.length > 1 && (
+              <>
+                <button
+                  onClick={(e) => { e.stopPropagation(); prevImage(); }}
+                  className="absolute left-4 top-1/2 -translate-y-1/2 w-12 h-12 rounded-full bg-card flex items-center justify-center hover:bg-muted transition-colors"
+                >
+                  <ChevronLeft className="w-6 h-6" />
+                </button>
+                <button
+                  onClick={(e) => { e.stopPropagation(); nextImage(); }}
+                  className="absolute right-4 top-1/2 -translate-y-1/2 w-12 h-12 rounded-full bg-card flex items-center justify-center hover:bg-muted transition-colors"
+                >
+                  <ChevronRight className="w-6 h-6" />
+                </button>
+              </>
+            )}
+
+            {/* Dots indicator */}
+            {allImages.length > 1 && (
+              <div className="absolute bottom-8 left-1/2 -translate-x-1/2 flex gap-2">
+                {allImages.map((_, i) => (
+                  <button
+                    key={i}
+                    onClick={(e) => { e.stopPropagation(); setSelectedImage(i); }}
+                    className={`w-2.5 h-2.5 rounded-full transition-all ${
+                      selectedImage === i ? 'bg-primary w-6' : 'bg-muted-foreground/50 hover:bg-muted-foreground'
+                    }`}
+                  />
+                ))}
+              </div>
+            )}
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       <Footer />
     </div>
