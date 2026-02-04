@@ -8,9 +8,13 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
-import { RefreshCw, Settings, Database, ShoppingBag, Clock, TrendingUp, Package, AlertTriangle, Download } from "lucide-react";
+import { RefreshCw, Settings, Database, ShoppingBag, Clock, TrendingUp, Package, AlertTriangle, Download, Wallet, ShoppingCart, Key, RotateCcw, Eye, Copy, CheckCircle, XCircle, Loader2 } from "lucide-react";
 import { Progress } from "@/components/ui/progress";
 import Header from "@/components/Header";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { ScrollArea } from "@/components/ui/scroll-area";
 
 interface StoreSetting {
   key: string;
@@ -22,6 +26,30 @@ interface SyncStats {
   availableProducts: number;
   syncedToShopify: number;
   notSyncedToShopify: number;
+}
+
+interface KinguinOrder {
+  orderId: string;
+  orderExternalId?: string;
+  status: string;
+  totalPrice: number;
+  createdAt: string;
+  products: Array<{
+    kinguinId: number;
+    name: string;
+    qty: number;
+    price: number;
+    keys?: Array<{ id: string; status: string }>;
+  }>;
+  totalQty: number;
+}
+
+interface KinguinKey {
+  id: string;
+  serial: string;
+  type: string;
+  name: string;
+  kinguinId: number;
 }
 
 const AdminPage = () => {
@@ -37,6 +65,23 @@ const AdminPage = () => {
   >(null);
   const [backfilling, setBackfilling] = useState(false);
   const [backfillProgress, setBackfillProgress] = useState<{ page: number; synced: number } | null>(null);
+  
+  // Kinguin balance
+  const [balance, setBalance] = useState<number | null>(null);
+  const [loadingBalance, setLoadingBalance] = useState(false);
+  
+  // Orders
+  const [orders, setOrders] = useState<KinguinOrder[]>([]);
+  const [ordersTotal, setOrdersTotal] = useState(0);
+  const [ordersPage, setOrdersPage] = useState(1);
+  const [ordersStatus, setOrdersStatus] = useState<string>('');
+  const [loadingOrders, setLoadingOrders] = useState(false);
+  
+  // Keys modal
+  const [selectedOrder, setSelectedOrder] = useState<string | null>(null);
+  const [orderKeys, setOrderKeys] = useState<KinguinKey[]>([]);
+  const [loadingKeys, setLoadingKeys] = useState(false);
+  const [returningKeys, setReturningKeys] = useState(false);
 
   useEffect(() => {
     loadData();
@@ -82,12 +127,148 @@ const AdminPage = () => {
         syncedToShopify: syncedToShopify || 0,
         notSyncedToShopify: notSyncedToShopify || 0
       });
+      
+      // Load balance
+      fetchBalance();
     } catch (error) {
       console.error('Error loading data:', error);
       toast.error('Kunne ikke hente data');
     } finally {
       setLoading(false);
     }
+  };
+  
+  const fetchBalance = async () => {
+    setLoadingBalance(true);
+    try {
+      const response = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/kinguin-balance`,
+        {
+          method: 'GET',
+          headers: {
+            'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+            'Content-Type': 'application/json'
+          }
+        }
+      );
+
+      const result = await response.json();
+      
+      if (result.error) {
+        console.error('Balance error:', result.error);
+      } else {
+        setBalance(result.balance);
+      }
+    } catch (error) {
+      console.error('Balance fetch error:', error);
+    } finally {
+      setLoadingBalance(false);
+    }
+  };
+  
+  const fetchOrders = async (page = 1, status = '') => {
+    setLoadingOrders(true);
+    try {
+      const params = new URLSearchParams();
+      params.set('page', page.toString());
+      params.set('limit', '25');
+      if (status) params.set('status', status);
+
+      const response = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/kinguin-orders?${params.toString()}`,
+        {
+          method: 'GET',
+          headers: {
+            'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+            'Content-Type': 'application/json'
+          }
+        }
+      );
+
+      const result = await response.json();
+      
+      if (result.error) {
+        toast.error(result.error);
+      } else {
+        setOrders(result.orders || []);
+        setOrdersTotal(result.total || 0);
+        setOrdersPage(page);
+      }
+    } catch (error) {
+      console.error('Orders fetch error:', error);
+      toast.error('Kunne ikke hente ordrer');
+    } finally {
+      setLoadingOrders(false);
+    }
+  };
+  
+  const fetchKeys = async (orderId: string) => {
+    setSelectedOrder(orderId);
+    setLoadingKeys(true);
+    setOrderKeys([]);
+    
+    try {
+      const response = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/kinguin-keys?orderId=${orderId}&action=download`,
+        {
+          method: 'GET',
+          headers: {
+            'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+            'Content-Type': 'application/json'
+          }
+        }
+      );
+
+      const result = await response.json();
+      
+      if (result.error) {
+        toast.error(result.error);
+      } else {
+        setOrderKeys(result.keys || []);
+      }
+    } catch (error) {
+      console.error('Keys fetch error:', error);
+      toast.error('Kunne ikke hente nøgler');
+    } finally {
+      setLoadingKeys(false);
+    }
+  };
+  
+  const returnKeys = async (orderId: string) => {
+    if (!confirm('Er du sikker på at du vil returnere nøglerne for denne ordre?')) return;
+    
+    setReturningKeys(true);
+    try {
+      const response = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/kinguin-keys?orderId=${orderId}&action=return`,
+        {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+            'Content-Type': 'application/json'
+          }
+        }
+      );
+
+      const result = await response.json();
+      
+      if (result.error) {
+        toast.error(result.error);
+      } else {
+        toast.success('Nøgler returneret!');
+        fetchOrders(ordersPage, ordersStatus);
+      }
+    } catch (error) {
+      console.error('Return keys error:', error);
+      toast.error('Kunne ikke returnere nøgler');
+    } finally {
+      setReturningKeys(false);
+    }
+  };
+  
+  const copyToClipboard = (text: string) => {
+    navigator.clipboard.writeText(text);
+    toast.success('Kopieret til udklipsholder');
   };
 
   const saveSetting = async (key: string, value: any) => {
@@ -149,7 +330,6 @@ const AdminPage = () => {
       while (true) {
         toast.info(`Starting chunk ${chunkNumber}...`);
         
-        // Start bulk operation for this chunk
         const response = await fetch(
           `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/shopify-bulk-sync?action=start`,
           {
@@ -163,7 +343,6 @@ const AdminPage = () => {
 
         const result = await response.json();
         
-        // Handle already running case gracefully
         if (result.error === 'already_running') {
           toast.warning(result.message || 'En bulk operation kører allerede. Tjek status.');
           break;
@@ -181,13 +360,12 @@ const AdminPage = () => {
 
         toast.info(`Chunk ${chunkNumber}: ${result.productsInThisChunk} produkter uploades... ${result.remainingProducts} tilbage.`);
         
-        // Wait for bulk operation to complete
         let completed = false;
         let attempts = 0;
-        const maxAttempts = 120; // 10 minutes max per chunk
+        const maxAttempts = 120;
         
         while (!completed && attempts < maxAttempts) {
-          await new Promise(resolve => setTimeout(resolve, 5000)); // Wait 5 seconds
+          await new Promise(resolve => setTimeout(resolve, 5000));
           
           const statusResponse = await fetch(
             `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/shopify-bulk-sync?action=status`,
@@ -222,11 +400,10 @@ const AdminPage = () => {
              toast.error(`Chunk ${chunkNumber} fejlede: ${status.errorCode}`);
              completed = true;
            } else if (status.status === 'RUNNING') {
-             if (attempts % 6 === 0) { // Update every 30 seconds
+             if (attempts % 6 === 0) {
                toast.info(`Chunk ${chunkNumber} kører... ${status.objectCount || 0} behandlet`);
              }
            } else if (status.status === 'NO_OPERATION') {
-             // Operation might have completed very quickly
              completed = true;
            }
           
@@ -240,7 +417,6 @@ const AdminPage = () => {
         
         chunkNumber++;
         
-        // Small delay between chunks
         await new Promise(resolve => setTimeout(resolve, 2000));
       }
 
@@ -373,7 +549,6 @@ const AdminPage = () => {
     setReconcilingProgress({ status: 'starting' });
     
     try {
-      // Step 1: Start the bulk query
       toast.info('Starter bulk query fra Shopify...');
       const startResponse = await fetch(
         `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/shopify-bulk-sync?action=reconcile-start`,
@@ -400,18 +575,16 @@ const AdminPage = () => {
         return;
       }
       
-      // If already completed with URL, skip to processing
       let resultUrl = startResult.resultUrl;
       let totalProducts = startResult.objectCount || 0;
       
       if (!resultUrl) {
-        // Step 2: Poll for completion
         toast.info('Venter på Shopify bulk query...');
         setReconcilingProgress({ status: 'querying' });
         
         let completed = false;
         let attempts = 0;
-        const maxAttempts = 60; // 5 minutes max
+        const maxAttempts = 60;
         
         while (!completed && attempts < maxAttempts) {
           await new Promise(resolve => setTimeout(resolve, 5000));
@@ -458,7 +631,6 @@ const AdminPage = () => {
         }
       }
       
-      // Step 3: Process results in chunks
       toast.info('Opdaterer database...');
       let offset = 0;
       let done = false;
@@ -550,7 +722,6 @@ const AdminPage = () => {
           break;
         }
         
-        // Small delay between runs
         await new Promise(resolve => setTimeout(resolve, 1000));
       }
 
@@ -561,6 +732,21 @@ const AdminPage = () => {
     } finally {
       setBackfilling(false);
       setBackfillProgress(null);
+    }
+  };
+  
+  const getStatusBadge = (status: string) => {
+    switch (status) {
+      case 'completed':
+        return <Badge className="bg-green-500"><CheckCircle className="w-3 h-3 mr-1" /> Fuldført</Badge>;
+      case 'processing':
+        return <Badge className="bg-blue-500"><Loader2 className="w-3 h-3 mr-1 animate-spin" /> Behandler</Badge>;
+      case 'canceled':
+        return <Badge variant="destructive"><XCircle className="w-3 h-3 mr-1" /> Annulleret</Badge>;
+      case 'refunded':
+        return <Badge variant="outline"><RotateCcw className="w-3 h-3 mr-1" /> Refunderet</Badge>;
+      default:
+        return <Badge variant="secondary">{status}</Badge>;
     }
   };
 
@@ -583,11 +769,34 @@ const AdminPage = () => {
       <div className="container mx-auto px-4 py-8">
         <div className="mb-8">
           <h1 className="text-3xl font-bold text-foreground mb-2">Admin Dashboard</h1>
-          <p className="text-muted-foreground">Administrer produkter, priser og synkronisering</p>
+          <p className="text-muted-foreground">Administrer produkter, ordrer, priser og synkronisering</p>
         </div>
 
         {/* Stats Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 mb-8">
+          {/* Balance Card */}
+          <Card className="border-primary/20">
+            <CardContent className="p-6">
+              <div className="flex items-center gap-4">
+                <div className="p-3 bg-green-500/10 rounded-lg">
+                  <Wallet className="w-6 h-6 text-green-500" />
+                </div>
+                <div>
+                  <p className="text-sm text-muted-foreground">Kinguin Saldo</p>
+                  <p className="text-2xl font-bold">
+                    {loadingBalance ? (
+                      <RefreshCw className="w-5 h-5 animate-spin" />
+                    ) : balance !== null ? (
+                      `€${balance.toFixed(2)}`
+                    ) : (
+                      '—'
+                    )}
+                  </p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+          
           <Card>
             <CardContent className="p-6">
               <div className="flex items-center gap-4">
@@ -650,6 +859,10 @@ const AdminPage = () => {
             <TabsTrigger value="sync" className="gap-2">
               <RefreshCw className="w-4 h-4" />
               Synkronisering
+            </TabsTrigger>
+            <TabsTrigger value="orders" className="gap-2" onClick={() => fetchOrders(1, ordersStatus)}>
+              <ShoppingCart className="w-4 h-4" />
+              Ordrer
             </TabsTrigger>
             <TabsTrigger value="pricing" className="gap-2">
               <TrendingUp className="w-4 h-4" />
@@ -830,6 +1043,234 @@ const AdminPage = () => {
                       ? 'Backfill fuldført'
                       : 'Start/Fortsæt backfill'}
                 </Button>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          {/* Orders Tab */}
+          <TabsContent value="orders" className="space-y-6">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <ShoppingCart className="w-5 h-5" />
+                  Kinguin Ordrer
+                </CardTitle>
+                <CardDescription>
+                  Se og administrer ordrer fra Kinguin API
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {/* Filters */}
+                <div className="flex gap-4 items-end">
+                  <div className="flex-1">
+                    <Label>Status filter</Label>
+                    <Select 
+                      value={ordersStatus} 
+                      onValueChange={(value) => {
+                        setOrdersStatus(value);
+                        fetchOrders(1, value);
+                      }}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Alle statuser" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="">Alle statuser</SelectItem>
+                        <SelectItem value="processing">Behandler</SelectItem>
+                        <SelectItem value="completed">Fuldført</SelectItem>
+                        <SelectItem value="canceled">Annulleret</SelectItem>
+                        <SelectItem value="refunded">Refunderet</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <Button 
+                    onClick={() => fetchOrders(ordersPage, ordersStatus)} 
+                    disabled={loadingOrders}
+                    variant="outline"
+                  >
+                    <RefreshCw className={`w-4 h-4 mr-2 ${loadingOrders ? 'animate-spin' : ''}`} />
+                    Opdater
+                  </Button>
+                </div>
+
+                {/* Orders table */}
+                {loadingOrders ? (
+                  <div className="flex items-center justify-center py-10">
+                    <RefreshCw className="w-6 h-6 animate-spin text-primary" />
+                  </div>
+                ) : orders.length === 0 ? (
+                  <div className="text-center py-10 text-muted-foreground">
+                    Ingen ordrer fundet
+                  </div>
+                ) : (
+                  <>
+                    <ScrollArea className="h-[500px]">
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead>Ordre ID</TableHead>
+                            <TableHead>Dato</TableHead>
+                            <TableHead>Status</TableHead>
+                            <TableHead>Produkter</TableHead>
+                            <TableHead>Antal</TableHead>
+                            <TableHead>Pris</TableHead>
+                            <TableHead>Handlinger</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {orders.map((order) => (
+                            <TableRow key={order.orderId}>
+                              <TableCell className="font-mono text-sm">
+                                {order.orderId}
+                                {order.orderExternalId && (
+                                  <span className="block text-xs text-muted-foreground">
+                                    Ext: {order.orderExternalId}
+                                  </span>
+                                )}
+                              </TableCell>
+                              <TableCell className="text-sm">
+                                {new Date(order.createdAt).toLocaleDateString('da-DK')}
+                                <span className="block text-xs text-muted-foreground">
+                                  {new Date(order.createdAt).toLocaleTimeString('da-DK')}
+                                </span>
+                              </TableCell>
+                              <TableCell>{getStatusBadge(order.status)}</TableCell>
+                              <TableCell className="max-w-[200px]">
+                                <div className="text-sm truncate">
+                                  {order.products?.[0]?.name || '—'}
+                                </div>
+                                {order.products?.length > 1 && (
+                                  <span className="text-xs text-muted-foreground">
+                                    +{order.products.length - 1} mere
+                                  </span>
+                                )}
+                              </TableCell>
+                              <TableCell>{order.totalQty}</TableCell>
+                              <TableCell>€{order.totalPrice?.toFixed(2)}</TableCell>
+                              <TableCell>
+                                <div className="flex gap-1">
+                                  <Dialog>
+                                    <DialogTrigger asChild>
+                                      <Button 
+                                        variant="ghost" 
+                                        size="sm"
+                                        onClick={() => fetchKeys(order.orderId)}
+                                      >
+                                        <Key className="w-4 h-4" />
+                                      </Button>
+                                    </DialogTrigger>
+                                    <DialogContent className="max-w-2xl">
+                                      <DialogHeader>
+                                        <DialogTitle>Nøgler for ordre {selectedOrder}</DialogTitle>
+                                        <DialogDescription>
+                                          Download eller returner nøgler for denne ordre
+                                        </DialogDescription>
+                                      </DialogHeader>
+                                      <div className="space-y-4">
+                                        {loadingKeys ? (
+                                          <div className="flex items-center justify-center py-10">
+                                            <RefreshCw className="w-6 h-6 animate-spin" />
+                                          </div>
+                                        ) : orderKeys.length === 0 ? (
+                                          <div className="text-center py-10 text-muted-foreground">
+                                            Ingen nøgler tilgængelige endnu
+                                          </div>
+                                        ) : (
+                                          <ScrollArea className="h-[400px]">
+                                            <Table>
+                                              <TableHeader>
+                                                <TableRow>
+                                                  <TableHead>Produkt</TableHead>
+                                                  <TableHead>Nøgle</TableHead>
+                                                  <TableHead>Type</TableHead>
+                                                  <TableHead></TableHead>
+                                                </TableRow>
+                                              </TableHeader>
+                                              <TableBody>
+                                                {orderKeys.map((key) => (
+                                                  <TableRow key={key.id}>
+                                                    <TableCell className="text-sm max-w-[200px] truncate">
+                                                      {key.name}
+                                                    </TableCell>
+                                                    <TableCell className="font-mono text-sm">
+                                                      {key.type.startsWith('image/') ? (
+                                                        <img 
+                                                          src={`data:${key.type};base64,${key.serial}`} 
+                                                          alt="Key" 
+                                                          className="max-w-[200px] max-h-[100px]"
+                                                        />
+                                                      ) : (
+                                                        key.serial
+                                                      )}
+                                                    </TableCell>
+                                                    <TableCell>
+                                                      <Badge variant="outline">{key.type}</Badge>
+                                                    </TableCell>
+                                                    <TableCell>
+                                                      {!key.type.startsWith('image/') && (
+                                                        <Button 
+                                                          variant="ghost" 
+                                                          size="sm"
+                                                          onClick={() => copyToClipboard(key.serial)}
+                                                        >
+                                                          <Copy className="w-4 h-4" />
+                                                        </Button>
+                                                      )}
+                                                    </TableCell>
+                                                  </TableRow>
+                                                ))}
+                                              </TableBody>
+                                            </Table>
+                                          </ScrollArea>
+                                        )}
+                                        
+                                        <div className="flex gap-2 justify-end pt-4 border-t">
+                                          <Button
+                                            variant="destructive"
+                                            onClick={() => selectedOrder && returnKeys(selectedOrder)}
+                                            disabled={returningKeys || orderKeys.length === 0}
+                                          >
+                                            <RotateCcw className={`w-4 h-4 mr-2 ${returningKeys ? 'animate-spin' : ''}`} />
+                                            Returner nøgler
+                                          </Button>
+                                        </div>
+                                      </div>
+                                    </DialogContent>
+                                  </Dialog>
+                                </div>
+                              </TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    </ScrollArea>
+                    
+                    {/* Pagination */}
+                    <div className="flex items-center justify-between pt-4">
+                      <p className="text-sm text-muted-foreground">
+                        Viser {orders.length} af {ordersTotal} ordrer
+                      </p>
+                      <div className="flex gap-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          disabled={ordersPage <= 1 || loadingOrders}
+                          onClick={() => fetchOrders(ordersPage - 1, ordersStatus)}
+                        >
+                          Forrige
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          disabled={orders.length < 25 || loadingOrders}
+                          onClick={() => fetchOrders(ordersPage + 1, ordersStatus)}
+                        >
+                          Næste
+                        </Button>
+                      </div>
+                    </div>
+                  </>
+                )}
               </CardContent>
             </Card>
           </TabsContent>
