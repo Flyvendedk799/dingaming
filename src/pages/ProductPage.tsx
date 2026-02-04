@@ -7,7 +7,7 @@ import { ArrowLeft, ShoppingCart, CheckCircle2, Loader2, Shield, Zap, Globe } fr
 import { toast } from "sonner";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
-import { CartDrawer } from "@/components/CartDrawer";
+
 
 const ProductPage = () => {
   const { handle } = useParams<{ handle: string }>();
@@ -84,10 +84,6 @@ const ProductPage = () => {
     <div className="min-h-screen bg-background">
       <Header />
       
-      {/* Fixed cart button */}
-      <div className="fixed top-24 right-4 z-50">
-        <CartDrawer />
-      </div>
 
       <main className="container mx-auto px-4 py-8">
         {/* Back button */}
