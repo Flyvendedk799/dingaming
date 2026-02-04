@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useIsMobile } from "@/hooks/use-mobile";
 
@@ -7,364 +7,387 @@ interface IntroAnimationProps {
 }
 
 interface Particle {
-  id: number;
   x: number;
   y: number;
+  vx: number;
+  vy: number;
+  tx: number;
+  ty: number;
   size: number;
   opacity: number;
-  delay: number;
-  depth: number;
-  angle: number;
-  distance: number;
-  targetX: number;
-  targetY: number;
-  trailLength: number;
   hue: number;
+  trail: { x: number; y: number }[];
+  phase: 'ember' | 'burst' | 'converge' | 'dissolve';
+  delay: number;
+  speed: number;
 }
 
-// Key shape coordinates for formation
-const keyShapePoints = [
-  { x: 0, y: -35 }, { x: 15, y: -32 }, { x: 22, y: -20 }, { x: 22, y: -5 },
-  { x: 15, y: 7 }, { x: 0, y: 10 }, { x: -15, y: 7 }, { x: -22, y: -5 },
-  { x: -22, y: -20 }, { x: -15, y: -32 },
-  { x: -5, y: 15 }, { x: 5, y: 15 }, { x: 5, y: 45 }, { x: -5, y: 45 },
-  { x: 5, y: 30 }, { x: 15, y: 30 }, { x: 15, y: 38 }, { x: 5, y: 38 },
-  { x: 5, y: 42 }, { x: 12, y: 42 }, { x: 12, y: 48 }, { x: -5, y: 48 },
+// Golden key silhouette points (normalized 0-1)
+const KEY_POINTS = [
+  // Key head (circular part)
+  { x: 0.5, y: 0.28 }, { x: 0.54, y: 0.29 }, { x: 0.57, y: 0.32 },
+  { x: 0.58, y: 0.36 }, { x: 0.57, y: 0.40 }, { x: 0.54, y: 0.43 },
+  { x: 0.5, y: 0.44 }, { x: 0.46, y: 0.43 }, { x: 0.43, y: 0.40 },
+  { x: 0.42, y: 0.36 }, { x: 0.43, y: 0.32 }, { x: 0.46, y: 0.29 },
+  // Key shaft
+  { x: 0.5, y: 0.46 }, { x: 0.5, y: 0.52 }, { x: 0.5, y: 0.58 },
+  { x: 0.5, y: 0.64 }, { x: 0.5, y: 0.70 },
+  // Key teeth
+  { x: 0.54, y: 0.64 }, { x: 0.56, y: 0.64 },
+  { x: 0.54, y: 0.70 }, { x: 0.56, y: 0.70 },
 ];
 
-// Sub-component: Particle with motion trail
-const ParticleWithTrail = ({ 
-  particle, 
-  phase, 
-  isMobile,
-  depthSpeed,
-}: { 
-  particle: Particle;
-  phase: string;
-  isMobile: boolean;
-  depthSpeed: number[];
-}) => {
-  const speed = depthSpeed[particle.depth];
-  const trailShadows = isMobile ? 2 : particle.trailLength;
-  
-  // Generate trail shadows
-  const trailShadow = useMemo(() => {
-    const shadows = [];
-    for (let i = 1; i <= trailShadows; i++) {
-      const offset = i * 4;
-      const blur = i * 3;
-      const opacity = (1 - i / (trailShadows + 1)) * 0.4;
-      shadows.push(`${-offset}px ${-offset}px ${blur}px hsla(${particle.hue}, 92%, 50%, ${opacity})`);
+const useParticleEngine = (
+  canvasRef: React.RefObject<HTMLCanvasElement>,
+  phase: string,
+  isMobile: boolean
+) => {
+  const particlesRef = useRef<Particle[]>([]);
+  const animationRef = useRef<number>();
+  const startTimeRef = useRef<number>(0);
+  const lastTimeRef = useRef<number>(0);
+
+  const PARTICLE_COUNT = isMobile ? 80 : 150;
+  const TRAIL_LENGTH = isMobile ? 6 : 12;
+
+  const initParticles = useCallback((canvas: HTMLCanvasElement) => {
+    const cx = canvas.width / 2;
+    const cy = canvas.height / 2;
+    const particles: Particle[] = [];
+
+    for (let i = 0; i < PARTICLE_COUNT; i++) {
+      const keyPoint = KEY_POINTS[i % KEY_POINTS.length];
+      
+      particles.push({
+        x: cx,
+        y: cy,
+        vx: 0,
+        vy: 0,
+        tx: keyPoint.x * canvas.width,
+        ty: keyPoint.y * canvas.height,
+        size: 2 + Math.random() * 4,
+        opacity: 0,
+        hue: 35 + Math.random() * 15,
+        trail: [],
+        phase: 'ember',
+        delay: Math.random() * 200,
+        speed: 0.5 + Math.random() * 0.5,
+      });
     }
-    shadows.push(`0 0 ${particle.size * 2}px hsla(${particle.hue}, 92%, 50%, ${particle.opacity * 0.6})`);
-    shadows.push(`0 0 ${particle.size * 4}px hsla(${particle.hue}, 92%, 50%, ${particle.opacity * 0.3})`);
-    return shadows.join(', ');
-  }, [trailShadows, particle.size, particle.opacity, particle.hue]);
 
-  const getAnimationState = () => {
-    switch (phase) {
-      case 'void':
-        return { 
-          x: 0, 
-          y: 0,
-          opacity: 0,
-          scale: 0,
-        };
-      case 'burst':
-        return { 
-          x: Math.cos(particle.angle) * particle.distance * speed,
-          y: Math.sin(particle.angle) * particle.distance * speed,
-          opacity: particle.opacity,
-          scale: 1,
-        };
-      case 'convergence':
-        return {
-          x: particle.targetX * (isMobile ? 1.8 : 2.2),
-          y: particle.targetY * (isMobile ? 1.8 : 2.2),
-          opacity: particle.opacity * 1.2,
-          scale: 1.1,
-        };
-      case 'revelation':
-      case 'transcendence':
-        return {
-          x: Math.cos(particle.angle + Math.PI) * particle.distance * 2 * speed,
-          y: Math.sin(particle.angle + Math.PI) * particle.distance * 2 * speed - 50,
-          opacity: 0,
-          scale: 0.2,
-        };
-      default:
-        return { x: 0, y: 0, opacity: 0, scale: 0 };
-    }
-  };
+    particlesRef.current = particles;
+  }, [PARTICLE_COUNT]);
 
-  const getTransition = () => {
-    switch (phase) {
-      case 'burst':
-        return {
-          type: 'spring' as const,
-          stiffness: 400,
-          damping: 25,
-          mass: 0.6,
-          delay: particle.delay * 0.5,
-        };
-      case 'convergence':
-        return {
-          type: 'spring' as const,
-          stiffness: 80,
-          damping: 15,
-          mass: 1,
-          delay: particle.delay * 0.3,
-        };
-      case 'revelation':
-      case 'transcendence':
-        return {
-          type: 'spring' as const,
-          stiffness: 150,
-          damping: 18,
-          mass: 0.8,
-          delay: particle.delay * 0.2,
-        };
-      default:
-        return { duration: 0.3 };
-    }
-  };
+  const updateParticles = useCallback((
+    canvas: HTMLCanvasElement,
+    elapsed: number,
+    delta: number
+  ) => {
+    const cx = canvas.width / 2;
+    const cy = canvas.height / 2;
+    const particles = particlesRef.current;
+    const dt = Math.min(delta, 32) / 16; // Cap delta time, normalize to 60fps
 
-  return (
-    <motion.div
-      className="absolute rounded-full"
-      style={{
-        width: particle.size,
-        height: particle.size,
-        background: `radial-gradient(circle at 30% 30%, hsl(${particle.hue}, 100%, 70%) 0%, hsl(${particle.hue}, 92%, 50%) 50%, hsl(${particle.hue - 10}, 85%, 40%) 100%)`,
-        boxShadow: trailShadow,
-        willChange: 'transform, opacity',
-      }}
-      initial={{ x: 0, y: 0, opacity: 0, scale: 0 }}
-      animate={getAnimationState()}
-      transition={getTransition()}
-    />
-  );
-};
+    particles.forEach((p, i) => {
+      // Store trail position
+      if (p.trail.length >= TRAIL_LENGTH) {
+        p.trail.shift();
+      }
+      p.trail.push({ x: p.x, y: p.y });
 
-// Sub-component: Light ray
-const LightRay = ({ 
-  angle, 
-  delay, 
-  phase 
-}: { 
-  angle: number; 
-  delay: number; 
-  phase: string;
-}) => {
-  const show = phase === 'burst' || phase === 'transcendence';
-  
-  return (
-    <motion.div
-      className="absolute origin-center pointer-events-none"
-      style={{
-        width: 4,
-        height: '120%',
-        left: '50%',
-        top: '50%',
-        transform: `rotate(${angle}deg) translateY(-50%)`,
-        background: 'linear-gradient(to top, transparent 0%, hsla(45, 100%, 60%, 0.3) 30%, hsla(45, 100%, 80%, 0.6) 50%, hsla(45, 100%, 60%, 0.3) 70%, transparent 100%)',
-        filter: 'blur(2px)',
-      }}
-      initial={{ opacity: 0, scaleY: 0 }}
-      animate={{ 
-        opacity: show ? [0, 0.8, 0] : 0,
-        scaleY: show ? [0, 1, 0] : 0,
-      }}
-      transition={{
-        duration: 0.8,
-        delay: delay,
-        ease: [0.34, 1.56, 0.64, 1],
-      }}
-    />
-  );
-};
-
-// Sub-component: Ripple wave
-const RippleWave = ({ 
-  delay, 
-  phase 
-}: { 
-  delay: number; 
-  phase: string;
-}) => {
-  const show = phase === 'burst';
-  
-  return (
-    <motion.div
-      className="absolute rounded-full pointer-events-none"
-      style={{
-        width: 20,
-        height: 20,
-        left: '50%',
-        top: '50%',
-        marginLeft: -10,
-        marginTop: -10,
-        border: '2px solid hsla(38, 92%, 50%, 0.6)',
-        boxShadow: '0 0 20px hsla(38, 92%, 50%, 0.4), inset 0 0 20px hsla(38, 92%, 50%, 0.2)',
-      }}
-      initial={{ scale: 0, opacity: 0 }}
-      animate={{ 
-        scale: show ? [0, 30] : 0,
-        opacity: show ? [0.8, 0] : 0,
-      }}
-      transition={{
-        duration: 1,
-        delay: delay,
-        ease: [0.16, 1, 0.3, 1],
-      }}
-    />
-  );
-};
-
-// Sub-component: Dust mote (ambient particle)
-const DustMote = ({ 
-  index, 
-  phase 
-}: { 
-  index: number; 
-  phase: string;
-}) => {
-  const x = 10 + (index * 17) % 80;
-  const y = 15 + (index * 23) % 70;
-  const size = 1 + (index % 3);
-  const duration = 5 + (index % 4);
-  
-  return (
-    <motion.div
-      className="absolute rounded-full pointer-events-none"
-      style={{
-        width: size,
-        height: size,
-        left: `${x}%`,
-        top: `${y}%`,
-        background: 'hsla(38, 92%, 50%, 0.2)',
-        boxShadow: '0 0 4px hsla(38, 92%, 50%, 0.3)',
-      }}
-      animate={{
-        y: [0, -40 - (index % 20), 0],
-        x: [0, Math.sin(index) * 15, 0],
-        opacity: phase === 'void' ? 0 : [0.1, 0.4, 0.1],
-        scale: [1, 1.5, 1],
-      }}
-      transition={{
-        duration: duration,
-        repeat: Infinity,
-        delay: index * 0.2,
-        ease: 'easeInOut',
-      }}
-    />
-  );
-};
-
-// Sub-component: Shimmer text
-const ShimmerText = ({ 
-  children, 
-  delay = 0 
-}: { 
-  children: string; 
-  delay?: number;
-}) => {
-  return (
-    <motion.span
-      className="relative inline-block"
-      initial={{ y: 60, opacity: 0, filter: 'blur(12px)' }}
-      animate={{ y: 0, opacity: 1, filter: 'blur(0px)' }}
-      transition={{
-        type: 'spring',
-        stiffness: 300,
-        damping: 22,
-        delay: delay,
-      }}
-      style={{
-        color: 'hsl(40, 20%, 96%)',
-        textShadow: `
-          0 0 30px hsla(38, 92%, 50%, 0.6),
-          0 0 60px hsla(38, 92%, 50%, 0.4),
-          0 0 90px hsla(38, 92%, 50%, 0.2)
-        `,
-      }}
-    >
-      {children}
-      {/* Shimmer overlay */}
-      <motion.span
-        className="absolute inset-0 pointer-events-none"
-        style={{
-          background: 'linear-gradient(90deg, transparent 0%, hsla(45, 100%, 80%, 0.4) 50%, transparent 100%)',
-          backgroundSize: '200% 100%',
-        }}
-        animate={{
-          backgroundPosition: ['200% 0', '-200% 0'],
-        }}
-        transition={{
-          duration: 2,
-          delay: delay + 0.5,
-          ease: 'easeInOut',
-        }}
-      />
-    </motion.span>
-  );
-};
-
-// Main component
-const IntroAnimation = ({ onComplete }: IntroAnimationProps) => {
-  const [phase, setPhase] = useState<'void' | 'burst' | 'convergence' | 'revelation' | 'transcendence'>('void');
-  const isMobile = useIsMobile();
-  const particleCount = isMobile ? 50 : 80;
-
-  // Generate particles with enhanced properties
-  const particles = useMemo<Particle[]>(() => {
-    return Array.from({ length: particleCount }, (_, i) => {
-      const keyPoint = keyShapePoints[i % keyShapePoints.length];
-      const jitter = 10;
-      const angle = (i / particleCount) * Math.PI * 2 + Math.random() * 0.5;
-      return {
-        id: i,
-        x: 0,
-        y: 0,
-        size: 3 + Math.random() * 6,
-        opacity: 0.5 + Math.random() * 0.5,
-        delay: Math.random() * 0.4,
-        depth: Math.floor(Math.random() * 3),
-        angle: angle,
-        distance: 120 + Math.random() * 150,
-        targetX: keyPoint.x + (Math.random() - 0.5) * jitter,
-        targetY: keyPoint.y + (Math.random() - 0.5) * jitter,
-        trailLength: 3 + Math.floor(Math.random() * 3),
-        hue: 35 + Math.random() * 15, // Gold to amber range
-      };
+      if (phase === 'void') {
+        // Ember phase - particles cluster at center with gentle pulse
+        const pulseOffset = Math.sin(elapsed * 0.004 + i * 0.5) * 3;
+        const angle = (i / particles.length) * Math.PI * 2;
+        p.x = cx + Math.cos(angle) * (5 + pulseOffset);
+        p.y = cy + Math.sin(angle) * (5 + pulseOffset);
+        p.opacity = 0.4 + Math.sin(elapsed * 0.005) * 0.3;
+        p.phase = 'ember';
+      } else if (phase === 'burst') {
+        // Burst outward with force
+        if (p.phase !== 'burst') {
+          const angle = (i / particles.length) * Math.PI * 2 + (Math.random() - 0.5) * 0.8;
+          const speed = 10 + Math.random() * 15;
+          p.vx = Math.cos(angle) * speed;
+          p.vy = Math.sin(angle) * speed;
+          p.phase = 'burst';
+        }
+        
+        p.x += p.vx * dt;
+        p.y += p.vy * dt;
+        p.vx *= 0.96;
+        p.vy *= 0.96;
+        p.opacity = Math.min(1, p.opacity + dt * 0.08);
+      } else if (phase === 'converge') {
+        // Spiral toward key formation with bezier-like curves
+        p.phase = 'converge';
+        const keyPoint = KEY_POINTS[i % KEY_POINTS.length];
+        p.tx = keyPoint.x * canvas.width;
+        p.ty = keyPoint.y * canvas.height;
+        
+        const dx = p.tx - p.x;
+        const dy = p.ty - p.y;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+        
+        // Orbital spiral motion
+        const angle = Math.atan2(dy, dx);
+        const orbitAngle = angle + Math.PI * 0.15;
+        const attractForce = Math.min(dist * 0.015, 2) * p.speed;
+        
+        p.vx += Math.cos(orbitAngle) * attractForce * dt;
+        p.vy += Math.sin(orbitAngle) * attractForce * dt;
+        p.vx *= 0.94;
+        p.vy *= 0.94;
+        
+        p.x += p.vx * dt;
+        p.y += p.vy * dt;
+        
+        // Glow brighter as they approach target
+        const targetOpacity = 0.5 + Math.min(1, (1 - dist / (canvas.width * 0.3))) * 0.5;
+        p.opacity = p.opacity + (targetOpacity - p.opacity) * 0.1;
+      } else if (phase === 'reveal' || phase === 'exit') {
+        // Dissolve upward and fade
+        p.phase = 'dissolve';
+        p.vy -= 0.15 * dt;
+        p.vx += (Math.random() - 0.5) * 0.3 * dt;
+        p.x += p.vx * dt;
+        p.y += p.vy * dt;
+        p.opacity *= 0.97;
+      }
     });
-  }, [particleCount]);
+  }, [phase, TRAIL_LENGTH]);
 
-  // Phase progression with enhanced timing
+  const render = useCallback((canvas: HTMLCanvasElement, elapsed: number) => {
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    const cx = canvas.width / 2;
+    const cy = canvas.height / 2;
+
+    // Clear with warm black
+    ctx.fillStyle = '#0a0908';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    // Radial vignette
+    const vignette = ctx.createRadialGradient(cx, cy, 0, cx, cy, canvas.width * 0.7);
+    vignette.addColorStop(0, 'rgba(10, 9, 8, 0)');
+    vignette.addColorStop(0.5, 'rgba(5, 4, 3, 0.3)');
+    vignette.addColorStop(1, 'rgba(0, 0, 0, 0.9)');
+    ctx.fillStyle = vignette;
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    // Central glow - intensifies during void/burst phases
+    if (phase === 'void' || phase === 'burst') {
+      const glowIntensity = phase === 'burst' 
+        ? Math.max(0.1, 1 - (elapsed - 500) / 600)
+        : 0.3 + Math.sin(elapsed * 0.004) * 0.15;
+      
+      // Inner bright core
+      const innerGlow = ctx.createRadialGradient(cx, cy, 0, cx, cy, 80);
+      innerGlow.addColorStop(0, `hsla(45, 100%, 85%, ${glowIntensity * 0.8})`);
+      innerGlow.addColorStop(0.3, `hsla(42, 95%, 65%, ${glowIntensity * 0.5})`);
+      innerGlow.addColorStop(1, 'transparent');
+      ctx.fillStyle = innerGlow;
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      
+      // Outer ambient glow
+      const outerGlow = ctx.createRadialGradient(cx, cy, 0, cx, cy, 250);
+      outerGlow.addColorStop(0, `hsla(38, 92%, 50%, ${glowIntensity * 0.4})`);
+      outerGlow.addColorStop(0.5, `hsla(35, 90%, 45%, ${glowIntensity * 0.2})`);
+      outerGlow.addColorStop(1, 'transparent');
+      ctx.fillStyle = outerGlow;
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+    }
+
+    // Converge phase - ambient glow around key formation
+    if (phase === 'converge') {
+      const convergeGlow = ctx.createRadialGradient(cx, cy * 0.95, 0, cx, cy * 0.95, 200);
+      convergeGlow.addColorStop(0, 'hsla(38, 92%, 55%, 0.3)');
+      convergeGlow.addColorStop(0.5, 'hsla(35, 90%, 45%, 0.15)');
+      convergeGlow.addColorStop(1, 'transparent');
+      ctx.fillStyle = convergeGlow;
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+    }
+
+    // Draw particles with trails
+    ctx.globalCompositeOperation = 'lighter';
+    
+    particlesRef.current.forEach((p) => {
+      if (p.opacity < 0.02) return;
+
+      // Draw trail as gradient line
+      if (p.trail.length > 1) {
+        ctx.beginPath();
+        ctx.moveTo(p.trail[0].x, p.trail[0].y);
+        
+        for (let i = 1; i < p.trail.length; i++) {
+          const cp = p.trail[i];
+          ctx.lineTo(cp.x, cp.y);
+        }
+        ctx.lineTo(p.x, p.y);
+        
+        const trailGradient = ctx.createLinearGradient(
+          p.trail[0].x, p.trail[0].y, p.x, p.y
+        );
+        trailGradient.addColorStop(0, `hsla(${p.hue}, 92%, 50%, 0)`);
+        trailGradient.addColorStop(0.5, `hsla(${p.hue}, 92%, 55%, ${p.opacity * 0.3})`);
+        trailGradient.addColorStop(1, `hsla(${p.hue}, 92%, 60%, ${p.opacity * 0.6})`);
+        
+        ctx.strokeStyle = trailGradient;
+        ctx.lineWidth = p.size * 0.6;
+        ctx.lineCap = 'round';
+        ctx.lineJoin = 'round';
+        ctx.stroke();
+      }
+
+      // Outer glow
+      const outerGradient = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, p.size * 4);
+      outerGradient.addColorStop(0, `hsla(${p.hue}, 92%, 55%, ${p.opacity * 0.4})`);
+      outerGradient.addColorStop(0.5, `hsla(${p.hue}, 90%, 50%, ${p.opacity * 0.2})`);
+      outerGradient.addColorStop(1, 'transparent');
+      
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, p.size * 4, 0, Math.PI * 2);
+      ctx.fillStyle = outerGradient;
+      ctx.fill();
+
+      // Particle core with glow
+      const coreGradient = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, p.size * 1.5);
+      coreGradient.addColorStop(0, `hsla(45, 100%, 85%, ${p.opacity})`);
+      coreGradient.addColorStop(0.4, `hsla(${p.hue}, 100%, 70%, ${p.opacity * 0.8})`);
+      coreGradient.addColorStop(1, `hsla(${p.hue}, 92%, 55%, 0)`);
+      
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, p.size * 1.5, 0, Math.PI * 2);
+      ctx.fillStyle = coreGradient;
+      ctx.fill();
+
+      // Bright center point
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, p.size * 0.4, 0, Math.PI * 2);
+      ctx.fillStyle = `hsla(50, 100%, 95%, ${p.opacity * 0.9})`;
+      ctx.fill();
+    });
+
+    ctx.globalCompositeOperation = 'source-over';
+  }, [phase]);
+
+  const animate = useCallback((timestamp: number) => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+
+    if (!startTimeRef.current) {
+      startTimeRef.current = timestamp;
+      lastTimeRef.current = timestamp;
+    }
+
+    const elapsed = timestamp - startTimeRef.current;
+    const delta = timestamp - lastTimeRef.current;
+    lastTimeRef.current = timestamp;
+
+    updateParticles(canvas, elapsed, delta);
+    render(canvas, elapsed);
+
+    animationRef.current = requestAnimationFrame(animate);
+  }, [canvasRef, updateParticles, render]);
+
+  const start = useCallback(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+
+    // Set canvas size with device pixel ratio for sharpness
+    const dpr = window.devicePixelRatio || 1;
+    canvas.width = window.innerWidth * dpr;
+    canvas.height = window.innerHeight * dpr;
+    canvas.style.width = '100%';
+    canvas.style.height = '100%';
+
+    // Scale context for retina
+    const ctx = canvas.getContext('2d');
+    if (ctx) {
+      ctx.scale(dpr, dpr);
+    }
+
+    initParticles(canvas);
+    startTimeRef.current = 0;
+    animationRef.current = requestAnimationFrame(animate);
+  }, [canvasRef, initParticles, animate]);
+
+  const stop = useCallback(() => {
+    if (animationRef.current) {
+      cancelAnimationFrame(animationRef.current);
+    }
+  }, []);
+
+  return { start, stop };
+};
+
+const IntroAnimation = ({ onComplete }: IntroAnimationProps) => {
+  const [phase, setPhase] = useState<'void' | 'burst' | 'converge' | 'reveal' | 'exit'>('void');
+  const [showLogo, setShowLogo] = useState(false);
+  const [showFlash, setShowFlash] = useState(false);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const isMobile = useIsMobile();
+  
+  const { start, stop } = useParticleEngine(canvasRef, phase, isMobile);
+
+  const totalDuration = isMobile ? 3000 : 3500;
+
+  // Check for reduced motion preference
+  const prefersReducedMotion = useMemo(() => {
+    if (typeof window === 'undefined') return false;
+    return window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  }, []);
+
   useEffect(() => {
-    const timings = {
-      void: 400,
-      burst: 600,
-      convergence: 800,
-      revelation: 800,
-      transcendence: 900,
+    if (prefersReducedMotion) {
+      setTimeout(onComplete, 300);
+      return;
+    }
+
+    start();
+    
+    // Phase timeline (optimized timing)
+    const timeline = [
+      { time: 0, action: () => setPhase('void') },
+      { time: 500, action: () => { setPhase('burst'); setShowFlash(true); } },
+      { time: 650, action: () => setShowFlash(false) },
+      { time: 1200, action: () => setPhase('converge') },
+      { time: 2200, action: () => { setPhase('reveal'); setShowLogo(true); } },
+      { time: totalDuration - 400, action: () => setPhase('exit') },
+      { time: totalDuration, action: () => { stop(); onComplete(); } },
+    ];
+
+    const timers = timeline.map(({ time, action }) => 
+      setTimeout(action, time)
+    );
+
+    return () => {
+      timers.forEach(clearTimeout);
+      stop();
+    };
+  }, [start, stop, onComplete, totalDuration, prefersReducedMotion]);
+
+  // Handle resize
+  useEffect(() => {
+    const handleResize = () => {
+      const canvas = canvasRef.current;
+      if (canvas) {
+        const dpr = window.devicePixelRatio || 1;
+        canvas.width = window.innerWidth * dpr;
+        canvas.height = window.innerHeight * dpr;
+      }
     };
 
-    const phases: Array<typeof phase> = ['void', 'burst', 'convergence', 'revelation', 'transcendence'];
-    const currentIndex = phases.indexOf(phase);
-    
-    if (currentIndex < phases.length - 1) {
-      const timer = setTimeout(() => {
-        setPhase(phases[currentIndex + 1]);
-      }, timings[phase]);
-      return () => clearTimeout(timer);
-    } else {
-      const timer = setTimeout(onComplete, timings.transcendence);
-      return () => clearTimeout(timer);
-    }
-  }, [phase, onComplete]);
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
-  const handleSkip = useCallback(() => setPhase('transcendence'), []);
+  // Skip handler
+  const handleSkip = useCallback(() => {
+    stop();
+    onComplete();
+  }, [stop, onComplete]);
 
   // Keyboard skip
   useEffect(() => {
@@ -375,319 +398,195 @@ const IntroAnimation = ({ onComplete }: IntroAnimationProps) => {
     return () => window.removeEventListener('keydown', onKey);
   }, [handleSkip]);
 
-  // Check for reduced motion preference
-  const prefersReducedMotion = useMemo(() => {
-    if (typeof window === 'undefined') return false;
-    return window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-  }, []);
-
-  useEffect(() => {
-    if (prefersReducedMotion) {
-      setTimeout(onComplete, 500);
-    }
-  }, [prefersReducedMotion, onComplete]);
-
   if (prefersReducedMotion) {
     return (
-      <div className="fixed inset-0 z-[100] bg-[hsl(30,10%,4%)] flex items-center justify-center">
-        <h1 className="text-4xl font-bold text-[hsl(40,20%,96%)]">DinGaming</h1>
+      <div className="fixed inset-0 z-[100] bg-[#0a0908] flex items-center justify-center">
+        <h1 
+          className="text-4xl md:text-6xl font-bold"
+          style={{ color: 'hsl(40, 20%, 96%)' }}
+        >
+          DinGaming
+        </h1>
       </div>
     );
   }
 
-  const depthSpeed = [0.5, 1, 1.5];
-  const showLogo = phase === 'revelation' || phase === 'transcendence';
-  const isExiting = phase === 'transcendence';
-
   return (
-    <AnimatePresence mode="wait">
-      {phase !== 'transcendence' || !isExiting ? (
-        <motion.div
-          className="fixed inset-0 z-[100] overflow-hidden cursor-pointer"
-          style={{ background: 'hsl(30, 10%, 4%)' }}
-          onClick={handleSkip}
-          exit={{ opacity: 0 }}
-          transition={{ duration: 0.6, ease: [0.65, 0, 0.35, 1] }}
-        >
-          {/* Radial vignette */}
-          <div 
-            className="absolute inset-0 pointer-events-none"
-            style={{
-              background: 'radial-gradient(ellipse 80% 80% at 50% 50%, transparent 30%, hsl(30, 10%, 2%) 100%)',
-            }}
-          />
+    <motion.div
+      className="fixed inset-0 z-[100] overflow-hidden cursor-pointer"
+      initial={{ opacity: 1 }}
+      animate={{ opacity: phase === 'exit' ? 0 : 1 }}
+      transition={{ duration: 0.4, ease: [0.65, 0, 0.35, 1] }}
+      style={{ background: '#0a0908' }}
+      onClick={handleSkip}
+    >
+      {/* Canvas particle layer */}
+      <canvas
+        ref={canvasRef}
+        className="absolute inset-0 w-full h-full"
+        style={{ willChange: 'transform' }}
+      />
 
-          {/* Letterbox bars */}
+      {/* Screen flash on burst */}
+      <AnimatePresence>
+        {showFlash && (
           <motion.div
-            className="absolute top-0 left-0 right-0 bg-black z-30"
-            initial={{ height: 0 }}
-            animate={{ 
-              height: isExiting ? 0 : '12%',
-            }}
-            transition={{ 
-              duration: 0.5,
-              ease: [0.65, 0, 0.35, 1],
-            }}
-          />
-          <motion.div
-            className="absolute bottom-0 left-0 right-0 bg-black z-30"
-            initial={{ height: 0 }}
-            animate={{ 
-              height: isExiting ? 0 : '12%',
-            }}
-            transition={{ 
-              duration: 0.5,
-              ease: [0.65, 0, 0.35, 1],
-            }}
-          />
-
-          {/* Ripple waves */}
-          {!isMobile && (
-            <>
-              <RippleWave delay={0.1} phase={phase} />
-              <RippleWave delay={0.25} phase={phase} />
-              <RippleWave delay={0.4} phase={phase} />
-            </>
-          )}
-
-          {/* Light rays */}
-          {!isMobile && (
-            <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-              {[0, 45, 90, 135, 180, 225, 270, 315].map((angle, i) => (
-                <LightRay key={angle} angle={angle} delay={0.1 + i * 0.03} phase={phase} />
-              ))}
-            </div>
-          )}
-
-          {/* Ambient glow - intensifies through phases */}
-          <motion.div
-            className="absolute inset-0 pointer-events-none"
-            animate={{
-              background: 
-                phase === 'void' 
-                  ? 'radial-gradient(ellipse 30% 30% at 50% 50%, hsla(38, 92%, 50%, 0.1) 0%, transparent 70%)'
-                  : phase === 'burst'
-                    ? 'radial-gradient(ellipse 60% 60% at 50% 50%, hsla(38, 92%, 50%, 0.25) 0%, transparent 60%)'
-                    : phase === 'convergence'
-                      ? 'radial-gradient(ellipse 50% 50% at 50% 50%, hsla(38, 92%, 50%, 0.3) 0%, transparent 70%)'
-                      : 'radial-gradient(ellipse 70% 60% at 50% 45%, hsla(38, 92%, 50%, 0.25) 0%, transparent 55%)',
-            }}
-            transition={{ duration: 0.5 }}
-          />
-
-          {/* Lens flare on burst */}
-          <motion.div
-            className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 pointer-events-none z-20"
-            style={{
-              width: 200,
-              height: 200,
-              background: 'radial-gradient(circle, hsla(45, 100%, 90%, 0.8) 0%, hsla(45, 100%, 70%, 0.4) 20%, transparent 60%)',
-              filter: 'blur(4px)',
-            }}
-            initial={{ scale: 0, opacity: 0 }}
-            animate={{
-              scale: phase === 'burst' ? [0, 1.5, 0] : 0,
-              opacity: phase === 'burst' ? [0, 1, 0] : 0,
-            }}
-            transition={{
-              duration: 0.5,
-              ease: [0.34, 1.56, 0.64, 1],
-            }}
-          />
-
-          {/* Skip hint */}
-          <motion.div
-            className="absolute bottom-[14%] left-1/2 -translate-x-1/2 z-40 text-[10px] tracking-[0.3em] uppercase text-white/20"
+            className="absolute inset-0 pointer-events-none z-10"
             initial={{ opacity: 0 }}
-            animate={{ opacity: phase === 'void' ? 0 : 1 }}
-            transition={{ delay: 0.5 }}
+            animate={{ opacity: 0.5 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.12, ease: 'easeOut' }}
+            style={{ 
+              background: 'radial-gradient(circle at 50% 50%, hsla(45, 100%, 92%, 0.9) 0%, hsla(42, 95%, 70%, 0.4) 30%, transparent 70%)' 
+            }}
+          />
+        )}
+      </AnimatePresence>
+
+      {/* Letterbox bars */}
+      <motion.div
+        className="absolute top-0 left-0 right-0 bg-black z-20"
+        initial={{ height: 0 }}
+        animate={{ 
+          height: phase === 'exit' ? 0 : (isMobile ? '8vh' : '12vh')
+        }}
+        transition={{ 
+          duration: phase === 'void' ? 0.4 : 0.5,
+          ease: [0.65, 0, 0.35, 1] 
+        }}
+      />
+      <motion.div
+        className="absolute bottom-0 left-0 right-0 bg-black z-20"
+        initial={{ height: 0 }}
+        animate={{ 
+          height: phase === 'exit' ? 0 : (isMobile ? '8vh' : '12vh')
+        }}
+        transition={{ 
+          duration: phase === 'void' ? 0.4 : 0.5,
+          ease: [0.65, 0, 0.35, 1] 
+        }}
+      />
+
+      {/* Logo reveal */}
+      <AnimatePresence>
+        {showLogo && (
+          <motion.div
+            className="absolute inset-0 flex flex-col items-center justify-center z-30"
+            initial={{ opacity: 0 }}
+            animate={{ 
+              opacity: phase === 'exit' ? 0 : 1,
+              scale: phase === 'exit' ? 1.15 : 1,
+              filter: phase === 'exit' ? 'blur(6px)' : 'blur(0px)'
+            }}
+            exit={{ opacity: 0, scale: 1.2, filter: 'blur(10px)' }}
+            transition={{ 
+              duration: 0.5,
+              ease: [0.16, 1, 0.3, 1]
+            }}
           >
-            Tryk for at springe over
-          </motion.div>
-
-          {/* Dust motes (ambient atmosphere) */}
-          {!isMobile && (
-            <div className="absolute inset-0 pointer-events-none overflow-hidden">
-              {Array.from({ length: 20 }, (_, i) => (
-                <DustMote key={i} index={i} phase={phase} />
-              ))}
-            </div>
-          )}
-
-          {/* Main content area */}
-          <div className="absolute inset-0 flex items-center justify-center">
-            
-            {/* Central ember (void phase) */}
-            <AnimatePresence>
-              {phase === 'void' && (
-                <motion.div
-                  className="absolute z-10"
-                  initial={{ scale: 0, opacity: 0 }}
-                  animate={{ 
-                    scale: [0, 1.3, 1, 1.2, 1],
-                    opacity: 1,
-                  }}
-                  exit={{ scale: 3, opacity: 0 }}
-                  transition={{ 
-                    duration: 0.4,
-                    times: [0, 0.3, 0.5, 0.7, 1],
-                    ease: [0.34, 1.56, 0.64, 1]
-                  }}
-                >
-                  <motion.div 
-                    className="w-3 h-3 rounded-full"
-                    style={{
-                      background: 'radial-gradient(circle at 30% 30%, hsl(45, 100%, 80%) 0%, hsl(38, 92%, 50%) 60%, hsl(30, 85%, 40%) 100%)',
-                    }}
-                    animate={{
-                      boxShadow: [
-                        '0 0 20px hsla(38, 92%, 50%, 0.8), 0 0 40px hsla(38, 92%, 50%, 0.5), 0 0 60px hsla(38, 92%, 50%, 0.3)',
-                        '0 0 30px hsla(38, 92%, 50%, 1), 0 0 60px hsla(38, 92%, 50%, 0.7), 0 0 90px hsla(38, 92%, 50%, 0.4), 0 0 120px hsla(38, 92%, 50%, 0.2)',
-                        '0 0 20px hsla(38, 92%, 50%, 0.8), 0 0 40px hsla(38, 92%, 50%, 0.5), 0 0 60px hsla(38, 92%, 50%, 0.3)',
-                      ],
-                    }}
-                    transition={{
-                      duration: 0.6,
-                      repeat: Infinity,
-                      ease: 'easeInOut',
-                    }}
-                  />
-                </motion.div>
-              )}
-            </AnimatePresence>
-
-            {/* Ignition flash */}
-            <motion.div
-              className="absolute inset-0 bg-white pointer-events-none z-20"
-              initial={{ opacity: 0 }}
-              animate={{
-                opacity: phase === 'burst' ? [0, 0.4, 0] : 0,
+            {/* Main title with shimmer */}
+            <motion.h1
+              className="relative text-5xl md:text-7xl lg:text-8xl font-bold tracking-tight"
+              initial={{ opacity: 0, y: 30, filter: 'blur(12px)' }}
+              animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
+              transition={{ 
+                duration: 0.5,
+                ease: [0.16, 1, 0.3, 1]
               }}
-              transition={{
-                duration: 0.3,
-                ease: 'easeOut',
-              }}
-            />
-
-            {/* Particle system */}
-            <div className="absolute inset-0 flex items-center justify-center">
-              {particles.map((particle) => (
-                <ParticleWithTrail
-                  key={particle.id}
-                  particle={particle}
-                  phase={phase}
-                  isMobile={isMobile ?? false}
-                  depthSpeed={depthSpeed}
-                />
-              ))}
-            </div>
-
-            {/* Golden key formation glow (convergence phase) */}
-            <motion.div
-              className="absolute pointer-events-none z-5"
               style={{
-                width: 150,
-                height: 200,
-              }}
-              initial={{ opacity: 0 }}
-              animate={{
-                opacity: phase === 'convergence' ? 0.6 : 0,
-                scale: phase === 'convergence' ? [0.9, 1.1, 1] : 1,
-              }}
-              transition={{
-                duration: 0.8,
-                ease: 'easeInOut',
+                background: 'linear-gradient(90deg, hsl(38, 92%, 50%) 0%, hsl(45, 100%, 70%) 25%, hsl(42, 95%, 60%) 50%, hsl(45, 100%, 70%) 75%, hsl(38, 92%, 50%) 100%)',
+                backgroundSize: '200% 100%',
+                WebkitBackgroundClip: 'text',
+                WebkitTextFillColor: 'transparent',
+                backgroundClip: 'text',
+                animation: 'shimmer 2.5s ease-in-out infinite',
+                filter: 'drop-shadow(0 0 30px hsla(38, 92%, 50%, 0.5)) drop-shadow(0 0 60px hsla(38, 92%, 50%, 0.3))',
               }}
             >
-              <div
-                className="w-full h-full"
+              DinGaming
+            </motion.h1>
+
+            {/* Golden underline sweep */}
+            <motion.div
+              className="h-[2px] mt-4 rounded-full overflow-hidden"
+              initial={{ width: 0, opacity: 0 }}
+              animate={{ width: isMobile ? 180 : 300, opacity: 1 }}
+              transition={{ 
+                duration: 0.7,
+                delay: 0.15,
+                ease: [0.16, 1, 0.3, 1]
+              }}
+            >
+              <motion.div
+                className="h-full w-full"
                 style={{
-                  background: 'radial-gradient(ellipse 100% 100% at 50% 40%, hsla(38, 92%, 50%, 0.3) 0%, transparent 70%)',
-                  filter: 'blur(20px)',
+                  background: 'linear-gradient(90deg, transparent 0%, hsl(38, 92%, 55%) 20%, hsl(45, 100%, 70%) 50%, hsl(38, 92%, 55%) 80%, transparent 100%)',
+                }}
+                animate={{
+                  x: ['-100%', '100%'],
+                }}
+                transition={{
+                  duration: 1.5,
+                  delay: 0.3,
+                  ease: 'easeInOut',
+                  repeat: Infinity,
+                  repeatDelay: 1,
                 }}
               />
             </motion.div>
 
-            {/* Logo reveal */}
-            <AnimatePresence>
-              {showLogo && (
-                <motion.div
-                  className="absolute flex flex-col items-center z-10"
-                  initial={{ opacity: 0, scale: 0.8 }}
-                  animate={{ 
-                    opacity: isExiting ? 0 : 1,
-                    scale: isExiting ? 1.2 : 1,
-                    filter: isExiting ? 'blur(10px)' : 'blur(0px)',
-                  }}
-                  transition={{ 
-                    duration: 0.6,
-                    ease: [0.16, 1, 0.3, 1],
-                  }}
-                >
-                  {/* Brand name with staggered shimmer letters */}
-                  <div className="flex overflow-hidden">
-                    {'DinGaming'.split('').map((letter, i) => (
-                      <ShimmerText key={i} delay={i * 0.04}>
-                        {letter}
-                      </ShimmerText>
-                    ))}
-                  </div>
+            {/* Tagline */}
+            <motion.p
+              className="mt-5 text-sm md:text-base tracking-[0.35em] uppercase font-medium"
+              initial={{ opacity: 0, y: 15 }}
+              animate={{ opacity: 0.85, y: 0 }}
+              transition={{ 
+                duration: 0.5,
+                delay: 0.35,
+                ease: [0.16, 1, 0.3, 1]
+              }}
+              style={{ color: 'hsl(38, 60%, 60%)' }}
+            >
+              Premium Game Keys
+            </motion.p>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
-                  {/* Tagline */}
-                  <motion.p
-                    className="mt-4 text-sm md:text-base tracking-[0.25em] uppercase font-light"
-                    style={{ color: 'hsla(38, 92%, 60%, 0.95)' }}
-                    initial={{ opacity: 0, y: 15, filter: 'blur(8px)' }}
-                    animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
-                    transition={{ delay: 0.45, duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
-                  >
-                    Instant Game Keys
-                  </motion.p>
+      {/* Skip hint */}
+      <motion.div
+        className="absolute bottom-[15%] left-1/2 -translate-x-1/2 text-[10px] tracking-[0.25em] uppercase z-40"
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 0.3 }}
+        transition={{ delay: 0.8 }}
+        style={{ color: 'hsl(38, 40%, 45%)' }}
+      >
+        Click to skip
+      </motion.div>
 
-                  {/* Golden underline with shimmer sweep */}
-                  <motion.div
-                    className="mt-5 h-[2px] rounded-full overflow-hidden"
-                    initial={{ width: 0, opacity: 0 }}
-                    animate={{ width: isMobile ? 200 : 280, opacity: 1 }}
-                    transition={{ delay: 0.55, duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
-                  >
-                    <motion.div
-                      className="h-full w-full"
-                      style={{
-                        background: 'linear-gradient(90deg, transparent, hsl(38, 92%, 50%) 30%, hsl(45, 100%, 70%) 50%, hsl(38, 92%, 50%) 70%, transparent)',
-                        backgroundSize: '200% 100%',
-                      }}
-                      animate={{
-                        backgroundPosition: ['100% 0', '-100% 0'],
-                      }}
-                      transition={{
-                        duration: 1.5,
-                        delay: 0.6,
-                        ease: 'easeInOut',
-                      }}
-                    />
-                  </motion.div>
-                </motion.div>
-              )}
-            </AnimatePresence>
-          </div>
+      {/* Skip button */}
+      <motion.button
+        className="absolute bottom-8 right-8 text-xs tracking-widest uppercase opacity-40 hover:opacity-80 transition-opacity z-40"
+        onClick={(e) => {
+          e.stopPropagation();
+          handleSkip();
+        }}
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 0.4 }}
+        transition={{ delay: 0.5 }}
+        style={{ color: 'hsl(38, 40%, 50%)' }}
+      >
+        Skip
+      </motion.button>
 
-          {/* Final exit flash */}
-          <motion.div
-            className="absolute inset-0 bg-white pointer-events-none z-50"
-            initial={{ opacity: 0 }}
-            animate={{
-              opacity: isExiting ? [0, 0.3, 0] : 0,
-            }}
-            transition={{
-              duration: 0.5,
-              delay: 0.3,
-              ease: 'easeInOut',
-            }}
-          />
-        </motion.div>
-      ) : null}
-    </AnimatePresence>
+      {/* Shimmer keyframe animation */}
+      <style>{`
+        @keyframes shimmer {
+          0%, 100% { background-position: 200% 50%; }
+          50% { background-position: -200% 50%; }
+        }
+      `}</style>
+    </motion.div>
   );
 };
 
