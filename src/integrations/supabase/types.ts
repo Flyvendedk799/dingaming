@@ -14,6 +14,42 @@ export type Database = {
   }
   public: {
     Tables: {
+      bundle_items: {
+        Row: {
+          bundle_id: string
+          created_at: string | null
+          id: string
+          kinguin_product_id: string
+        }
+        Insert: {
+          bundle_id: string
+          created_at?: string | null
+          id?: string
+          kinguin_product_id: string
+        }
+        Update: {
+          bundle_id?: string
+          created_at?: string | null
+          id?: string
+          kinguin_product_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "bundle_items_bundle_id_fkey"
+            columns: ["bundle_id"]
+            isOneToOne: false
+            referencedRelation: "product_bundles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "bundle_items_kinguin_product_id_fkey"
+            columns: ["kinguin_product_id"]
+            isOneToOne: false
+            referencedRelation: "kinguin_products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       daily_logins: {
         Row: {
           created_at: string
@@ -134,9 +170,12 @@ export type Database = {
           cover_image: string | null
           created_at: string
           description: string | null
+          display_order: number | null
           genres: string[] | null
           id: string
           is_available: boolean | null
+          is_featured: boolean | null
+          is_on_sale: boolean | null
           kinguin_id: number
           last_synced_to_shopify: string | null
           margin_percent: number | null
@@ -148,6 +187,7 @@ export type Database = {
           region_id: number | null
           region_name: string | null
           release_date: string | null
+          sale_label: string | null
           screenshots: string[] | null
           sell_price: number
           shopify_product_id: string | null
@@ -157,9 +197,12 @@ export type Database = {
           cover_image?: string | null
           created_at?: string
           description?: string | null
+          display_order?: number | null
           genres?: string[] | null
           id?: string
           is_available?: boolean | null
+          is_featured?: boolean | null
+          is_on_sale?: boolean | null
           kinguin_id: number
           last_synced_to_shopify?: string | null
           margin_percent?: number | null
@@ -171,6 +214,7 @@ export type Database = {
           region_id?: number | null
           region_name?: string | null
           release_date?: string | null
+          sale_label?: string | null
           screenshots?: string[] | null
           sell_price: number
           shopify_product_id?: string | null
@@ -180,9 +224,12 @@ export type Database = {
           cover_image?: string | null
           created_at?: string
           description?: string | null
+          display_order?: number | null
           genres?: string[] | null
           id?: string
           is_available?: boolean | null
+          is_featured?: boolean | null
+          is_on_sale?: boolean | null
           kinguin_id?: number
           last_synced_to_shopify?: string | null
           margin_percent?: number | null
@@ -194,6 +241,7 @@ export type Database = {
           region_id?: number | null
           region_name?: string | null
           release_date?: string | null
+          sale_label?: string | null
           screenshots?: string[] | null
           sell_price?: number
           shopify_product_id?: string | null
@@ -219,6 +267,42 @@ export type Database = {
           id?: string
           payload?: Json
           processed_at?: string
+        }
+        Relationships: []
+      }
+      product_bundles: {
+        Row: {
+          cover_image: string | null
+          created_at: string | null
+          description: string | null
+          discount_percent: number | null
+          display_order: number | null
+          id: string
+          is_active: boolean | null
+          name: string
+          updated_at: string | null
+        }
+        Insert: {
+          cover_image?: string | null
+          created_at?: string | null
+          description?: string | null
+          discount_percent?: number | null
+          display_order?: number | null
+          id?: string
+          is_active?: boolean | null
+          name: string
+          updated_at?: string | null
+        }
+        Update: {
+          cover_image?: string | null
+          created_at?: string | null
+          description?: string | null
+          discount_percent?: number | null
+          display_order?: number | null
+          id?: string
+          is_active?: boolean | null
+          name?: string
+          updated_at?: string | null
         }
         Relationships: []
       }

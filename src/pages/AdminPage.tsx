@@ -8,7 +8,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
-import { RefreshCw, Settings, Database, ShoppingBag, Clock, TrendingUp, Package, AlertTriangle, Download, Wallet, ShoppingCart, Key, RotateCcw, Eye, Copy, CheckCircle, XCircle, Loader2, Sparkles } from "lucide-react";
+import { RefreshCw, Settings, Database, ShoppingBag, Clock, TrendingUp, Package, AlertTriangle, Download, Wallet, ShoppingCart, Key, RotateCcw, Eye, Copy, CheckCircle, XCircle, Loader2, Sparkles, Star } from "lucide-react";
 import { Progress } from "@/components/ui/progress";
 import Header from "@/components/Header";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -16,6 +16,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import CustomerClubTab from "@/components/admin/CustomerClubTab";
+import ProductManagementTab from "@/components/admin/ProductManagementTab";
 
 interface StoreSetting {
   key: string;
@@ -858,8 +859,12 @@ const AdminPage = () => {
           </Card>
         </div>
 
-        <Tabs defaultValue="sync" className="space-y-6">
-          <TabsList>
+        <Tabs defaultValue="products" className="space-y-6">
+          <TabsList className="flex-wrap h-auto gap-1">
+            <TabsTrigger value="products" className="gap-2">
+              <Star className="w-4 h-4" />
+              Produkter
+            </TabsTrigger>
             <TabsTrigger value="sync" className="gap-2">
               <RefreshCw className="w-4 h-4" />
               Synkronisering
@@ -881,6 +886,11 @@ const AdminPage = () => {
               Customer Club
             </TabsTrigger>
           </TabsList>
+
+          {/* Product Management Tab */}
+          <TabsContent value="products">
+            <ProductManagementTab />
+          </TabsContent>
 
           <TabsContent value="sync" className="space-y-6">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
