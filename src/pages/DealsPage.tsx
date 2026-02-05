@@ -2,7 +2,6 @@ import { useState, useEffect } from "react";
 import { fetchProducts, ShopifyProduct } from "@/lib/shopify";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
-import { CartDrawer } from "@/components/CartDrawer";
 import ShopifyProductCard from "@/components/ShopifyProductCard";
 import { motion } from "framer-motion";
 import { Loader2, Flame, Clock, Percent, Sparkles } from "lucide-react";
@@ -24,10 +23,6 @@ const DealsPage = () => {
   return (
     <div className="min-h-screen bg-background">
       <Header />
-      
-      <div className="fixed top-24 right-4 z-50">
-        <CartDrawer />
-      </div>
 
       <main className="container mx-auto px-4 py-12">
         {/* Hero Banner */}

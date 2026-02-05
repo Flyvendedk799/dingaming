@@ -2,7 +2,6 @@ import { Link } from "react-router-dom";
 import { useEffect, useState } from "react";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
-import { CartDrawer } from "@/components/CartDrawer";
 import { motion } from "framer-motion";
 import { Gamepad2, Monitor, Laptop, Joystick, Loader2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
@@ -122,10 +121,6 @@ const CategoriesPage = () => {
   return (
     <div className="min-h-screen bg-background">
       <Header />
-      
-      <div className="fixed top-24 right-4 z-50">
-        <CartDrawer />
-      </div>
 
       <main className="container mx-auto px-4 py-12">
         {/* Header */}
