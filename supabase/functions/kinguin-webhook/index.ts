@@ -73,7 +73,21 @@ async function handleProductUpdate(supabase: any, payload: any, shopifyAccessTok
   const kinguinId = payload.kinguinId
   console.log('Processing product update:', kinguinId)
   
-  // Get settings
+  // Check if product exists first
+  const { data: existingProduct } = await supabase
+    .from('kinguin_products')
+    .select('*')
+    .eq('kinguin_id', kinguinId)
+    .maybeSingle()
+
+  // If product doesn't exist, skip - we only update existing products via webhook
+  // New products should be synced via the full sync endpoint
+  if (!existingProduct) {
+    console.log('Product not found in DB, skipping update:', kinguinId)
+    return
+  }
+
+  // Get settings for price calculation
   const { data: settingsData } = await supabase
     .from('store_settings')
     .select('key, value')
@@ -89,41 +103,38 @@ async function handleProductUpdate(supabase: any, payload: any, shopifyAccessTok
     }
   }
 
-  // Check if product exists
-  const { data: existingProduct } = await supabase
-    .from('kinguin_products')
-    .select('*')
-    .eq('kinguin_id', kinguinId)
-    .maybeSingle()
-
-  const price = payload.price ? parseFloat(payload.price) : 0
-  const qty = payload.qty || 0
+  const price = payload.price ? parseFloat(payload.price) : existingProduct.original_price
+  const qty = payload.qty ?? existingProduct.qty
   const isAvailable = qty > 0
-  
-  const productData = {
-    kinguin_id: kinguinId,
-    product_id: payload.productId,
-    name: payload.name,
+
+  // Only update the fields that come from the webhook
+  const updateData: Record<string, any> = {
     original_price: price,
-    sell_price: price, // Base price from Kinguin
+    sell_price: price,
     qty: qty,
     is_available: isAvailable,
     updated_at: new Date().toISOString()
   }
 
+  // Add product_id if provided
+  if (payload.productId) {
+    updateData.product_id = payload.productId
+  }
+
   const { error } = await supabase
     .from('kinguin_products')
-    .upsert(productData, { onConflict: 'kinguin_id' })
+    .update(updateData)
+    .eq('kinguin_id', kinguinId)
 
   if (error) {
     console.error('Error updating product:', error)
     throw error
   }
 
-  console.log('Product updated in DB:', kinguinId)
+  console.log('Product updated in DB:', kinguinId, '- price:', price, 'qty:', qty)
 
   // Sync to Shopify if product is linked
-  if (existingProduct?.shopify_product_id && shopifyAccessToken) {
+  if (existingProduct.shopify_product_id && shopifyAccessToken) {
     const margin = existingProduct.margin_percent ?? globalMargin
     const priceWithMargin = price * (1 + margin / 100)
     const priceInDkk = priceWithMargin * eurToDkkRate
@@ -134,9 +145,6 @@ async function handleProductUpdate(supabase: any, payload: any, shopifyAccessTok
       isAvailable,
       shopifyAccessToken
     )
-  } else if (!isAvailable && existingProduct?.shopify_product_id && shopifyAccessToken) {
-    // Set to DRAFT if unavailable
-    await setShopifyProductDraft(existingProduct.shopify_product_id, shopifyAccessToken)
   }
 }
 
