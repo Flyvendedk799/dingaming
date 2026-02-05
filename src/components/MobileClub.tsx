@@ -2,7 +2,7 @@ import { motion } from "framer-motion";
 import { Link, useNavigate } from "react-router-dom";
 import { 
   Sparkles, Gift, Flame, Gamepad2, LogIn, ArrowRight, 
-  Calendar, ShoppingBag, Loader2, ChevronRight, Trophy
+  Calendar, ShoppingBag, Loader2, ChevronRight, Trophy, Package
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/contexts/AuthContext";
@@ -243,7 +243,7 @@ const MobileClub = ({ onBack }: MobileClubProps) => {
 
         {/* Quick Actions */}
         <motion.div
-          className="grid grid-cols-2 gap-3"
+          className="grid grid-cols-3 gap-3"
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.2 }}
@@ -258,13 +258,24 @@ const MobileClub = ({ onBack }: MobileClubProps) => {
             <span className="font-medium text-sm">Sweepstake</span>
             <span className="text-xs text-muted-foreground">Mines & Dice</span>
           </Link>
+
+          <Link 
+            to="/club/cases"
+            className="p-4 rounded-xl bg-card border border-border flex flex-col items-center text-center"
+          >
+            <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center mb-2">
+              <Package className="w-6 h-6 text-primary" />
+            </div>
+            <span className="font-medium text-sm">Cases</span>
+            <span className="text-xs text-muted-foreground">Åben loot</span>
+          </Link>
           
           <Link 
             to="/club/rewards"
             className="p-4 rounded-xl bg-card border border-border flex flex-col items-center text-center"
           >
-            <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center mb-2">
-              <Gift className="w-6 h-6 text-primary" />
+            <div className="w-12 h-12 rounded-xl bg-success/10 flex items-center justify-center mb-2">
+              <Gift className="w-6 h-6 text-success" />
             </div>
             <span className="font-medium text-sm">Rewards</span>
             <span className="text-xs text-muted-foreground">Byt Shards</span>

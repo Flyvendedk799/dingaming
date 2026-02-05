@@ -9,7 +9,8 @@ import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { toast } from 'sonner';
-import { Sparkles, Users, TrendingUp, Gift, Plus, Edit, Trash2, RefreshCw } from 'lucide-react';
+import { Sparkles, Users, TrendingUp, Gift, Plus, Edit, Trash2, RefreshCw, Package } from 'lucide-react';
+import CaseManagementSection from './CaseManagementSection';
 
 interface ShardStats {
   totalUsers: number;
@@ -474,6 +475,9 @@ const CustomerClubTab = () => {
           </Table>
         </CardContent>
       </Card>
+
+      {/* Case Management */}
+      <CaseManagementSection />
     </div>
   );
 };

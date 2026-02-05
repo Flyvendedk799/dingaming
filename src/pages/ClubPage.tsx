@@ -3,7 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { 
   Zap, Gift, Flame, TrendingUp, ArrowRight, 
-  Clock, ShoppingBag, Calendar, LogOut, Sparkles, Gamepad2 
+  Clock, ShoppingBag, Calendar, LogOut, Sparkles, Gamepad2, Package 
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/contexts/AuthContext';
@@ -125,6 +125,13 @@ const ClubPage = () => {
                   <Button variant="outline" className="w-full border-accent text-accent hover:bg-accent/10">
                     <Gamepad2 className="w-5 h-5 mr-2" />
                     Sweepstake Spil
+                    <ArrowRight className="w-4 h-4 ml-2" />
+                  </Button>
+                </Link>
+                <Link to="/club/cases">
+                  <Button variant="outline" className="w-full border-primary text-primary hover:bg-primary/10">
+                    <Package className="w-5 h-5 mr-2" />
+                    Åben Cases
                     <ArrowRight className="w-4 h-4 ml-2" />
                   </Button>
                 </Link>
