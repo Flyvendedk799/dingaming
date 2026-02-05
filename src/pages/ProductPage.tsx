@@ -5,6 +5,7 @@ import { fetchKinguinProductById, KinguinProduct } from "@/lib/kinguin";
 import { getShopifyVariantId } from "@/lib/shopify";
 import { usePricing } from "@/lib/pricing";
 import { useCartStore } from "@/stores/cartStore";
+import { useRecentlyViewed } from "@/hooks/useRecentlyViewed";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { 
@@ -27,6 +28,7 @@ import {
 import { toast } from "sonner";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
+import RecentlyViewed from "@/components/RecentlyViewed";
 
 const ProductPage = () => {
   const { handle } = useParams<{ handle: string }>();
@@ -36,7 +38,9 @@ const ProductPage = () => {
   const [selectedImage, setSelectedImage] = useState(0);
   const [isLightboxOpen, setIsLightboxOpen] = useState(false);
   const addItem = useCartStore(state => state.addItem);
+  const { addProduct: addToRecentlyViewed } = useRecentlyViewed();
   const { getPrice, formatDKK } = usePricing();
+
 
   useEffect(() => {
     const loadProduct = async () => {
@@ -47,11 +51,15 @@ const ProductPage = () => {
       if (!isNaN(kinguinId)) {
         const data = await fetchKinguinProductById(kinguinId);
         setProduct(data);
+        // Track in recently viewed
+        if (data) {
+          addToRecentlyViewed(data);
+        }
       }
       setIsLoading(false);
     };
     loadProduct();
-  }, [handle]);
+  }, [handle, addToRecentlyViewed]);
 
   // Scroll to top on mount
   useEffect(() => {
@@ -606,6 +614,11 @@ const ProductPage = () => {
           </motion.div>
         )}
       </AnimatePresence>
+
+      {/* Recently Viewed Section */}
+      <div className="container mx-auto px-4">
+        <RecentlyViewed excludeId={product?.kinguin_id} maxItems={6} />
+      </div>
 
       <Footer />
     </div>
