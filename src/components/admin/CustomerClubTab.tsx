@@ -9,7 +9,7 @@ import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { toast } from 'sonner';
-import { Sparkles, Users, TrendingUp, Gift, Plus, Edit, Trash2, RefreshCw, Package } from 'lucide-react';
+import { Sparkles, Users, TrendingUp, Gift, Plus, Edit, Trash2, RefreshCw, Package, Send, Search } from 'lucide-react';
 import CaseManagementSection from './CaseManagementSection';
 
 interface ShardStats {
@@ -39,6 +39,12 @@ interface EarningRule {
   is_active: boolean;
 }
 
+interface UserProfile {
+  id: string;
+  display_name: string | null;
+  balance?: number;
+}
+
 const CustomerClubTab = () => {
   const [stats, setStats] = useState<ShardStats | null>(null);
   const [rewards, setRewards] = useState<RewardItem[]>([]);
@@ -55,6 +61,15 @@ const CustomerClubTab = () => {
   });
   const [showNewRewardDialog, setShowNewRewardDialog] = useState(false);
   const [saving, setSaving] = useState(false);
+
+  // Grant Shards state
+  const [userSearch, setUserSearch] = useState('');
+  const [searchResults, setSearchResults] = useState<UserProfile[]>([]);
+  const [selectedUser, setSelectedUser] = useState<UserProfile | null>(null);
+  const [grantAmount, setGrantAmount] = useState<number>(0);
+  const [grantReason, setGrantReason] = useState('');
+  const [grantingShards, setGrantingShards] = useState(false);
+  const [searchingUsers, setSearchingUsers] = useState(false);
 
   useEffect(() => {
     loadData();
@@ -100,6 +115,86 @@ const CustomerClubTab = () => {
 
   const formatShards = (shards: number) => {
     return new Intl.NumberFormat('da-DK').format(shards);
+  };
+
+  // Search users by email or display name
+  const handleUserSearch = async () => {
+    if (!userSearch.trim()) {
+      setSearchResults([]);
+      return;
+    }
+
+    setSearchingUsers(true);
+    try {
+      // Search profiles by display_name
+      const { data: profiles, error } = await supabase
+        .from('profiles')
+        .select('id, display_name')
+        .ilike('display_name', `%${userSearch}%`)
+        .limit(10);
+
+      if (error) throw error;
+
+      // Get balances for found users
+      const userIds = profiles?.map(p => p.id) || [];
+      const { data: balances } = await supabase
+        .from('shard_balances')
+        .select('user_id, balance')
+        .in('user_id', userIds);
+
+      const balanceMap = new Map(balances?.map(b => [b.user_id, b.balance]) || []);
+
+      const results: UserProfile[] = (profiles || []).map(p => ({
+        id: p.id,
+        display_name: p.display_name,
+        balance: balanceMap.get(p.id) || 0,
+      }));
+
+      setSearchResults(results);
+    } catch (error) {
+      console.error('Error searching users:', error);
+      toast.error('Kunne ikke søge efter brugere');
+    } finally {
+      setSearchingUsers(false);
+    }
+  };
+
+  // Grant shards to selected user
+  const handleGrantShards = async () => {
+    if (!selectedUser || grantAmount <= 0) {
+      toast.error('Vælg en bruger og indtast et gyldigt beløb');
+      return;
+    }
+
+    setGrantingShards(true);
+    try {
+      // Insert a shard transaction - the trigger will update the balance
+      const { error } = await supabase.from('shard_transactions').insert({
+        user_id: selectedUser.id,
+        amount: grantAmount,
+        type: 'admin_grant',
+        description: grantReason || `Admin gave ${grantAmount} Shards`,
+      });
+
+      if (error) throw error;
+
+      toast.success(`${formatShards(grantAmount)} Shards givet til ${selectedUser.display_name || 'bruger'}`);
+      
+      // Reset form
+      setSelectedUser(null);
+      setGrantAmount(0);
+      setGrantReason('');
+      setUserSearch('');
+      setSearchResults([]);
+      
+      // Refresh stats
+      loadData();
+    } catch (error) {
+      console.error('Error granting shards:', error);
+      toast.error('Kunne ikke give Shards');
+    } finally {
+      setGrantingShards(false);
+    }
   };
 
   const handleCreateReward = async () => {
@@ -227,8 +322,8 @@ const CustomerClubTab = () => {
         <Card>
           <CardContent className="p-6">
             <div className="flex items-center gap-4">
-              <div className="p-3 bg-blue-500/10 rounded-lg">
-                <TrendingUp className="w-6 h-6 text-blue-500" />
+              <div className="p-3 bg-secondary/50 rounded-lg">
+                <TrendingUp className="w-6 h-6 text-foreground" />
               </div>
               <div>
                 <p className="text-sm text-muted-foreground">Shards Uddelt</p>
@@ -252,6 +347,124 @@ const CustomerClubTab = () => {
           </CardContent>
         </Card>
       </div>
+
+      {/* Grant Shards Section */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Send className="w-5 h-5" />
+            Giv Shards til Bruger
+          </CardTitle>
+          <CardDescription>
+            Søg efter en bruger og tildel dem Shards manuelt
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {/* User Search */}
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <Label>Søg Bruger</Label>
+                <div className="flex gap-2">
+                  <Input
+                    placeholder="Søg på brugernavn..."
+                    value={userSearch}
+                    onChange={(e) => setUserSearch(e.target.value)}
+                    onKeyDown={(e) => e.key === 'Enter' && handleUserSearch()}
+                  />
+                  <Button 
+                    variant="outline" 
+                    onClick={handleUserSearch}
+                    disabled={searchingUsers}
+                  >
+                    {searchingUsers ? (
+                      <RefreshCw className="w-4 h-4 animate-spin" />
+                    ) : (
+                      <Search className="w-4 h-4" />
+                    )}
+                  </Button>
+                </div>
+              </div>
+
+              {/* Search Results */}
+              {searchResults.length > 0 && (
+                <div className="border border-border rounded-lg divide-y divide-border max-h-48 overflow-y-auto">
+                  {searchResults.map((user) => (
+                    <button
+                      key={user.id}
+                      className={`w-full p-3 text-left hover:bg-muted/50 transition-colors flex items-center justify-between ${
+                        selectedUser?.id === user.id ? 'bg-primary/10 border-l-2 border-l-primary' : ''
+                      }`}
+                      onClick={() => setSelectedUser(user)}
+                    >
+                      <div>
+                        <p className="font-medium text-foreground">{user.display_name || 'Unavngivet'}</p>
+                        <p className="text-xs text-muted-foreground">ID: {user.id.slice(0, 8)}...</p>
+                      </div>
+                      <Badge variant="secondary">
+                        {formatShards(user.balance || 0)} Shards
+                      </Badge>
+                    </button>
+                  ))}
+                </div>
+              )}
+
+              {/* Selected User */}
+              {selectedUser && (
+                <div className="p-4 bg-success/10 border border-success/30 rounded-lg">
+                  <p className="text-sm text-muted-foreground">Valgt bruger:</p>
+                  <p className="font-semibold text-foreground">{selectedUser.display_name || 'Unavngivet'}</p>
+                  <p className="text-sm text-success">Nuværende balance: {formatShards(selectedUser.balance || 0)} Shards</p>
+                </div>
+              )}
+            </div>
+
+            {/* Grant Form */}
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <Label>Antal Shards</Label>
+                <Input
+                  type="number"
+                  min={1}
+                  placeholder="f.eks. 1000"
+                  value={grantAmount || ''}
+                  onChange={(e) => setGrantAmount(parseInt(e.target.value) || 0)}
+                />
+                <p className="text-xs text-muted-foreground">
+                  ≈ {(grantAmount / 1000).toFixed(2)} DKK værdi
+                </p>
+              </div>
+
+              <div className="space-y-2">
+                <Label>Begrundelse (valgfri)</Label>
+                <Input
+                  placeholder="f.eks. Kompensation, bonus, konkurrence..."
+                  value={grantReason}
+                  onChange={(e) => setGrantReason(e.target.value)}
+                />
+              </div>
+
+              <Button 
+                className="w-full"
+                onClick={handleGrantShards}
+                disabled={!selectedUser || grantAmount <= 0 || grantingShards}
+              >
+                {grantingShards ? (
+                  <>
+                    <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
+                    Giver Shards...
+                  </>
+                ) : (
+                  <>
+                    <Send className="w-4 h-4 mr-2" />
+                    Giv {formatShards(grantAmount)} Shards
+                  </>
+                )}
+              </Button>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
 
       {/* Earning Rules */}
       <Card>
