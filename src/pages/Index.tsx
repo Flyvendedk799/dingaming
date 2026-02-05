@@ -23,9 +23,21 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useShardBalance } from "@/hooks/useShards";
 import { KinguinProduct } from "@/lib/kinguin";
 
+const INTRO_STORAGE_KEY = 'dingaming_intro_shown';
+const INTRO_EXPIRY_MS = 30 * 1000; // 30 seconds
+
 const Index = () => {
-  const [showIntro, setShowIntro] = useState(true);
-  const [siteReady, setSiteReady] = useState(false);
+  const [showIntro, setShowIntro] = useState(() => {
+    const stored = localStorage.getItem(INTRO_STORAGE_KEY);
+    if (!stored) return true;
+    
+    const timestamp = parseInt(stored, 10);
+    const elapsed = Date.now() - timestamp;
+    
+    // Show intro if more than 30 seconds have passed
+    return elapsed > INTRO_EXPIRY_MS;
+  });
+  const [siteReady, setSiteReady] = useState(!showIntro);
   const [activeTab, setActiveTab] = useState('home');
   const [selectedGame, setSelectedGame] = useState<KinguinProduct | null>(null);
   const isMobile = useIsMobile();
@@ -35,6 +47,7 @@ const Index = () => {
 
   const handleIntroComplete = () => {
     setShowIntro(false);
+    localStorage.setItem(INTRO_STORAGE_KEY, Date.now().toString());
     setTimeout(() => setSiteReady(true), 100);
   };
 
