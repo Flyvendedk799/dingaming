@@ -1,6 +1,6 @@
 import { Link } from "react-router-dom";
-import { Facebook, Instagram, Twitter, Youtube, Shield, Zap, CreditCard, Mail, ArrowRight, CheckCircle2 } from "lucide-react";
-import { Button } from "./ui/button";
+import { Facebook, Instagram, Twitter, Youtube, Shield, Zap } from "lucide-react";
+import NewsletterSignup from "./NewsletterSignup";
 
 const Footer = () => {
   const gameLinks = [
@@ -32,24 +32,7 @@ const Footer = () => {
             <p className="text-muted-foreground mb-8">
               Tilmeld dig og få <span className="text-primary font-semibold">10% rabat</span> på din første ordre + ugentlige deals
             </p>
-            <div className="flex flex-col sm:flex-row gap-3 max-w-md mx-auto">
-              <div className="relative flex-1">
-                <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
-                <input 
-                  type="email" 
-                  placeholder="Din email adresse"
-                  className="w-full h-12 pl-12 pr-4 rounded-lg bg-muted border border-border text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-primary transition-colors"
-                />
-              </div>
-              <Button size="lg" className="group bg-primary text-primary-foreground hover:bg-primary/90">
-                Tilmeld
-                <ArrowRight className="w-4 h-4 transition-transform group-hover:translate-x-1" />
-              </Button>
-            </div>
-            <p className="mt-4 text-xs text-muted-foreground flex items-center justify-center gap-1">
-              <CheckCircle2 className="w-3.5 h-3.5" />
-              Ingen spam. Afmeld når som helst.
-            </p>
+            <NewsletterSignup source="footer" variant="default" />
           </div>
         </div>
       </div>

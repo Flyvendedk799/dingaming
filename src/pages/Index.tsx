@@ -6,6 +6,7 @@ import KinguinProductGrid from "@/components/KinguinProductGrid";
 import Platforms from "@/components/Platforms";
 import Testimonials from "@/components/Testimonials";
 import HowItWorks from "@/components/HowItWorks";
+import NewsletterBanner from "@/components/NewsletterBanner";
 import Footer from "@/components/Footer";
 import IntroAnimation from "@/components/IntroAnimation";
 import MobileNav from "@/components/MobileNav";
@@ -137,6 +138,7 @@ const Index = () => {
               <Platforms />
               <Testimonials />
               <HowItWorks />
+              <NewsletterBanner source="homepage" />
             </main>
             <Footer />
           </>
