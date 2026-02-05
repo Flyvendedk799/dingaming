@@ -16,10 +16,6 @@ interface GameSession {
   hitMine: boolean;
 }
 
-// Store active game sessions in memory (for serverless, this works per-request)
-// In production, you'd want to store this in Redis or a DB table
-const gameSessions = new Map<string, GameSession>();
-
 // Calculate multiplier based on revealed tiles and mine count
 function calculateMultiplier(revealed: number, mineCount: number): number {
   const totalTiles = 25;
@@ -58,37 +54,49 @@ serve(async (req) => {
 
   try {
     const authHeader = req.headers.get("Authorization");
-    if (!authHeader) {
+    if (!authHeader?.startsWith("Bearer ")) {
+      console.error("Missing or invalid Authorization header");
       return new Response(
         JSON.stringify({ error: "No authorization header" }),
         { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
-    const supabase = createClient(
+    // Use service role key for database operations
+    const supabaseAdmin = createClient(
       Deno.env.get("SUPABASE_URL") ?? "",
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "",
       { auth: { persistSession: false } }
     );
 
-    // Verify user
+    // Use anon key client for auth verification
+    const supabaseAuth = createClient(
+      Deno.env.get("SUPABASE_URL") ?? "",
+      Deno.env.get("SUPABASE_ANON_KEY") ?? "",
+      { global: { headers: { Authorization: authHeader } } }
+    );
+
+    // Verify user using getClaims (more reliable than getUser)
     const token = authHeader.replace("Bearer ", "");
-    const { data: { user }, error: userError } = await supabase.auth.getUser(token);
+    const { data: claimsData, error: claimsError } = await supabaseAuth.auth.getClaims(token);
     
-    if (userError || !user) {
+    if (claimsError || !claimsData?.claims) {
+      console.error("Token verification failed:", claimsError?.message || "No claims");
       return new Response(
         JSON.stringify({ error: "Invalid token" }),
         { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
+    const userId = claimsData.claims.sub as string;
+
     const { action, mineCount, betAmount, tileIndex, sessionId } = await req.json();
 
     // Get user's current balance
-    const { data: balanceData, error: balanceError } = await supabase
+    const { data: balanceData, error: balanceError } = await supabaseAdmin
       .from("shard_balances")
       .select("balance, lifetime_earned, lifetime_spent")
-      .eq("user_id", user.id)
+      .eq("user_id", userId)
       .single();
 
     if (balanceError) {
@@ -124,18 +132,18 @@ serve(async (req) => {
       }
 
       // Deduct bet amount
-      await supabase
+      await supabaseAdmin
         .from("shard_balances")
         .update({
           balance: currentBalance - betAmount,
-          lifetime_spent: balanceData.lifetime_spent || 0 + betAmount,
+          lifetime_spent: (balanceData.lifetime_spent || 0) + betAmount,
           updated_at: new Date().toISOString(),
         })
-        .eq("user_id", user.id);
+        .eq("user_id", userId);
 
       // Record the bet transaction
-      await supabase.from("shard_transactions").insert({
-        user_id: user.id,
+      await supabaseAdmin.from("shard_transactions").insert({
+        user_id: userId,
         amount: -betAmount,
         type: "game_bet",
         description: `Mines indsats (${mineCount} miner)`,
@@ -144,7 +152,7 @@ serve(async (req) => {
 
       // Generate mines and create session
       const mines = generateMines(mineCount);
-      const newSessionId = `${user.id}_${Date.now()}`;
+      const newSessionId = `${userId}_${Date.now()}`;
       
       const session: GameSession = {
         mines,
@@ -156,9 +164,9 @@ serve(async (req) => {
       };
 
       // Store session in database for persistence
-      await supabase.from("game_sessions").insert({
+      await supabaseAdmin.from("game_sessions").insert({
         session_id: newSessionId,
-        user_id: user.id,
+        user_id: userId,
         game_type: "mines",
         state: session,
         created_at: new Date().toISOString(),
@@ -186,11 +194,11 @@ serve(async (req) => {
       }
 
       // Get session from database
-      const { data: sessionData, error: sessionError } = await supabase
+      const { data: sessionData, error: sessionError } = await supabaseAdmin
         .from("game_sessions")
         .select("*")
         .eq("session_id", sessionId)
-        .eq("user_id", user.id)
+        .eq("user_id", userId)
         .eq("is_active", true)
         .single();
 
@@ -224,7 +232,7 @@ serve(async (req) => {
         session.hitMine = true;
         
         // End game - player loses
-        await supabase
+        await supabaseAdmin
           .from("game_sessions")
           .update({ 
             state: session, 
@@ -259,7 +267,7 @@ serve(async (req) => {
         const winAmount = Math.floor(session.betAmount * session.currentMultiplier);
 
         // Update session
-        await supabase
+        await supabaseAdmin
           .from("game_sessions")
           .update({ 
             state: session, 
@@ -269,23 +277,23 @@ serve(async (req) => {
           .eq("session_id", sessionId);
 
         // Award winnings
-        const { data: newBalance } = await supabase
+        const { data: newBalance } = await supabaseAdmin
           .from("shard_balances")
           .select("balance, lifetime_earned")
-          .eq("user_id", user.id)
+          .eq("user_id", userId)
           .single();
 
-        await supabase
+        await supabaseAdmin
           .from("shard_balances")
           .update({
             balance: (newBalance?.balance || 0) + winAmount,
             lifetime_earned: (newBalance?.lifetime_earned || 0) + winAmount,
             updated_at: new Date().toISOString(),
           })
-          .eq("user_id", user.id);
+          .eq("user_id", userId);
 
-        await supabase.from("shard_transactions").insert({
-          user_id: user.id,
+        await supabaseAdmin.from("shard_transactions").insert({
+          user_id: userId,
           amount: winAmount,
           type: "game_win",
           description: `Mines gevinst (x${session.currentMultiplier})`,
@@ -307,7 +315,7 @@ serve(async (req) => {
       }
 
       // Update session
-      await supabase
+      await supabaseAdmin
         .from("game_sessions")
         .update({ state: session })
         .eq("session_id", sessionId);
@@ -334,11 +342,11 @@ serve(async (req) => {
         );
       }
 
-      const { data: sessionData, error: sessionError } = await supabase
+      const { data: sessionData, error: sessionError } = await supabaseAdmin
         .from("game_sessions")
         .select("*")
         .eq("session_id", sessionId)
-        .eq("user_id", user.id)
+        .eq("user_id", userId)
         .eq("is_active", true)
         .single();
 
@@ -369,7 +377,7 @@ serve(async (req) => {
       const winAmount = Math.floor(session.betAmount * session.currentMultiplier);
 
       // End session
-      await supabase
+      await supabaseAdmin
         .from("game_sessions")
         .update({ 
           state: session, 
@@ -379,23 +387,23 @@ serve(async (req) => {
         .eq("session_id", sessionId);
 
       // Award winnings
-      const { data: newBalance } = await supabase
+      const { data: newBalance } = await supabaseAdmin
         .from("shard_balances")
         .select("balance, lifetime_earned")
-        .eq("user_id", user.id)
+        .eq("user_id", userId)
         .single();
 
-      await supabase
+      await supabaseAdmin
         .from("shard_balances")
         .update({
           balance: (newBalance?.balance || 0) + winAmount,
           lifetime_earned: (newBalance?.lifetime_earned || 0) + winAmount,
           updated_at: new Date().toISOString(),
         })
-        .eq("user_id", user.id);
+        .eq("user_id", userId);
 
-      await supabase.from("shard_transactions").insert({
-        user_id: user.id,
+      await supabaseAdmin.from("shard_transactions").insert({
+        user_id: userId,
         amount: winAmount,
         type: "game_win",
         description: `Mines gevinst (x${session.currentMultiplier})`,
