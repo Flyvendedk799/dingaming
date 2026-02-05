@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { fetchKinguinProducts, KinguinProduct, syncProducts, syncDbToShopify } from "@/lib/kinguin";
 import KinguinProductCard from "./KinguinProductCard";
+import QuickViewModal from "./QuickViewModal";
 import { Button } from "@/components/ui/button";
 import { ArrowRight, Flame, Loader2, Package, RefreshCw, ShoppingBag } from "lucide-react";
 import { toast } from "sonner";
@@ -12,6 +13,7 @@ const KinguinProductGrid = () => {
   const [isSyncingToShopify, setIsSyncingToShopify] = useState(false);
   const [syncProgress, setSyncProgress] = useState<{ page: number; total: number } | null>(null);
   const [shopifyProgress, setShopifyProgress] = useState<{ offset: number; total: number } | null>(null);
+  const [quickViewProduct, setQuickViewProduct] = useState<KinguinProduct | null>(null);
 
   const loadProducts = async () => {
     setIsLoading(true);
@@ -206,6 +208,7 @@ const KinguinProductGrid = () => {
               key={product.id}
               product={product}
               index={index}
+              onQuickView={setQuickViewProduct}
             />
           ))}
         </div>
@@ -218,6 +221,14 @@ const KinguinProductGrid = () => {
           </Button>
         </div>
       </div>
+
+      {/* Quick View Modal */}
+      {quickViewProduct && (
+        <QuickViewModal
+          product={quickViewProduct}
+          onClose={() => setQuickViewProduct(null)}
+        />
+      )}
     </section>
   );
 };
