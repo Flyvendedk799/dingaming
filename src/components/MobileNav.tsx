@@ -24,9 +24,9 @@ const MobileNav = ({ activeTab, onTabChange, cartCount = 0, shardBalance = 0 }: 
       animate={{ y: 0 }}
       transition={{ delay: 0.5, type: "spring", stiffness: 300, damping: 30 }}
     >
-      {/* iOS-style blur background */}
+      {/* Premium glassmorphism background */}
       <div 
-        className="absolute inset-0 bg-card/80 backdrop-blur-xl border-t border-border/50"
+        className="absolute inset-x-2 inset-y-0 bg-card/70 backdrop-blur-2xl border border-border/30 rounded-t-3xl shadow-premium-lg"
         style={{ 
           paddingBottom: 'env(safe-area-inset-bottom, 0px)',
         }}

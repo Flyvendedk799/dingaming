@@ -75,6 +75,16 @@ export default {
         lg: "var(--radius)",
         md: "calc(var(--radius) - 2px)",
         sm: "calc(var(--radius) - 4px)",
+        xl: "calc(var(--radius) + 4px)",
+        "2xl": "calc(var(--radius) + 8px)",
+        "3xl": "calc(var(--radius) + 12px)",
+      },
+      boxShadow: {
+        'premium': '0 8px 32px -8px hsl(0 0% 0% / 0.4)',
+        'premium-lg': '0 16px 48px -12px hsl(0 0% 0% / 0.5)',
+        'glow': '0 0 40px -10px hsl(158 64% 42% / 0.4)',
+        'glow-primary': '0 0 40px -10px hsl(38 92% 50% / 0.4)',
+        'inner-glow': 'inset 0 1px 0 hsl(0 0% 100% / 0.05)',
       },
       keyframes: {
         "accordion-down": {

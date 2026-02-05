@@ -5,24 +5,25 @@ import { cva, type VariantProps } from "class-variance-authority"
 import { cn } from "@/lib/utils"
 
 const buttonVariants = cva(
-  "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-lg text-sm font-semibold ring-offset-background transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0 active:scale-[0.98]",
+  "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-2xl text-sm font-semibold ring-offset-background transition-all duration-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0 active:scale-[0.97]",
   {
     variants: {
       variant: {
-        default: "bg-success text-success-foreground hover:bg-success/90 shadow-sm hover:shadow-md btn-primary",
-        destructive: "bg-destructive text-destructive-foreground hover:bg-destructive/90",
-        outline: "border border-border bg-background hover:bg-muted hover:border-muted-foreground/20 text-foreground",
-        secondary: "bg-secondary text-secondary-foreground hover:bg-secondary/80",
-        ghost: "hover:bg-muted hover:text-foreground",
+        default: "bg-success text-success-foreground hover:bg-success/90 shadow-premium hover:shadow-glow btn-primary",
+        destructive: "bg-destructive text-destructive-foreground hover:bg-destructive/90 shadow-premium",
+        outline: "border-2 border-border bg-background/50 backdrop-blur-sm hover:bg-muted hover:border-muted-foreground/20 text-foreground",
+        secondary: "bg-secondary text-secondary-foreground hover:bg-secondary/80 shadow-sm",
+        ghost: "hover:bg-muted/80 hover:text-foreground",
         link: "text-success underline-offset-4 hover:underline",
-        success: "bg-success text-success-foreground hover:bg-success/90 shadow-sm hover:shadow-glow-success btn-primary",
+        success: "bg-success text-success-foreground hover:bg-success/90 shadow-premium hover:shadow-glow btn-primary",
+        premium: "bg-gradient-to-r from-primary to-accent text-primary-foreground shadow-glow-primary hover:shadow-lg",
       },
       size: {
-        default: "h-10 px-4 py-2",
-        sm: "h-9 rounded-md px-3 text-xs",
-        lg: "h-12 rounded-lg px-6",
-        xl: "h-14 rounded-xl px-8 text-base",
-        icon: "h-10 w-10",
+        default: "h-11 px-5 py-2.5",
+        sm: "h-9 rounded-xl px-4 text-xs",
+        lg: "h-13 rounded-2xl px-7",
+        xl: "h-14 rounded-2xl px-8 text-base",
+        icon: "h-11 w-11 rounded-xl",
       },
     },
     defaultVariants: {

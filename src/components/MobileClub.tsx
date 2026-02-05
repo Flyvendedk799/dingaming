@@ -136,7 +136,7 @@ const MobileClub = ({ onBack }: MobileClubProps) => {
     <div className="min-h-screen bg-background pb-24">
       {/* Header */}
       <div 
-        className="sticky top-0 z-40 bg-background/80 backdrop-blur-xl border-b border-border/50"
+        className="sticky top-0 z-40 bg-background/60 backdrop-blur-2xl border-b border-border/30"
         style={{ paddingTop: 'env(safe-area-inset-top, 0px)' }}
       >
         <div className="px-4 py-3">
@@ -165,7 +165,7 @@ const MobileClub = ({ onBack }: MobileClubProps) => {
       <div className="px-4 py-4 space-y-4">
         {/* Balance Card */}
         <motion.div
-          className="p-5 rounded-2xl bg-gradient-to-br from-success/20 to-success/5 border border-success/30"
+          className="p-6 rounded-3xl bg-gradient-to-br from-success/20 to-success/5 border border-success/30 shadow-glow backdrop-blur-sm"
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
         >
