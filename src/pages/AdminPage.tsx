@@ -75,6 +75,9 @@ const AdminPage = () => {
   const [ordersTotal, setOrdersTotal] = useState(0);
   const [ordersPage, setOrdersPage] = useState(1);
   const [ordersStatus, setOrdersStatus] = useState<string>('');
+   
+   // Helper to convert "all" to empty string for API
+   const getStatusForApi = (status: string) => status === 'all' ? '' : status;
   const [loadingOrders, setLoadingOrders] = useState(false);
   
   // Keys modal
@@ -1065,17 +1068,18 @@ const AdminPage = () => {
                   <div className="flex-1">
                     <Label>Status filter</Label>
                     <Select 
-                      value={ordersStatus} 
+                       value={ordersStatus || 'all'} 
                       onValueChange={(value) => {
-                        setOrdersStatus(value);
-                        fetchOrders(1, value);
+                         const newStatus = value === 'all' ? '' : value;
+                         setOrdersStatus(newStatus);
+                         fetchOrders(1, newStatus);
                       }}
                     >
                       <SelectTrigger>
                         <SelectValue placeholder="Alle statuser" />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="">Alle statuser</SelectItem>
+                         <SelectItem value="all">Alle statuser</SelectItem>
                         <SelectItem value="processing">Behandler</SelectItem>
                         <SelectItem value="completed">Fuldført</SelectItem>
                         <SelectItem value="canceled">Annulleret</SelectItem>
