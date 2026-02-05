@@ -53,9 +53,9 @@ const MobileHome = ({ onSelectGame }: MobileHomeProps) => {
 
   return (
     <div className="min-h-screen bg-background pb-24">
-      {/* iOS-style header */}
+      {/* iOS-style header with glassmorphism */}
       <div 
-        className="sticky top-0 z-40 bg-background/80 backdrop-blur-xl border-b border-border/50"
+        className="sticky top-0 z-40 bg-background/60 backdrop-blur-2xl border-b border-border/30"
         style={{ paddingTop: 'env(safe-area-inset-top, 0px)' }}
       >
         <div className="px-4 py-3">
@@ -70,7 +70,7 @@ const MobileHome = ({ onSelectGame }: MobileHomeProps) => {
             <div className="flex items-center gap-2">
               {user ? (
                 <Link to="/club">
-                  <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-success/10 border border-success/20">
+                  <div className="flex items-center gap-1.5 px-4 py-2 rounded-2xl bg-success/10 border border-success/20 shadow-sm backdrop-blur-sm">
                     <Sparkles className="w-4 h-4 text-success" />
                     <span className="text-sm font-semibold text-success">
                       {formatShards(balance?.balance || 0)}
@@ -79,7 +79,7 @@ const MobileHome = ({ onSelectGame }: MobileHomeProps) => {
                 </Link>
               ) : (
                 <Link to="/login">
-                  <Button size="sm" variant="outline" className="gap-2">
+                  <Button size="sm" variant="outline" className="gap-2 rounded-2xl">
                     <LogIn className="w-4 h-4" />
                     Log ind
                   </Button>
@@ -93,7 +93,7 @@ const MobileHome = ({ onSelectGame }: MobileHomeProps) => {
       {/* Daily Claim Banner (if logged in and can claim) */}
       {canClaimDaily && (
         <motion.div 
-          className="mx-4 mt-4 p-4 rounded-xl bg-gradient-to-r from-success/20 to-success/5 border border-success/30"
+          className="mx-4 mt-4 p-4 rounded-3xl bg-gradient-to-r from-success/20 to-success/5 border border-success/30 shadow-glow backdrop-blur-sm"
           initial={{ opacity: 0, y: -10 }}
           animate={{ opacity: 1, y: 0 }}
         >
@@ -121,13 +121,13 @@ const MobileHome = ({ onSelectGame }: MobileHomeProps) => {
       {/* Hero banner */}
       <div className="px-4 py-4">
         <motion.div 
-          className="relative rounded-2xl overflow-hidden h-36 bg-gradient-to-r from-primary/20 to-primary/5 border border-primary/20"
+          className="relative rounded-3xl overflow-hidden h-36 bg-gradient-to-r from-primary/20 to-primary/5 border border-primary/20 shadow-premium"
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
         >
           <div className="absolute inset-0 p-4 flex flex-col justify-between">
             <div>
-              <span className="px-2 py-1 rounded-md bg-destructive text-destructive-foreground text-xs font-bold">
+              <span className="px-3 py-1.5 rounded-xl bg-destructive text-destructive-foreground text-xs font-bold shadow-sm">
                 🔥 HOT DEALS
               </span>
             </div>
@@ -149,7 +149,7 @@ const MobileHome = ({ onSelectGame }: MobileHomeProps) => {
 
       {/* Quick info */}
       <div className="px-4 mb-4">
-        <div className="flex items-center justify-around py-3 rounded-xl bg-card border border-border/50">
+        <div className="flex items-center justify-around py-4 rounded-3xl bg-card/80 backdrop-blur-sm border border-border/30 shadow-premium">
           <div className="text-center">
             <div className="flex items-center justify-center gap-1 text-success mb-0.5">
               <Zap className="w-4 h-4" />
@@ -260,13 +260,13 @@ const MobileHome = ({ onSelectGame }: MobileHomeProps) => {
           {/* Customer Club Promo */}
           {!user && (
             <motion.div
-              className="mx-4 mb-6 p-4 rounded-2xl bg-gradient-to-br from-success/10 to-success/5 border border-success/20"
+              className="mx-4 mb-6 p-5 rounded-3xl bg-gradient-to-br from-success/10 to-success/5 border border-success/20 shadow-glow backdrop-blur-sm"
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.3 }}
             >
               <div className="flex items-center gap-3">
-                <div className="w-12 h-12 rounded-xl bg-success/20 flex items-center justify-center">
+                <div className="w-14 h-14 rounded-2xl bg-success/20 flex items-center justify-center shadow-inner-glow">
                   <Sparkles className="w-6 h-6 text-success" />
                 </div>
                 <div className="flex-1">

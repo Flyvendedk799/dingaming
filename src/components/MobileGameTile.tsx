@@ -47,26 +47,26 @@ const MobileGameTile = ({
   return (
     <motion.button
       onClick={onClick}
-      className="w-full bg-card rounded-2xl overflow-hidden border border-border/50 text-left active:scale-[0.98] transition-transform"
-      whileTap={{ scale: 0.98 }}
+      className="w-full bg-card/80 backdrop-blur-sm rounded-3xl overflow-hidden border border-border/30 text-left active:scale-[0.97] transition-all duration-300 shadow-premium hover:shadow-premium-lg hover:border-success/20"
+      whileTap={{ scale: 0.97 }}
     >
       {/* Image */}
       <div className="relative aspect-[4/3]">
         <img src={image} alt={title} className="w-full h-full object-cover" />
         
         {discount && discount > 0 && (
-          <div className="absolute top-2 left-2 px-2 py-1 rounded-lg bg-destructive text-destructive-foreground text-xs font-bold">
+          <div className="absolute top-2.5 left-2.5 px-2.5 py-1 rounded-xl bg-destructive text-destructive-foreground text-xs font-bold shadow-sm">
             -{discount}%
           </div>
         )}
         
-        <div className="absolute top-2 right-2 px-2 py-1 rounded-lg bg-background/90 backdrop-blur-sm text-[10px] font-semibold">
+        <div className="absolute top-2.5 right-2.5 px-2.5 py-1 rounded-xl bg-background/80 backdrop-blur-md text-[10px] font-semibold shadow-sm">
           {platform}
         </div>
 
         {/* Quick add */}
         <motion.div
-          className="absolute bottom-2 right-2 w-9 h-9 rounded-full bg-success flex items-center justify-center shadow-lg"
+          className="absolute bottom-2.5 right-2.5 w-10 h-10 rounded-2xl bg-success flex items-center justify-center shadow-glow"
           whileTap={{ scale: 0.9 }}
           onClick={handleAddToCart}
         >

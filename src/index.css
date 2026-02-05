@@ -41,7 +41,7 @@
     --input: 30 6% 15%;
     --ring: 38 92% 50%;
 
-    --radius: 0.75rem;
+    --radius: 1rem;
 
     /* Premium effects */
     --glow-primary: 38 92% 50%;
@@ -49,6 +49,13 @@
     --gradient-hero: linear-gradient(135deg, hsl(38 92% 50% / 0.06) 0%, hsl(30 10% 6%) 50%, hsl(15 75% 60% / 0.04) 100%);
     --gradient-card: linear-gradient(145deg, hsl(30 8% 12%) 0%, hsl(30 8% 8%) 100%);
     --gradient-premium: linear-gradient(135deg, hsl(38 92% 50% / 0.1), hsl(15 75% 60% / 0.08));
+    --gradient-glass: linear-gradient(135deg, hsl(0 0% 100% / 0.05), hsl(0 0% 100% / 0.02));
+    
+    /* Premium shadows */
+    --shadow-sm: 0 2px 8px -2px hsl(0 0% 0% / 0.3);
+    --shadow-md: 0 8px 24px -8px hsl(0 0% 0% / 0.4);
+    --shadow-lg: 0 16px 48px -12px hsl(0 0% 0% / 0.5);
+    --shadow-glow: 0 0 40px -10px hsl(var(--success) / 0.4);
 
     --sidebar-background: 30 10% 6%;
     --sidebar-foreground: 40 20% 96%;
