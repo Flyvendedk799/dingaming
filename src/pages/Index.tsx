@@ -10,19 +10,28 @@ import Footer from "@/components/Footer";
 import IntroAnimation from "@/components/IntroAnimation";
 import MobileNav from "@/components/MobileNav";
 import MobileHome from "@/components/MobileHome";
+import MobileSearch from "@/components/MobileSearch";
+import MobileDeals from "@/components/MobileDeals";
+import MobileClub from "@/components/MobileClub";
+import MobileCart from "@/components/MobileCart";
 import MobileGameCard from "@/components/MobileGameCard";
 
 import { AnimatePresence } from "framer-motion";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useCartStore } from "@/stores/cartStore";
+import { useAuth } from "@/contexts/AuthContext";
+import { useShardBalance } from "@/hooks/useShards";
+import { KinguinProduct } from "@/lib/kinguin";
 
 const Index = () => {
   const [showIntro, setShowIntro] = useState(true);
   const [siteReady, setSiteReady] = useState(false);
   const [activeTab, setActiveTab] = useState('home');
-  const [selectedGame, setSelectedGame] = useState<any>(null);
+  const [selectedGame, setSelectedGame] = useState<KinguinProduct | null>(null);
   const isMobile = useIsMobile();
-  const cartItems = useCartStore(state => state.items);
+  const { getTotalItems } = useCartStore();
+  const { user } = useAuth();
+  const { data: balance } = useShardBalance();
 
   const handleIntroComplete = () => {
     setShowIntro(false);
@@ -41,6 +50,31 @@ const Index = () => {
     };
   }, [selectedGame, isMobile]);
 
+  const handleSelectGame = (product: KinguinProduct) => {
+    setSelectedGame(product);
+  };
+
+  const handleBackToHome = () => {
+    setActiveTab('home');
+  };
+
+  const renderMobileContent = () => {
+    switch (activeTab) {
+      case 'home':
+        return <MobileHome onSelectGame={handleSelectGame} />;
+      case 'search':
+        return <MobileSearch onSelectGame={handleSelectGame} onBack={handleBackToHome} />;
+      case 'deals':
+        return <MobileDeals onSelectGame={handleSelectGame} onBack={handleBackToHome} />;
+      case 'cart':
+        return <MobileCart onBack={handleBackToHome} />;
+      case 'club':
+        return <MobileClub onBack={handleBackToHome} />;
+      default:
+        return <MobileHome onSelectGame={handleSelectGame} />;
+    }
+  };
+
   return (
     <>
       {showIntro && <IntroAnimation onComplete={handleIntroComplete} />}
@@ -53,19 +87,26 @@ const Index = () => {
         {/* Mobile Layout */}
         {isMobile ? (
           <>
-            <MobileHome onSelectGame={setSelectedGame} />
+            {renderMobileContent()}
             
             <MobileNav 
               activeTab={activeTab} 
               onTabChange={setActiveTab}
-              cartCount={cartItems.length}
+              cartCount={getTotalItems()}
+              shardBalance={user ? (balance?.balance || 0) : 0}
             />
 
             {/* Game Detail Sheet */}
             <AnimatePresence>
               {selectedGame && (
                 <MobileGameCard
-                  {...selectedGame}
+                  title={selectedGame.name}
+                  image={selectedGame.cover_image || ''}
+                  price={selectedGame.sell_price}
+                  originalPrice={selectedGame.original_price}
+                  platform={selectedGame.platform || 'Steam'}
+                  discount={Math.round((1 - selectedGame.sell_price / selectedGame.original_price) * 100)}
+                  rating={4.7}
                   onClose={() => setSelectedGame(null)}
                 />
               )}

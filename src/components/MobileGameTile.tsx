@@ -1,5 +1,7 @@
 import { motion } from "framer-motion";
-import { Zap, Star, ShoppingCart } from "lucide-react";
+import { Star, ShoppingCart } from "lucide-react";
+import { useCartStore } from "@/stores/cartStore";
+import { toast } from "sonner";
 
 interface MobileGameTileProps {
   title: string;
@@ -22,6 +24,26 @@ const MobileGameTile = ({
   rating = 4.5,
   onClick,
 }: MobileGameTileProps) => {
+  const addItem = useCartStore(state => state.addItem);
+
+  const handleAddToCart = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    addItem({
+      variantId: `${title}-${platform}`,
+      title,
+      quantity: 1,
+      price: {
+        amount: price.toString(),
+        currencyCode: 'DKK',
+      },
+      image,
+      sku: platform,
+    });
+    toast.success('Tilføjet til kurv', {
+      description: title,
+    });
+  };
+
   return (
     <motion.button
       onClick={onClick}
@@ -32,7 +54,7 @@ const MobileGameTile = ({
       <div className="relative aspect-[4/3]">
         <img src={image} alt={title} className="w-full h-full object-cover" />
         
-        {discount && (
+        {discount && discount > 0 && (
           <div className="absolute top-2 left-2 px-2 py-1 rounded-lg bg-destructive text-destructive-foreground text-xs font-bold">
             -{discount}%
           </div>
@@ -46,10 +68,7 @@ const MobileGameTile = ({
         <motion.div
           className="absolute bottom-2 right-2 w-9 h-9 rounded-full bg-success flex items-center justify-center shadow-lg"
           whileTap={{ scale: 0.9 }}
-          onClick={(e) => {
-            e.stopPropagation();
-            // Add to cart logic
-          }}
+          onClick={handleAddToCart}
         >
           <ShoppingCart className="w-4 h-4 text-success-foreground" />
         </motion.div>
@@ -60,7 +79,7 @@ const MobileGameTile = ({
         {/* Rating */}
         <div className="flex items-center gap-1 mb-1">
           <Star className="w-3 h-3 text-accent fill-accent" />
-          <span className="text-xs font-medium">{rating}</span>
+          <span className="text-xs font-medium">{rating.toFixed(1)}</span>
         </div>
 
         {/* Title */}
@@ -68,9 +87,9 @@ const MobileGameTile = ({
 
         {/* Price */}
         <div className="flex items-center gap-2">
-          <span className="text-lg font-bold text-success">{price} kr</span>
-          {originalPrice && (
-            <span className="text-xs text-muted-foreground line-through">{originalPrice} kr</span>
+          <span className="text-lg font-bold text-success">{Math.round(price)} kr</span>
+          {originalPrice && originalPrice > price && (
+            <span className="text-xs text-muted-foreground line-through">{Math.round(originalPrice)} kr</span>
           )}
         </div>
       </div>
