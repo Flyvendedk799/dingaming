@@ -8,13 +8,14 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
-import { RefreshCw, Settings, Database, ShoppingBag, Clock, TrendingUp, Package, AlertTriangle, Download, Wallet, ShoppingCart, Key, RotateCcw, Eye, Copy, CheckCircle, XCircle, Loader2 } from "lucide-react";
+import { RefreshCw, Settings, Database, ShoppingBag, Clock, TrendingUp, Package, AlertTriangle, Download, Wallet, ShoppingCart, Key, RotateCcw, Eye, Copy, CheckCircle, XCircle, Loader2, Sparkles } from "lucide-react";
 import { Progress } from "@/components/ui/progress";
 import Header from "@/components/Header";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import CustomerClubTab from "@/components/admin/CustomerClubTab";
 
 interface StoreSetting {
   key: string;
@@ -875,6 +876,10 @@ const AdminPage = () => {
               <Settings className="w-4 h-4" />
               Indstillinger
             </TabsTrigger>
+            <TabsTrigger value="club" className="gap-2">
+              <Sparkles className="w-4 h-4" />
+              Customer Club
+            </TabsTrigger>
           </TabsList>
 
           <TabsContent value="sync" className="space-y-6">
@@ -1371,6 +1376,10 @@ const AdminPage = () => {
                 </div>
               </CardContent>
             </Card>
+          </TabsContent>
+
+          <TabsContent value="club">
+            <CustomerClubTab />
           </TabsContent>
         </Tabs>
       </div>

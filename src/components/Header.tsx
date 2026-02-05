@@ -1,20 +1,29 @@
- import { User, Menu, X, Zap, ChevronDown, Heart, Search } from "lucide-react";
+import { User, Menu, X, Zap, ChevronDown, Heart, Search, Sparkles, LogIn } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useState, useEffect } from "react";
- import { Link } from "react-router-dom";
+import { Link } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { CartDrawer } from "@/components/CartDrawer";
- import SearchDropdown from "@/components/SearchDropdown";
+import SearchDropdown from "@/components/SearchDropdown";
+import { useAuth } from "@/contexts/AuthContext";
+import { useShardBalance } from "@/hooks/useShards";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 const Header = () => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
-  const [isLoaded, setIsLoaded] = useState(false);
+  const { user, isLoading: authLoading, signOut } = useAuth();
+  const { data: balance } = useShardBalance();
 
   useEffect(() => {
     const handleScroll = () => setScrolled(window.scrollY > 20);
     window.addEventListener("scroll", handleScroll);
-    setIsLoaded(true);
     return () => window.removeEventListener("scroll", handleScroll);
   }, []);
 
@@ -25,9 +34,16 @@ const Header = () => {
     { label: "Support", href: "/support" },
   ];
 
+  const formatShards = (shards: number) => {
+    if (shards >= 1000) {
+      return `${(shards / 1000).toFixed(1)}k`;
+    }
+    return shards.toString();
+  };
+
   return (
     <>
-      {/* Announcement bar - refined and elegant */}
+      {/* Announcement bar */}
       <motion.div 
         className="bg-primary text-primary-foreground py-2.5 text-center text-sm font-medium relative overflow-hidden"
         initial={{ y: -50, opacity: 0 }}
@@ -54,7 +70,7 @@ const Header = () => {
       >
         <div className="container mx-auto px-4">
           <div className="flex items-center justify-between h-16 lg:h-18">
-            {/* Logo - elegant typography */}
+            {/* Logo */}
             <Link 
               to="/" 
               className="flex items-center gap-3 group"
@@ -96,6 +112,27 @@ const Header = () => {
                   </Link>
                 </motion.div>
               ))}
+              
+              {/* Customer Club link */}
+              <motion.div
+                initial={{ opacity: 0, y: -10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.4 }}
+                whileHover={{ y: -1 }}
+              >
+                <Link
+                  to="/club"
+                  className="flex items-center gap-1.5 px-4 py-2 text-sm font-medium rounded-lg transition-colors text-success hover:bg-success/10"
+                >
+                  <Sparkles className="w-4 h-4" />
+                  Club
+                  {user && balance?.balance ? (
+                    <span className="ml-1 px-1.5 py-0.5 bg-success/20 rounded text-xs">
+                      {formatShards(balance.balance)}
+                    </span>
+                  ) : null}
+                </Link>
+              </motion.div>
             </nav>
 
             {/* Actions */}
@@ -107,7 +144,7 @@ const Header = () => {
                 animate={{ opacity: 1, scale: 1 }}
                 transition={{ delay: 0.4 }}
               >
-                 <SearchDropdown />
+                <SearchDropdown />
               </motion.div>
 
               <motion.div whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }}>
@@ -124,10 +161,63 @@ const Header = () => {
                 </Button>
               </motion.div>
 
+              {/* User menu / Login */}
               <motion.div whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }}>
-                <Button variant="ghost" size="icon">
-                  <User className="w-5 h-5" />
-                </Button>
+                {authLoading ? (
+                  <Button variant="ghost" size="icon" disabled>
+                    <User className="w-5 h-5" />
+                  </Button>
+                ) : user ? (
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="ghost" size="icon" className="relative">
+                        <User className="w-5 h-5" />
+                        {balance?.balance ? (
+                          <span className="absolute -top-1 -right-1 w-2 h-2 bg-success rounded-full" />
+                        ) : null}
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end" className="w-56">
+                      <div className="px-2 py-1.5">
+                        <p className="text-sm font-medium text-foreground">
+                          {user.user_metadata?.display_name || user.email?.split('@')[0]}
+                        </p>
+                        <p className="text-xs text-muted-foreground">{user.email}</p>
+                      </div>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem asChild>
+                        <Link to="/club" className="cursor-pointer">
+                          <Sparkles className="w-4 h-4 mr-2 text-success" />
+                          Customer Club
+                          {balance?.balance ? (
+                            <span className="ml-auto text-success text-xs">
+                              {formatShards(balance.balance)} Shards
+                            </span>
+                          ) : null}
+                        </Link>
+                      </DropdownMenuItem>
+                      <DropdownMenuItem asChild>
+                        <Link to="/club/rewards" className="cursor-pointer">
+                          <Heart className="w-4 h-4 mr-2" />
+                          Mine Rewards
+                        </Link>
+                      </DropdownMenuItem>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem 
+                        onClick={() => signOut()}
+                        className="cursor-pointer text-destructive focus:text-destructive"
+                      >
+                        Log ud
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                ) : (
+                  <Link to="/login">
+                    <Button variant="ghost" size="icon">
+                      <LogIn className="w-5 h-5" />
+                    </Button>
+                  </Link>
+                )}
               </motion.div>
 
               {/* Cart */}
@@ -174,7 +264,7 @@ const Header = () => {
             </div>
           </div>
 
-          {/* Mobile Menu with slide animation */}
+          {/* Mobile Menu */}
           <AnimatePresence>
             {mobileMenuOpen && (
               <motion.nav 
@@ -208,6 +298,46 @@ const Header = () => {
                       </Link>
                     </motion.div>
                   ))}
+                  
+                  {/* Club link in mobile */}
+                  <motion.div
+                    initial={{ opacity: 0, x: -20 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ delay: 0.25 }}
+                    whileHover={{ x: 8 }}
+                  >
+                    <Link
+                      to="/club"
+                      className="flex items-center gap-2 px-4 py-3 text-success hover:bg-success/10 rounded-lg transition-colors font-medium"
+                      onClick={() => setMobileMenuOpen(false)}
+                    >
+                      <Sparkles className="w-5 h-5" />
+                      Customer Club
+                      {user && balance?.balance ? (
+                        <span className="ml-auto px-2 py-0.5 bg-success/20 rounded text-sm">
+                          {formatShards(balance.balance)} Shards
+                        </span>
+                      ) : null}
+                    </Link>
+                  </motion.div>
+
+                  {/* Auth links in mobile */}
+                  {!user && (
+                    <motion.div
+                      initial={{ opacity: 0, x: -20 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      transition={{ delay: 0.3 }}
+                    >
+                      <Link
+                        to="/login"
+                        className="flex items-center gap-2 px-4 py-3 text-primary hover:bg-primary/10 rounded-lg transition-colors font-medium"
+                        onClick={() => setMobileMenuOpen(false)}
+                      >
+                        <LogIn className="w-5 h-5" />
+                        Log ind / Opret konto
+                      </Link>
+                    </motion.div>
+                  )}
                 </div>
               </motion.nav>
             )}

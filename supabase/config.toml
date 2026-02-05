@@ -58,3 +58,9 @@ verify_jwt = true
 
 [functions.shopify-order-webhook]
 verify_jwt = false
+
+[functions.claim-daily-shards]
+verify_jwt = false
+
+[functions.redeem-reward]
+verify_jwt = false

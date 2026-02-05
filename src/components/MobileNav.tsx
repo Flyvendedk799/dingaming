@@ -1,20 +1,20 @@
-import { Home, Search, Tag, User, ShoppingCart } from "lucide-react";
+import { Home, Search, Tag, Sparkles, ShoppingCart } from "lucide-react";
 import { motion } from "framer-motion";
-import { useState } from "react";
 
 interface MobileNavProps {
   activeTab: string;
   onTabChange: (tab: string) => void;
   cartCount?: number;
+  shardBalance?: number;
 }
 
-const MobileNav = ({ activeTab, onTabChange, cartCount = 0 }: MobileNavProps) => {
+const MobileNav = ({ activeTab, onTabChange, cartCount = 0, shardBalance = 0 }: MobileNavProps) => {
   const tabs = [
     { id: 'home', icon: Home, label: 'Hjem' },
     { id: 'search', icon: Search, label: 'Søg' },
     { id: 'deals', icon: Tag, label: 'Tilbud' },
     { id: 'cart', icon: ShoppingCart, label: 'Kurv', badge: cartCount },
-    { id: 'profile', icon: User, label: 'Profil' },
+    { id: 'club', icon: Sparkles, label: 'Club', badge: shardBalance > 0 ? Math.floor(shardBalance / 1000) : undefined },
   ];
 
   return (
