@@ -1,7 +1,7 @@
 import { useState } from "react";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
-import { CartDrawer } from "@/components/CartDrawer";
+
 import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -80,9 +80,6 @@ const SupportPage = () => {
     <div className="min-h-screen bg-background">
       <Header />
       
-      <div className="fixed top-24 right-4 z-50">
-        <CartDrawer />
-      </div>
 
       <main className="container mx-auto px-4 py-12">
         {/* Header */}
