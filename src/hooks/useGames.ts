@@ -27,6 +27,8 @@ interface MinesStartResponse {
   mineCount: number;
   betAmount: number;
   nextMultiplier: number;
+  state?: GameSessionState;
+  restored?: boolean;
 }
 
 interface MinesRevealResponse {

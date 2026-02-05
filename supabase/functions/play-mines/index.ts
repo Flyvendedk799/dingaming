@@ -109,6 +109,37 @@ serve(async (req) => {
     const currentBalance = balanceData?.balance || 0;
 
     if (action === "start") {
+      // Idempotency: if a mines game is already active, return it instead of charging again
+      const { data: existingSession, error: existingSessionError } = await supabaseAdmin
+        .from("game_sessions")
+        .select("*")
+        .eq("user_id", userId)
+        .eq("game_type", "mines")
+        .eq("is_active", true)
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (existingSessionError) {
+        console.error("Error checking existing mines session:", existingSessionError);
+      }
+
+      if (existingSession) {
+        const session = existingSession.state as GameSession;
+        return new Response(
+          JSON.stringify({
+            success: true,
+            restored: true,
+            sessionId: existingSession.session_id,
+            mineCount: session.mines.length,
+            betAmount: session.betAmount,
+            nextMultiplier: calculateMultiplier(session.revealed.length + 1, session.mines.length),
+            state: session,
+          }),
+          { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
       // Start a new game
       if (!betAmount || betAmount < 10) {
         return new Response(
@@ -153,7 +184,7 @@ serve(async (req) => {
       // Generate mines and create session
       const mines = generateMines(mineCount);
       const newSessionId = `${userId}_${Date.now()}`;
-      
+
       const session: GameSession = {
         mines,
         revealed: [],
@@ -179,6 +210,7 @@ serve(async (req) => {
           mineCount,
           betAmount,
           nextMultiplier: calculateMultiplier(1, mineCount),
+          state: session,
         }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );

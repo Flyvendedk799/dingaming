@@ -41,42 +41,66 @@ const MinesGame = () => {
   const gridRef = useRef<HTMLDivElement>(null);
   const multiplierControls = useAnimation();
   const hasRestoredSession = useRef(false);
+  const startGuardRef = useRef(false);
 
   const isPlaying = sessionId !== null && !gameOver;
+
+  const applySessionState = useCallback(
+    (
+      sid: string,
+      state: {
+        mines: number[];
+        revealed: number[];
+        betAmount: number;
+        currentMultiplier: number;
+        cashedOut: boolean;
+        hitMine: boolean;
+      }
+    ) => {
+      // Restore session state
+      setSessionId(sid);
+      setBetAmount(state.betAmount);
+      setMineCount(state.mines.length);
+      setRevealedCount(state.revealed.length);
+      setCurrentMultiplier(state.currentMultiplier);
+      setNextMultiplier(calculateMinesMultiplier(state.revealed.length + 1, state.mines.length));
+      setPotentialWin(state.revealed.length === 0 ? 0 : Math.floor(state.betAmount * state.currentMultiplier));
+
+      // Restore tiles
+      const restoredTiles = Array(25)
+        .fill(null)
+        .map((_, i) => ({
+          revealed: state.revealed.includes(i),
+          isMine: false, // Don't reveal mines until game ends
+          isGem: state.revealed.includes(i),
+          revealOrder: state.revealed.indexOf(i),
+        }));
+      setTiles(restoredTiles);
+
+      // Active sessions are always playable
+      setGameOver(false);
+      setGameWon(false);
+      setLastRevealedIndex(null);
+    },
+    []
+  );
 
   // Restore active session on page load
   useEffect(() => {
     if (activeSession && !hasRestoredSession.current && !sessionId) {
       hasRestoredSession.current = true;
       setIsRestoringSession(true);
-      
+
       const state = activeSession.state;
-      
-      // Restore session state
-      setSessionId(activeSession.session_id);
-      setBetAmount(state.betAmount);
-      setMineCount(state.mines.length);
-      setRevealedCount(state.revealed.length);
-      setCurrentMultiplier(state.currentMultiplier);
-      setNextMultiplier(calculateMinesMultiplier(state.revealed.length + 1, state.mines.length));
-      setPotentialWin(Math.floor(state.betAmount * state.currentMultiplier));
-      
-      // Restore tiles
-      const restoredTiles = Array(25).fill(null).map((_, i) => ({
-        revealed: state.revealed.includes(i),
-        isMine: false, // Don't reveal mines until game ends
-        isGem: state.revealed.includes(i),
-        revealOrder: state.revealed.indexOf(i),
-      }));
-      setTiles(restoredTiles);
-      
+      applySessionState(activeSession.session_id, state);
+
       toast.info('Aktivt spil gendannet', {
         description: `${state.revealed.length} gems fundet - x${state.currentMultiplier.toFixed(2)}`,
       });
-      
+
       setTimeout(() => setIsRestoringSession(false), 500);
     }
-  }, [activeSession, sessionId]);
+  }, [activeSession, applySessionState, sessionId]);
 
   // Pulse multiplier on update
   useEffect(() => {
@@ -112,18 +136,30 @@ const MinesGame = () => {
   }, []);
 
   const handleStart = async () => {
+    // Prevent rapid double-taps from charging twice before React re-renders
+    if (startGuardRef.current || startGame.isPending) return;
+
     if (betAmount < 10 || betAmount > (balance?.balance || 0)) return;
-    
+
+    startGuardRef.current = true;
     resetGame();
-    
+
     try {
       const result = await startGame.mutateAsync({ betAmount, mineCount });
-      setSessionId(result.sessionId);
-      setNextMultiplier(result.nextMultiplier);
+
+      if (result.state) {
+        applySessionState(result.sessionId, result.state);
+      } else {
+        setSessionId(result.sessionId);
+        setNextMultiplier(result.nextMultiplier);
+      }
+
       // Refetch balance to ensure UI is in sync
       refetchBalance();
     } catch (e) {
       // Error handled by mutation
+    } finally {
+      startGuardRef.current = false;
     }
   };
 
