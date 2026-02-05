@@ -1,353 +1,327 @@
 
+# Customer Club & Shards Loyalty System
 
-# "Digital World Genesis" Cinematic Intro
+## Overview
+Building a complete customer loyalty system called "Customer Club" where users earn "Shards" (points) from purchases and activities, then redeem them for rewards.
 
-## Vision
-
-A stunning cyberpunk-style intro that transforms from pure void into a living digital universe. This is not just a loading screen—it's a **world being constructed in real-time** before the viewer's eyes.
+**Core Value Proposition:**
+- 1000 Shards = 1 DKK value
+- 1% of purchase value returned as Shards
+- Daily login rewards
+- Future: Social media engagement rewards
+- Shards redeemable for store vouchers
 
 ---
 
-## Animation Breakdown
+## Phase 1: Authentication System
 
-### Sequence Overview
+### User Authentication
+- Email/password signup and login
+- Email verification (standard flow)
+- Password reset functionality
+- Persistent sessions
+
+### User Profiles
+A `profiles` table linked to `auth.users` storing:
+- Display name
+- Avatar (optional)
+- Created date
+- Total purchases made
+
+---
+
+## Phase 2: Database Structure
+
+### New Tables
 
 ```text
-0.0s ────── 1.0s ────── 2.0s ────── 3.0s ────── 4.5s ────── 5.5s
-│           │           │           │           │           │
-▼           ▼           ▼           ▼           ▼           ▼
-[VOID]    [SPARK]    [WORLD]    [CHAOS]    [DOWNLOAD]   [REVEAL]
-Cursor    Pixel      Wireframe   Genre      Data         Logo +
-blinking  expands    renders     worlds     converges    CTA
+┌─────────────────────────────────────────────────────────────────┐
+│                         profiles                                 │
+├─────────────────────────────────────────────────────────────────┤
+│ id (uuid, PK) → auth.users.id                                   │
+│ display_name (text)                                             │
+│ avatar_url (text, nullable)                                     │
+│ total_purchases (numeric, default 0)                            │
+│ created_at, updated_at                                          │
+└─────────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────────────┐
+│                      shard_balances                              │
+├─────────────────────────────────────────────────────────────────┤
+│ user_id (uuid, PK) → profiles.id                                │
+│ balance (integer, default 0) — current spendable shards         │
+│ lifetime_earned (integer, default 0)                            │
+│ lifetime_spent (integer, default 0)                             │
+│ updated_at                                                      │
+└─────────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────────────┐
+│                    shard_transactions                            │
+├─────────────────────────────────────────────────────────────────┤
+│ id (uuid, PK)                                                   │
+│ user_id (uuid) → profiles.id                                    │
+│ amount (integer) — positive = earned, negative = spent          │
+│ type (text) — 'purchase', 'daily_login', 'redemption', etc.     │
+│ description (text)                                              │
+│ reference_id (text, nullable) — order ID, reward ID, etc.       │
+│ created_at                                                      │
+└─────────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────────────┐
+│                      daily_logins                                │
+├─────────────────────────────────────────────────────────────────┤
+│ id (uuid, PK)                                                   │
+│ user_id (uuid) → profiles.id                                    │
+│ login_date (date) — one entry per day per user                  │
+│ streak_count (integer) — consecutive days                       │
+│ shards_awarded (integer)                                        │
+│ created_at                                                      │
+└─────────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────────────┐
+│                      reward_items                                │
+├─────────────────────────────────────────────────────────────────┤
+│ id (uuid, PK)                                                   │
+│ name (text)                                                     │
+│ description (text)                                              │
+│ type (text) — 'voucher', 'exclusive_item', etc.                 │
+│ shard_cost (integer)                                            │
+│ value_dkk (numeric, nullable) — for vouchers                    │
+│ stock (integer, nullable) — null = unlimited                    │
+│ image_url (text, nullable)                                      │
+│ is_active (boolean, default true)                               │
+│ created_at, updated_at                                          │
+└─────────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────────────┐
+│                      user_rewards                                │
+├─────────────────────────────────────────────────────────────────┤
+│ id (uuid, PK)                                                   │
+│ user_id (uuid) → profiles.id                                    │
+│ reward_id (uuid) → reward_items.id                              │
+│ shards_spent (integer)                                          │
+│ voucher_code (text, nullable) — generated discount code         │
+│ status (text) — 'active', 'used', 'expired'                     │
+│ used_at (timestamp, nullable)                                   │
+│ expires_at (timestamp, nullable)                                │
+│ created_at                                                      │
+└─────────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────────────┐
+│                 shard_earning_rules                              │
+├─────────────────────────────────────────────────────────────────┤
+│ id (uuid, PK)                                                   │
+│ action_type (text) — 'purchase', 'daily_login', 'streak_bonus'  │
+│ base_shards (integer) — fixed amount OR null if percentage      │
+│ percentage (numeric, nullable) — e.g., 1.0 for 1%               │
+│ streak_multiplier (numeric, nullable) — bonus per streak day    │
+│ max_shards (integer, nullable) — cap per action                 │
+│ is_active (boolean)                                             │
+│ created_at, updated_at                                          │
+└─────────────────────────────────────────────────────────────────┘
 ```
 
-**Total Duration:** ~5.5 seconds (skippable)
+### Row-Level Security (RLS)
+- Users can only read/update their own profile
+- Users can only read their own shard balance and transactions
+- Users can only read their own rewards
+- Reward items are publicly readable
+- Admin-only tables for managing rewards and rules
 
 ---
 
-### Phase 1: The Void (0-800ms)
+## Phase 3: Shard Earning Logic
 
+### 1. Purchase Rewards
+When an order is paid (via Shopify webhook):
+- Calculate 1% of order value in DKK
+- Convert to shards (× 1000)
+- Example: 299 DKK purchase → 299 × 0.01 × 1000 = 2,990 shards
+
+**Implementation:** Modify `shopify-order-webhook` to:
+1. Look up user by email
+2. Award shards if user has an account
+3. Record transaction
+
+### 2. Daily Login Rewards
+Base rewards with streak bonuses:
+- Day 1: 50 shards
+- Day 2: 75 shards
+- Day 3: 100 shards
+- Day 4: 125 shards
+- Day 5: 150 shards
+- Day 6: 175 shards
+- Day 7+: 200 shards + 25 extra per week
+
+**Implementation:** 
+- Backend function checks last login date
+- Awards shards if no entry for today
+- Tracks streak (resets if >24h gap)
+
+### 3. Future Earning Methods (Prepared)
+- Social media follows
+- Product reviews
+- Referrals
+- Special events/promotions
+
+---
+
+## Phase 4: Shard Redemption
+
+### Voucher System
+- Pre-configured voucher tiers (e.g., 50 DKK, 100 DKK, 200 DKK)
+- Shard cost = value × 1000 (e.g., 50 DKK = 50,000 shards)
+- Generate unique discount codes via Shopify API
+- Codes have expiration dates
+
+### Redemption Flow
+1. User browses reward shop
+2. Selects a voucher
+3. Backend verifies sufficient balance
+4. Deducts shards atomically
+5. Creates Shopify discount code
+6. Returns code to user
+
+---
+
+## Phase 5: User Interface
+
+### New Pages & Components
+
+**Authentication:**
+- `/login` - Login page
+- `/signup` - Registration page
+- `/forgot-password` - Password reset
+- Auth modal option in header
+
+**Customer Club:**
+- `/club` - Main loyalty dashboard
+  - Shard balance display
+  - Recent transactions
+  - Streak tracker
+  - Quick access to rewards
+
+- `/club/rewards` - Reward shop
+  - Available vouchers/rewards
+  - Shard costs
+  - Redemption button
+
+- `/club/history` - Transaction history
+  - All shard earnings/spending
+  - Filters by type
+
+**Header Updates:**
+- User icon → opens auth modal or profile dropdown
+- Show shard balance when logged in
+- Visual streak indicator
+
+**Mobile Navigation:**
+- Add "Club" tab with shard icon
+- Badge showing balance
+
+---
+
+## Phase 6: Admin Panel
+
+### New Admin Tab: "Customer Club"
+
+**Shards Overview:**
+- Total shards in circulation
+- Total shards awarded vs redeemed
+- Active users count
+
+**Reward Management:**
+- Create/edit reward items
+- Set shard costs
+- Enable/disable rewards
+- View redemption stats
+
+**Earning Rules:**
+- Configure purchase percentage
+- Set daily login rewards
+- Manage streak bonuses
+
+---
+
+## Technical Details
+
+### Database Triggers
 ```text
-+------------------------------------------+
-|                                          |
-|                                          |
-|              _                           |
-|             | |  <- Blinking cursor      |
-|             |_|                          |
-|                                          |
-|                                          |
-+------------------------------------------+
+1. on_auth_user_created → auto-create profile + shard_balance
+2. on_shard_transaction_insert → update shard_balance atomically
 ```
 
-**Visual Elements:**
-- Pure black screen (true #000000)
-- Subtle scanline overlay (CRT effect)
-- Single blinking cursor (underscore or block)
-- Cursor blinks 2-3 times with slight flicker
-- Faint digital noise/static in background
-
-**Technical Implementation:**
-- Canvas renders cursor with `globalAlpha` animation
-- Scanlines via CSS pseudo-element or canvas overlay
-- Subtle vignette darkens edges
-
----
-
-### Phase 2: The Spark (800-1400ms)
-
+### Backend Functions (Edge Functions)
 ```text
-+------------------------------------------+
-|                                          |
-|                    .                     |
-|                   /|\                    |
-|              ────( • )────               |
-|                   \|/                    |
-|                    '                     |
-|                                          |
-+------------------------------------------+
+1. claim-daily-shards
+   - Validate user session
+   - Check last claim date
+   - Calculate streak
+   - Award shards
+   - Return new balance + streak info
+
+2. redeem-reward
+   - Validate user + balance
+   - Check reward availability
+   - Deduct shards (atomic)
+   - Generate voucher code
+   - Create user_reward entry
+   - Return voucher details
+
+3. award-purchase-shards (internal)
+   - Called from shopify-order-webhook
+   - Matches email to user
+   - Calculates + awards shards
 ```
 
-**Visual Elements:**
-- Single pixel of light appears at cursor position
-- Pixel rapidly expands with neon glow
-- Light pulses outward in expanding rings
-- Colors: electric cyan (#00FFFF) and hot magenta (#FF00FF)
-- Brief lens flare effect at center
-
-**Technical Implementation:**
-- Central point expands via canvas arc with increasing radius
-- Additive blending (`globalCompositeOperation: 'lighter'`)
-- Multiple radial gradients layered for depth
-- Glow achieved via layered shadows and blur
+### Security Considerations
+- All shard modifications through backend functions
+- Atomic balance updates to prevent race conditions
+- Admin role required for reward/rule management
+- RLS policies prevent unauthorized access
 
 ---
 
-### Phase 3: Wireframe World Construction (1400-2600ms)
+## Implementation Order
 
-```text
-+------------------------------------------+
-|        /\                    /\          |
-|       /  \   ___________    /  \         |
-|      /____\ |___________|  /____\        |
-|     |||||||  ▓▓▓▓▓▓▓▓▓▓▓  |||||||        |
-|   ──┼──┼──┼──┼──┼──┼──┼──┼──┼──┼──       |
-|     [UI] [MENU] [STATS] [HUD]            |
-|   ◇═══◇═══◇═══◇═══◇═══◇═══◇             |
-+------------------------------------------+
-```
+1. **Database Setup**
+   - Create all tables with RLS
+   - Add triggers for auto-creation
+   - Seed initial reward items
 
-**Visual Elements:**
-- Neon wireframe grid expands from center
-- 3D polygons construct themselves (triangles, cubes, hexagons)
-- Geometric shapes form and dissolve
-- Data streams flow through "veins" of the environment
-- Floating UI elements snap into place (health bars, menus, icons)
-- Binary/hex code scrolls in background channels
-- Grid has perspective (vanishing point at center)
+2. **Authentication**
+   - Auth pages (login, signup, forgot-password)
+   - Auth context/provider
+   - Protected route wrapper
+   - Header integration
 
-**Sub-elements:**
-1. **Grid Lines** - Expand outward with trail effect
-2. **Polygons** - Vertices appear first, then edges connect
-3. **Data Streams** - Particles flow along predefined paths
-4. **UI Snippets** - Health bar, minimap outline, button shapes
+3. **Core Shard System**
+   - Edge function: claim-daily-shards
+   - Edge function: redeem-reward
+   - Modify shopify-order-webhook for purchase shards
 
-**Colors:**
-- Primary grid: Cyan (#00E5FF)
-- Secondary accents: Magenta (#FF00FF)
-- Tertiary: Lime green (#00FF00)
-- Background: Deep navy (#0a0a1a)
+4. **Customer Club UI**
+   - Dashboard page with balance/streak
+   - Reward shop with redemption
+   - Transaction history
 
-**Technical Implementation:**
-- Canvas draws lines with progressive reveal (`lineDash` animation)
-- 3D effect via simple perspective transform
-- Particles follow bezier curves for data streams
-- UI elements are canvas-drawn rectangles/shapes
+5. **Admin Panel**
+   - Customer Club tab
+   - Reward management
+   - Analytics overview
 
 ---
 
-### Phase 4: Genre World Chaos (2600-3400ms)
+## Estimated Effort
+- Database + Auth: Medium
+- Backend Functions: Medium
+- UI Components: Medium-High
+- Admin Panel: Medium
+- Testing & Polish: Medium
 
-```text
-+------------------------------------------+
-|   ⚡💥      FLASH: FPS WORLD      💥⚡    |
-+------------------------------------------+
-          ↓ (200ms transition)
-+------------------------------------------+
-|   🏎️✨     FLASH: RACING WORLD    ✨🏎️   |
-+------------------------------------------+
-          ↓ (200ms transition)
-+------------------------------------------+
-|   ⚔️🔮     FLASH: RPG WORLD       🔮⚔️   |
-+------------------------------------------+
-```
-
-**Visual Elements:**
-- Camera "flies forward" into the wireframe world
-- Brief flashes of different game-genre aesthetics:
-  - **FPS**: Crosshair, ammo counter, radar pulse
-  - **Racing**: Speed lines, motion blur, speedometer
-  - **RPG**: Health orb, mana bar, quest marker
-  - **Strategy**: Grid tiles, unit icons, resource counters
-- Each genre flash: ~200ms with hard glitch transition
-- Energy bursts and pixel particle explosions
-- Motion blur streaks across transitions
-- No recognizable IPs—purely abstract representations
-
-**Technical Implementation:**
-- Pre-defined "genre signature" patterns (arrays of shapes/icons)
-- Hard cut transitions with RGB split glitch effect
-- Particle bursts between transitions
-- Canvas transforms for motion blur simulation
-
----
-
-### Phase 5: Data Collapse & Download (3400-4500ms)
-
-```text
-+------------------------------------------+
-|   \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\   |
-|    \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\    |
-|     \\\\||||||||||||||||||||||||\\\\     |
-|      \\\\||||||||||||||||||||||\\\\      |  <- Data streams downward
-|        \\\\||||||||||||||||\\\\          |
-|          \\\\\\||||||||\\\\\\            |
-|            \\\\\\||||\\\\\\              |
-|               ▓▓▓▓▓▓▓▓                   |  <- Converging to logo
-+------------------------------------------+
-
-Progress bar:
-[████████████████████████████████] 100%
-```
-
-**Visual Elements:**
-- Everything suddenly "breaks" and collapses into data particles
-- Particles stream downward like a waterfall of code
-- Converge toward center-bottom of screen
-- Progress bar appears briefly showing "download completing"
-- Bar fills rapidly: 0% → 100% in ~800ms
-- Screen briefly whites out or flashes on completion
-
-**Technical Implementation:**
-- All particles given strong downward velocity
-- Attractor point at center-bottom
-- Progress bar is simple CSS/canvas rectangle with width animation
-- Flash overlay on completion
-
----
-
-### Phase 6: Logo Revelation (4500-5500ms)
-
-```text
-+------------------------------------------+
-|                                          |
-|                                          |
-|           ╔═══════════════╗              |
-|           ║  DinGaming    ║              |  <- Glowing 3D logo
-|           ╚═══════════════╝              |
-|                                          |
-|     "Instant worlds. One click away."   |  <- Tagline fades in
-|                                          |
-|          [ ENTER STORE ]                 |  <- Button pulses
-|                    ●                     |     once
-+------------------------------------------+
-```
-
-**Visual Elements:**
-- Data particles converge and solidify into glowing logo
-- Logo has subtle 3D extrusion effect (shadow/depth)
-- Neon glow emanates from logo edges
-- Logo stabilizes with brief shake
-- Tagline text fades in below: "Instant worlds. One click away."
-- "ENTER STORE" button appears with single pulse animation
-- Clean transition to main site when clicked
-
-**Colors:**
-- Logo: Gradient from cyan to magenta to gold
-- Tagline: Soft white/silver
-- Button: Electric cyan with glow
-
-**Technical Implementation:**
-- Logo rendered via Framer Motion with scale + glow animation
-- Tagline uses staggered character reveal
-- Button uses CSS pulse animation (single iteration)
-- Button triggers `onComplete` callback
-
----
-
-## Technical Architecture
-
-### Component Structure
-
-```text
-IntroAnimation.tsx (~500 lines)
-├── useDigitalWorldEngine() hook
-│   ├── Cursor animation
-│   ├── Wireframe grid system
-│   ├── Polygon constructor
-│   ├── Data stream particles
-│   ├── Genre world flashes
-│   └── Collapse/download simulation
-├── CanvasRenderer component
-│   └── Single GPU-accelerated canvas
-├── UIOverlay component (Framer Motion)
-│   ├── Progress bar
-│   ├── Logo reveal
-│   ├── Tagline
-│   └── Enter button
-└── Main orchestrator
-    ├── Phase state machine
-    ├── Timeline controller
-    └── Skip functionality
-```
-
-### Particle Types
-
-| Type | Count | Purpose |
-|------|-------|---------|
-| Grid vertices | 200-400 | Wireframe construction |
-| Data stream | 100-200 | Flowing "code" particles |
-| Genre flash | 50-80 | Energy bursts between worlds |
-| Collapse | 300-500 | Everything converging |
-| Logo formation | 100-150 | Final logo assembly |
-
-### Color Palette
-
-| Element | Color | Hex |
-|---------|-------|-----|
-| Void | Pure black | #000000 |
-| Background | Dark navy | #0a0a1a |
-| Primary neon | Electric cyan | #00E5FF |
-| Secondary neon | Hot magenta | #FF00FF |
-| Tertiary | Lime | #00FF00 |
-| Accent | Gold (brand) | hsl(38, 92%, 50%) |
-| Text | Soft white | #E8E8E8 |
-
-### Performance Optimizations
-
-- Single canvas element for all particle rendering
-- Pre-calculated grid/polygon positions
-- Particle pooling (no runtime allocations)
-- requestAnimationFrame with delta-time
-- Reduced particle counts on mobile (50% reduction)
-- Shorter duration on mobile (4.5s vs 5.5s)
-
-### Mobile Optimizations
-
-| Feature | Desktop | Mobile |
-|---------|---------|--------|
-| Grid vertices | 400 | 200 |
-| Data particles | 200 | 100 |
-| Genre flashes | 4 | 2 |
-| Collapse particles | 500 | 250 |
-| Total duration | 5.5s | 4.5s |
-| Progress bar | Animated | Simple fill |
-
----
-
-## Animation Timing Table
-
-| Phase | Start | End | Duration | Key Events |
-|-------|-------|-----|----------|------------|
-| Void | 0ms | 800ms | 800ms | Cursor blinks 3x |
-| Spark | 800ms | 1400ms | 600ms | Light expands + lens flare |
-| World Build | 1400ms | 2600ms | 1200ms | Grid + polygons + UI elements |
-| Genre Chaos | 2600ms | 3400ms | 800ms | 4 genre flashes (200ms each) |
-| Collapse | 3400ms | 4500ms | 1100ms | Data streams + progress bar |
-| Reveal | 4500ms | 5500ms | 1000ms | Logo + tagline + button |
-
----
-
-## Comparison: Current vs New
-
-| Aspect | Current | New |
-|--------|---------|-----|
-| Concept | Golden key → logo | Digital world construction |
-| Duration | 3.5s | 5.5s |
-| Visual style | Warm gold, organic | Neon cyberpunk, digital |
-| Particles | 150 (single purpose) | 500+ (multi-purpose) |
-| Storytelling | Minimal | Full narrative arc |
-| CTA | None | "ENTER STORE" button |
-| Social media hook | Medium | Very high |
-| Memorability | Low | High |
-
----
-
-## Key Innovations
-
-1. **Narrative Arc**: Void → Creation → Chaos → Order → Invitation
-2. **World-Building**: Not just a logo reveal but a universe being born
-3. **Genre Representation**: Connects to gaming without specific IPs
-4. **Call-to-Action**: "ENTER STORE" button creates user engagement
-5. **Tagline**: "Instant worlds. One click away." reinforces brand
-6. **Cyberpunk Aesthetic**: Trending visual style for gaming audiences
-
----
-
-## Files to Modify
-
-| File | Change |
-|------|--------|
-| `src/components/IntroAnimation.tsx` | Complete rewrite with new digital world engine |
-
-No new dependencies required - uses existing Canvas API and Framer Motion.
-
+This creates a solid foundation that can easily expand with:
+- Social media integrations
+- Tiered membership levels
+- Exclusive products
+- Referral system
+- Gamification elements
