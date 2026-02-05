@@ -3,6 +3,7 @@ import { fetchProducts, ShopifyProduct } from "@/lib/shopify";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import ShopifyProductCard from "@/components/ShopifyProductCard";
+import NewsletterBanner from "@/components/NewsletterBanner";
 import { motion } from "framer-motion";
 import { Loader2, Flame, Clock, Percent, Sparkles } from "lucide-react";
 
@@ -117,6 +118,9 @@ const DealsPage = () => {
             </p>
           </div>
         )}
+
+        {/* Newsletter Banner */}
+        <NewsletterBanner source="deals-page" />
       </main>
 
       <Footer />
