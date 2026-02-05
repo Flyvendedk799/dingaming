@@ -21,29 +21,41 @@ serve(async (req) => {
 
   try {
     const authHeader = req.headers.get("Authorization");
-    if (!authHeader) {
+    if (!authHeader?.startsWith("Bearer ")) {
+      console.error("Missing or invalid Authorization header");
       return new Response(
         JSON.stringify({ error: "No authorization header" }),
         { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
-    const supabase = createClient(
+    // Use service role key for database operations
+    const supabaseAdmin = createClient(
       Deno.env.get("SUPABASE_URL") ?? "",
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "",
       { auth: { persistSession: false } }
     );
 
-    // Verify user
+    // Use anon key client for auth verification
+    const supabaseAuth = createClient(
+      Deno.env.get("SUPABASE_URL") ?? "",
+      Deno.env.get("SUPABASE_ANON_KEY") ?? "",
+      { global: { headers: { Authorization: authHeader } } }
+    );
+
+    // Verify user using getClaims (more reliable than getUser)
     const token = authHeader.replace("Bearer ", "");
-    const { data: { user }, error: userError } = await supabase.auth.getUser(token);
+    const { data: claimsData, error: claimsError } = await supabaseAuth.auth.getClaims(token);
     
-    if (userError || !user) {
+    if (claimsError || !claimsData?.claims) {
+      console.error("Token verification failed:", claimsError?.message || "No claims");
       return new Response(
         JSON.stringify({ error: "Invalid token" }),
         { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
+
+    const userId = claimsData.claims.sub as string;
 
     const { betAmount, targetNumber, isOver } = await req.json();
 
@@ -70,10 +82,10 @@ serve(async (req) => {
     }
 
     // Get user's current balance
-    const { data: balanceData, error: balanceError } = await supabase
+    const { data: balanceData, error: balanceError } = await supabaseAdmin
       .from("shard_balances")
       .select("balance, lifetime_earned, lifetime_spent")
-      .eq("user_id", user.id)
+      .eq("user_id", userId)
       .single();
 
     if (balanceError) {
@@ -120,7 +132,7 @@ serve(async (req) => {
     }
 
     // Update balance
-    await supabase
+    await supabaseAdmin
       .from("shard_balances")
       .update({
         balance: newBalance,
@@ -128,12 +140,12 @@ serve(async (req) => {
         lifetime_spent: (balanceData.lifetime_spent || 0) + betAmount,
         updated_at: new Date().toISOString(),
       })
-      .eq("user_id", user.id);
+      .eq("user_id", userId);
 
     // Record transaction(s)
     const transactions = [
       {
-        user_id: user.id,
+        user_id: userId,
         amount: -betAmount,
         type: "game_bet",
         description: `Dice indsats (${isOver ? 'over' : 'under'} ${targetNumber})`,
@@ -143,7 +155,7 @@ serve(async (req) => {
 
     if (isWin) {
       transactions.push({
-        user_id: user.id,
+        user_id: userId,
         amount: winAmount,
         type: "game_win",
         description: `Dice gevinst (x${multiplier})`,
@@ -151,12 +163,12 @@ serve(async (req) => {
       });
     }
 
-    await supabase.from("shard_transactions").insert(transactions);
+    await supabaseAdmin.from("shard_transactions").insert(transactions);
 
     // Record game result
-    await supabase.from("game_sessions").insert({
-      session_id: `dice_${user.id}_${Date.now()}`,
-      user_id: user.id,
+    await supabaseAdmin.from("game_sessions").insert({
+      session_id: `dice_${userId}_${Date.now()}`,
+      user_id: userId,
       game_type: "dice",
       state: {
         betAmount,
