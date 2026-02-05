@@ -1,7 +1,9 @@
-import { useState, useRef } from "react";
-import { motion, useMotionValue, useTransform, AnimatePresence } from "framer-motion";
-import { ChevronLeft, Heart, Share, Star, Zap, Shield, CheckCircle2 } from "lucide-react";
+import { useState } from "react";
+import { motion, useMotionValue, useTransform } from "framer-motion";
+import { ChevronLeft, Heart, Share, Star, Zap, Shield, ShoppingCart, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { useCartStore } from "@/stores/cartStore";
+import { toast } from "sonner";
 
 interface MobileGameCardProps {
   title: string;
@@ -26,6 +28,8 @@ const MobileGameCard = ({
   reviews = 234,
   onClose,
 }: MobileGameCardProps) => {
+  const addItem = useCartStore(state => state.addItem);
+  const [isAdding, setIsAdding] = useState(false);
   const [isWishlisted, setIsWishlisted] = useState(false);
   const y = useMotionValue(0);
   const opacity = useTransform(y, [0, 200], [1, 0.5]);
@@ -87,7 +91,7 @@ const MobileGameCard = ({
         <img src={image} alt={title} className="w-full h-full object-cover" />
         <div className="absolute inset-0 bg-gradient-to-t from-background via-transparent to-transparent" />
         
-        {discount && (
+        {discount !== undefined && discount > 0 && (
           <div className="absolute bottom-4 left-4 px-3 py-1.5 rounded-lg bg-destructive text-destructive-foreground text-sm font-bold">
             -{discount}%
           </div>
@@ -110,14 +114,14 @@ const MobileGameCard = ({
         {/* Price */}
         <div className="mb-6">
           <div className="flex items-baseline gap-3">
-            <span className="text-4xl font-bold text-success">{price} kr</span>
-            {originalPrice && (
-              <span className="text-lg text-muted-foreground line-through">{originalPrice} kr</span>
+            <span className="text-4xl font-bold text-success">{Math.round(price)} kr</span>
+            {originalPrice && originalPrice > price && (
+              <span className="text-lg text-muted-foreground line-through">{Math.round(originalPrice)} kr</span>
             )}
           </div>
-          {originalPrice && (
+          {originalPrice && originalPrice > price && (
             <span className="text-sm font-semibold text-destructive">
-              Spar {originalPrice - price} kr
+              Spar {Math.round(originalPrice - price)} kr
             </span>
           )}
         </div>
@@ -136,9 +140,39 @@ const MobileGameCard = ({
 
         {/* CTA */}
         <motion.div whileTap={{ scale: 0.98 }}>
-          <Button variant="success" size="lg" className="w-full h-14 text-lg font-semibold">
-            <CheckCircle2 className="w-5 h-5 mr-2" />
-            Køb Nu
+          <Button 
+            variant="success" 
+            size="lg" 
+            className="w-full h-14 text-lg font-semibold"
+            onClick={() => {
+              setIsAdding(true);
+              addItem({
+                variantId: `${title}-${platform}`,
+                title,
+                quantity: 1,
+                price: {
+                  amount: price.toString(),
+                  currencyCode: 'DKK',
+                },
+                image,
+                sku: platform,
+              });
+              toast.success('Tilføjet til kurv', {
+                description: title,
+              });
+              setTimeout(() => {
+                setIsAdding(false);
+                onClose();
+              }, 500);
+            }}
+            disabled={isAdding}
+          >
+            {isAdding ? (
+              <Loader2 className="w-5 h-5 mr-2 animate-spin" />
+            ) : (
+              <ShoppingCart className="w-5 h-5 mr-2" />
+            )}
+            {isAdding ? 'Tilføjer...' : 'Køb Nu'}
           </Button>
         </motion.div>
       </div>
