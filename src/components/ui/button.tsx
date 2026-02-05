@@ -16,7 +16,9 @@ const buttonVariants = cva(
         ghost: "hover:bg-muted/80 hover:text-foreground",
         link: "text-success underline-offset-4 hover:underline",
         success: "bg-success text-success-foreground hover:bg-success/90 shadow-premium hover:shadow-glow btn-primary",
-        premium: "bg-gradient-to-r from-primary to-accent text-primary-foreground shadow-glow-primary hover:shadow-lg",
+        premium: "bg-gradient-to-r from-primary via-accent to-primary text-primary-foreground shadow-glow-primary hover:shadow-lg bg-[length:200%_100%] hover:bg-[position:100%_0]",
+        glow: "bg-primary text-primary-foreground shadow-glow-primary hover:shadow-[0_0_50px_-10px_hsl(var(--primary)/0.6)]",
+        soft: "bg-muted text-foreground hover:bg-muted/80",
       },
       size: {
         default: "h-11 px-5 py-2.5",
