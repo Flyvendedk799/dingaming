@@ -1,7 +1,25 @@
-import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
+
+interface GameSessionState {
+  mines: number[];
+  revealed: number[];
+  betAmount: number;
+  currentMultiplier: number;
+  cashedOut: boolean;
+  hitMine: boolean;
+}
+
+interface ActiveGameSession {
+  session_id: string;
+  user_id: string;
+  game_type: string;
+  state: GameSessionState;
+  is_active: boolean;
+  created_at: string;
+}
 
 interface MinesStartResponse {
   success: boolean;
@@ -46,6 +64,47 @@ interface DicePlayResponse {
   winChance: number;
 }
 
+// Hook to fetch active game session (for page refresh restoration)
+export const useActiveGameSession = (gameType: 'mines' | 'dice') => {
+  const { user } = useAuth();
+
+  return useQuery({
+    queryKey: ['active-game-session', gameType, user?.id],
+    queryFn: async () => {
+      if (!user) return null;
+      
+      const { data, error } = await supabase
+        .from('game_sessions')
+        .select('*')
+        .eq('user_id', user.id)
+        .eq('game_type', gameType)
+        .eq('is_active', true)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      
+      if (error) {
+        console.error('Error fetching active session:', error);
+        return null;
+      }
+      
+      if (!data) return null;
+      
+      // Type assertion with proper handling of Json type
+      return {
+        session_id: data.session_id,
+        user_id: data.user_id,
+        game_type: data.game_type,
+        state: data.state as unknown as GameSessionState,
+        is_active: data.is_active,
+        created_at: data.created_at,
+      } as ActiveGameSession;
+    },
+    enabled: !!user,
+    staleTime: 1000, // Don't refetch too frequently
+  });
+};
+
 export const useStartMinesGame = () => {
   const queryClient = useQueryClient();
   const { session } = useAuth();
@@ -70,8 +129,10 @@ export const useStartMinesGame = () => {
       return response.data;
     },
     onSuccess: () => {
+      // Invalidate balance and active session
       queryClient.invalidateQueries({ queryKey: ['shard-balance'] });
       queryClient.invalidateQueries({ queryKey: ['shard-transactions'] });
+      queryClient.invalidateQueries({ queryKey: ['active-game-session', 'mines'] });
     },
     onError: (error: Error) => {
       toast.error(error.message || 'Kunne ikke starte spil');
@@ -106,6 +167,7 @@ export const useRevealMinesTile = () => {
       if (data.hitMine || data.autoWin || data.cashedOut) {
         queryClient.invalidateQueries({ queryKey: ['shard-balance'] });
         queryClient.invalidateQueries({ queryKey: ['shard-transactions'] });
+        queryClient.invalidateQueries({ queryKey: ['active-game-session', 'mines'] });
       }
     },
   });
@@ -136,6 +198,7 @@ export const useCashoutMines = () => {
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['shard-balance'] });
       queryClient.invalidateQueries({ queryKey: ['shard-transactions'] });
+      queryClient.invalidateQueries({ queryKey: ['active-game-session', 'mines'] });
       toast.success(`+${data.winAmount} Shards!`, {
         description: `x${data.multiplier} multiplier`,
       });
@@ -197,4 +260,21 @@ export const usePlayDice = () => {
 export const calculateDiceMultiplier = (winChance: number): number => {
   const payout = (100 / winChance) * 0.97;
   return Math.floor(payout * 100) / 100;
+};
+
+// Calculate mines multiplier on the client (for display purposes)
+export const calculateMinesMultiplier = (revealed: number, mineCount: number): number => {
+  const totalTiles = 25;
+  const safeTiles = totalTiles - mineCount;
+  
+  if (revealed === 0) return 1;
+  
+  let multiplier = 1;
+  for (let i = 0; i < revealed; i++) {
+    const remaining = totalTiles - i;
+    const safeRemaining = safeTiles - i;
+    multiplier *= remaining / safeRemaining;
+  }
+  
+  return Math.floor(multiplier * 0.97 * 100) / 100;
 };

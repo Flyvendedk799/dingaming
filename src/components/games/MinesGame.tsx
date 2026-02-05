@@ -1,12 +1,13 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { motion, AnimatePresence, useAnimation } from 'framer-motion';
-import { Bomb, Diamond, Zap, Loader2, Sparkles, Trophy } from 'lucide-react';
+import { Bomb, Diamond, Zap, Loader2, Sparkles, Trophy, RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Slider } from '@/components/ui/slider';
 import { useShardBalance } from '@/hooks/useShards';
-import { useStartMinesGame, useRevealMinesTile, useCashoutMines } from '@/hooks/useGames';
+import { useStartMinesGame, useRevealMinesTile, useCashoutMines, useActiveGameSession, calculateMinesMultiplier } from '@/hooks/useGames';
 import { cn } from '@/lib/utils';
+import { toast } from 'sonner';
 
 interface TileState {
   revealed: boolean;
@@ -16,7 +17,8 @@ interface TileState {
 }
 
 const MinesGame = () => {
-  const { data: balance } = useShardBalance();
+  const { data: balance, refetch: refetchBalance } = useShardBalance();
+  const { data: activeSession, isLoading: loadingSession } = useActiveGameSession('mines');
   const startGame = useStartMinesGame();
   const revealTile = useRevealMinesTile();
   const cashout = useCashoutMines();
@@ -34,11 +36,47 @@ const MinesGame = () => {
   const [lastRevealedIndex, setLastRevealedIndex] = useState<number | null>(null);
   const [showWinCelebration, setShowWinCelebration] = useState(false);
   const [isRevealing, setIsRevealing] = useState(false);
+  const [isRestoringSession, setIsRestoringSession] = useState(false);
   
   const gridRef = useRef<HTMLDivElement>(null);
   const multiplierControls = useAnimation();
+  const hasRestoredSession = useRef(false);
 
   const isPlaying = sessionId !== null && !gameOver;
+
+  // Restore active session on page load
+  useEffect(() => {
+    if (activeSession && !hasRestoredSession.current && !sessionId) {
+      hasRestoredSession.current = true;
+      setIsRestoringSession(true);
+      
+      const state = activeSession.state;
+      
+      // Restore session state
+      setSessionId(activeSession.session_id);
+      setBetAmount(state.betAmount);
+      setMineCount(state.mines.length);
+      setRevealedCount(state.revealed.length);
+      setCurrentMultiplier(state.currentMultiplier);
+      setNextMultiplier(calculateMinesMultiplier(state.revealed.length + 1, state.mines.length));
+      setPotentialWin(Math.floor(state.betAmount * state.currentMultiplier));
+      
+      // Restore tiles
+      const restoredTiles = Array(25).fill(null).map((_, i) => ({
+        revealed: state.revealed.includes(i),
+        isMine: false, // Don't reveal mines until game ends
+        isGem: state.revealed.includes(i),
+        revealOrder: state.revealed.indexOf(i),
+      }));
+      setTiles(restoredTiles);
+      
+      toast.info('Aktivt spil gendannet', {
+        description: `${state.revealed.length} gems fundet - x${state.currentMultiplier.toFixed(2)}`,
+      });
+      
+      setTimeout(() => setIsRestoringSession(false), 500);
+    }
+  }, [activeSession, sessionId]);
 
   // Pulse multiplier on update
   useEffect(() => {
@@ -70,6 +108,7 @@ const MinesGame = () => {
     setRevealedCount(0);
     setLastRevealedIndex(null);
     setShowWinCelebration(false);
+    hasRestoredSession.current = false;
   }, []);
 
   const handleStart = async () => {
@@ -81,6 +120,8 @@ const MinesGame = () => {
       const result = await startGame.mutateAsync({ betAmount, mineCount });
       setSessionId(result.sessionId);
       setNextMultiplier(result.nextMultiplier);
+      // Refetch balance to ensure UI is in sync
+      refetchBalance();
     } catch (e) {
       // Error handled by mutation
     }
@@ -119,6 +160,8 @@ const MinesGame = () => {
         });
         setTiles(newTiles);
         setGameOver(true);
+        // Refetch balance after game ends
+        refetchBalance();
       } else {
         // Mark as gem with satisfying animation
         newTiles[index] = { revealed: true, isMine: false, isGem: true, revealOrder: revealedCount };
@@ -136,6 +179,8 @@ const MinesGame = () => {
           result.mines?.forEach((mineIdx, i) => {
             newTiles[mineIdx] = { revealed: true, isMine: true, isGem: false, revealOrder: i };
           });
+          // Refetch balance after win
+          refetchBalance();
         }
         
         setTiles(newTiles);
@@ -163,6 +208,8 @@ const MinesGame = () => {
       setTiles(newTiles);
       setGameWon(true);
       setGameOver(true);
+      // Refetch balance after cashout
+      refetchBalance();
     } catch (e) {
       // Error handled by mutation
     }
@@ -177,8 +224,36 @@ const MinesGame = () => {
   // Calculate grid glow intensity based on multiplier
   const glowIntensity = Math.min((currentMultiplier - 1) * 10, 100);
 
+  // Show loading state while checking for active session
+  if (loadingSession) {
+    return (
+      <div className="bg-card border border-border rounded-2xl p-6">
+        <div className="flex items-center justify-center h-64">
+          <Loader2 className="w-8 h-8 animate-spin text-primary" />
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="bg-card border border-border rounded-2xl p-6 relative overflow-hidden">
+      {/* Session restoration indicator */}
+      <AnimatePresence>
+        {isRestoringSession && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="absolute inset-0 bg-background/80 backdrop-blur-sm z-50 flex items-center justify-center"
+          >
+            <div className="flex items-center gap-3 text-primary">
+              <RefreshCw className="w-6 h-6 animate-spin" />
+              <span className="font-medium">Gendanner spil...</span>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       {/* Background glow effect based on multiplier */}
       <motion.div 
         className="absolute inset-0 pointer-events-none"
@@ -244,6 +319,19 @@ const MinesGame = () => {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 relative">
         {/* Controls */}
         <div className="space-y-4">
+          {/* Balance Display */}
+          <div className="bg-background/50 rounded-xl p-3 flex items-center justify-between">
+            <span className="text-sm text-muted-foreground">Din saldo</span>
+            <motion.span 
+              key={balance?.balance}
+              initial={{ scale: 1.1, color: 'hsl(var(--success))' }}
+              animate={{ scale: 1, color: 'hsl(var(--foreground))' }}
+              className="font-bold text-lg"
+            >
+              {formatShards(balance?.balance || 0)} Shards
+            </motion.span>
+          </div>
+
           {/* Bet Amount */}
           <div>
             <label className="text-sm text-muted-foreground mb-2 block">
