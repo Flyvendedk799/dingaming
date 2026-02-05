@@ -1,9 +1,96 @@
 import { Button } from "@/components/ui/button";
-import { Zap, Shield, Star, ChevronRight, CheckCircle2, Clock, TrendingUp } from "lucide-react";
+import { Zap, Shield, Star, ChevronRight, CheckCircle2, Clock, TrendingUp, Gamepad2 } from "lucide-react";
 import heroBg from "@/assets/hero-bg.jpg";
 import game1 from "@/assets/game-1.jpg";
-import { useState, useEffect, useRef } from "react";
-import { motion, useMotionValue, useTransform, useSpring } from "framer-motion";
+import game2 from "@/assets/game-2.jpg";
+import game3 from "@/assets/game-3.jpg";
+import game4 from "@/assets/game-4.jpg";
+import game5 from "@/assets/game-5.jpg";
+import { useState, useEffect, useRef, useMemo } from "react";
+import { motion, useMotionValue, useTransform, useSpring, AnimatePresence } from "framer-motion";
+
+// Floating game covers data
+const floatingGames = [
+  { img: game2, x: '8%', y: '15%', size: 'w-20', delay: 0, rotate: -12 },
+  { img: game3, x: '85%', y: '20%', size: 'w-24', delay: 0.2, rotate: 8 },
+  { img: game4, x: '5%', y: '65%', size: 'w-16', delay: 0.4, rotate: 15 },
+  { img: game5, x: '90%', y: '70%', size: 'w-18', delay: 0.6, rotate: -8 },
+];
+
+// Particle system
+const Particles = () => {
+  const particles = useMemo(() => 
+    Array.from({ length: 30 }, (_, i) => ({
+      id: i,
+      x: Math.random() * 100,
+      y: Math.random() * 100,
+      size: Math.random() * 3 + 1,
+      duration: Math.random() * 20 + 15,
+      delay: Math.random() * 5,
+    })), []
+  );
+
+  return (
+    <div className="absolute inset-0 overflow-hidden pointer-events-none">
+      {particles.map((p) => (
+        <motion.div
+          key={p.id}
+          className="absolute rounded-full bg-primary/20"
+          style={{
+            left: `${p.x}%`,
+            top: `${p.y}%`,
+            width: p.size,
+            height: p.size,
+          }}
+          animate={{
+            y: [0, -30, 0],
+            opacity: [0.2, 0.6, 0.2],
+            scale: [1, 1.2, 1],
+          }}
+          transition={{
+            duration: p.duration,
+            delay: p.delay,
+            repeat: Infinity,
+            ease: "easeInOut",
+          }}
+        />
+      ))}
+    </div>
+  );
+};
+
+// Stats counter component
+const AnimatedStat = ({ value, label, suffix = '' }: { value: number; label: string; suffix?: string }) => {
+  const [count, setCount] = useState(0);
+  
+  useEffect(() => {
+    const duration = 2000;
+    const steps = 60;
+    const increment = value / steps;
+    let current = 0;
+    
+    const timer = setInterval(() => {
+      current += increment;
+      if (current >= value) {
+        setCount(value);
+        clearInterval(timer);
+      } else {
+        setCount(Math.floor(current));
+      }
+    }, duration / steps);
+    
+    return () => clearInterval(timer);
+  }, [value]);
+  
+  return (
+    <div className="text-center">
+      <div className="text-2xl lg:text-3xl font-bold text-foreground">
+        {count.toLocaleString('da-DK')}{suffix}
+      </div>
+      <div className="text-xs text-muted-foreground mt-1">{label}</div>
+    </div>
+  );
+};
 
 const Hero = () => {
   const [timeLeft, setTimeLeft] = useState({ hours: 23, minutes: 45, seconds: 32 });
@@ -137,7 +224,7 @@ const Hero = () => {
           alt="" 
           className="w-full h-full object-cover"
           initial={{ opacity: 0, scale: 1.2, filter: 'blur(20px)' }}
-          animate={{ opacity: 0.2, scale: 1, filter: 'blur(0px)' }}
+          animate={{ opacity: 0.25, scale: 1, filter: 'blur(0px)' }}
           transition={{ duration: 2.5, ease: "easeOut" }}
         />
         
@@ -148,33 +235,91 @@ const Hero = () => {
           animate={{ opacity: 1 }}
           transition={{ duration: 1.5, delay: 0.3 }}
         >
-          <div className="absolute inset-0 bg-gradient-to-r from-background via-background/95 to-background/80" />
-          <div className="absolute inset-0 bg-gradient-to-t from-background via-transparent to-background/40" />
-          <div className="absolute inset-0 bg-gradient-to-b from-background/50 via-transparent to-background" />
+          <div className="absolute inset-0 bg-gradient-to-r from-background via-background/95 to-background/70" />
+          <div className="absolute inset-0 bg-gradient-to-t from-background via-transparent to-background/30" />
+          <div className="absolute inset-0 bg-gradient-to-b from-background/40 via-transparent to-background" />
         </motion.div>
         
         {/* Animated ambient glow orbs - warm tones */}
         <motion.div 
           className="absolute top-1/4 left-1/4 w-[700px] h-[700px] rounded-full blur-[150px]" 
           initial={{ opacity: 0, scale: 0.5 }}
-          animate={{ opacity: 0.25, scale: 1 }}
+          animate={{ opacity: 0.3, scale: 1 }}
           transition={{ duration: 2, delay: 0.5, ease: "easeOut" }}
           style={{ 
             x: orbX,
             y: orbY,
-            background: 'radial-gradient(circle, hsl(38 92% 50% / 0.2), transparent 70%)' 
+            background: 'radial-gradient(circle, hsl(38 92% 50% / 0.25), transparent 70%)' 
           }} 
         />
         <motion.div 
           className="absolute bottom-1/3 right-1/4 w-[600px] h-[600px] rounded-full blur-[130px]" 
           initial={{ opacity: 0, scale: 0.5 }}
-          animate={{ opacity: 0.15, scale: 1 }}
+          animate={{ opacity: 0.2, scale: 1 }}
           transition={{ duration: 2, delay: 0.8, ease: "easeOut" }}
           style={{ 
             x: useTransform(orbX, v => -v * 0.7),
             y: useTransform(orbY, v => -v * 0.7),
-            background: 'radial-gradient(circle, hsl(15 75% 60% / 0.15), transparent 70%)' 
+            background: 'radial-gradient(circle, hsl(15 75% 60% / 0.2), transparent 70%)' 
           }} 
+        />
+        
+        {/* NEW: Third orb for more depth */}
+        <motion.div 
+          className="absolute top-1/2 left-1/2 w-[500px] h-[500px] rounded-full blur-[120px]" 
+          initial={{ opacity: 0, scale: 0.5 }}
+          animate={{ opacity: 0.15, scale: 1 }}
+          transition={{ duration: 2, delay: 1, ease: "easeOut" }}
+          style={{ 
+            x: useTransform(orbX, v => v * 0.5),
+            y: useTransform(orbY, v => v * 0.5),
+            background: 'radial-gradient(circle, hsl(158 64% 42% / 0.1), transparent 70%)' 
+          }} 
+        />
+
+        {/* Particle system */}
+        <Particles />
+
+        {/* Floating game covers */}
+        <div className="hidden lg:block">
+          {floatingGames.map((game, i) => (
+            <motion.div
+              key={i}
+              className={`absolute ${game.size} aspect-[3/4] rounded-xl overflow-hidden shadow-2xl`}
+              style={{ left: game.x, top: game.y }}
+              initial={{ opacity: 0, y: 50, rotate: game.rotate }}
+              animate={{ 
+                opacity: 0.6, 
+                y: 0,
+                rotate: game.rotate,
+              }}
+              transition={{ delay: 1 + game.delay, duration: 0.8, ease: "easeOut" }}
+            >
+              <motion.img
+                src={game.img}
+                alt=""
+                className="w-full h-full object-cover"
+                animate={{ y: [0, -8, 0] }}
+                transition={{ 
+                  duration: 4 + i * 0.5, 
+                  repeat: Infinity, 
+                  ease: "easeInOut",
+                  delay: game.delay 
+                }}
+              />
+              <div className="absolute inset-0 bg-gradient-to-t from-background/80 via-transparent to-transparent" />
+            </motion.div>
+          ))}
+        </div>
+
+        {/* Grid overlay for texture */}
+        <div 
+          className="absolute inset-0 opacity-[0.02]"
+          style={{
+            backgroundImage: `linear-gradient(hsl(var(--foreground)) 1px, transparent 1px),
+                              linear-gradient(90deg, hsl(var(--foreground)) 1px, transparent 1px)`,
+            backgroundSize: '60px 60px',
+          }}
         />
       </div>
 
@@ -294,12 +439,13 @@ const Hero = () => {
 
             {/* Guarantees */}
             <motion.div 
-              className="flex flex-wrap items-center gap-x-8 gap-y-4 text-sm text-muted-foreground"
+              className="flex flex-wrap items-center gap-x-8 gap-y-4 text-sm text-muted-foreground mb-10"
               variants={itemVariants}
             >
               {[
                 { icon: Shield, text: "Pengene tilbage garanti" },
                 { icon: Clock, text: "24/7 Dansk support" },
+                { icon: Gamepad2, text: "50.000+ spil" },
               ].map((item, i) => (
                 <motion.div 
                   key={item.text}
@@ -318,6 +464,18 @@ const Hero = () => {
                   <span>{item.text}</span>
                 </motion.div>
               ))}
+            </motion.div>
+
+            {/* Stats bar */}
+            <motion.div 
+              className="grid grid-cols-3 gap-6 p-5 rounded-2xl bg-card/50 backdrop-blur-sm border border-border/50"
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 1, duration: 0.6 }}
+            >
+              <AnimatedStat value={847293} label="Keys Solgt" />
+              <AnimatedStat value={50000} label="Spil Tilgængelige" suffix="+" />
+              <AnimatedStat value={99} label="Kundetilfredshed" suffix="%" />
             </motion.div>
           </motion.div>
 
