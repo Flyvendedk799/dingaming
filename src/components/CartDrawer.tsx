@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -15,7 +16,7 @@ import {
   Minus, 
   Plus, 
   Trash2, 
-  ExternalLink, 
+  ArrowRight, 
   Loader2, 
   Shield, 
   Zap, 
@@ -31,12 +32,12 @@ import { Link } from "react-router-dom";
 export const CartDrawer = () => {
   const [isOpen, setIsOpen] = useState(false);
   const [removingId, setRemovingId] = useState<string | null>(null);
+  const navigate = useNavigate();
   const { 
     items, 
     isLoading, 
     updateQuantity, 
     removeItem,
-    createCheckout,
     getTotalPrice,
     getTotalItems
   } = useCartStore();
@@ -52,16 +53,9 @@ export const CartDrawer = () => {
     setRemovingId(null);
   };
 
-  const handleCheckout = async () => {
-    try {
-      const checkoutUrl = await createCheckout();
-      if (checkoutUrl) {
-        window.open(checkoutUrl, '_blank');
-        setIsOpen(false);
-      }
-    } catch (error) {
-      console.error('Checkout failed:', error);
-    }
+  const handleCheckout = () => {
+    setIsOpen(false);
+    navigate('/checkout');
   };
 
   // Calculate savings (mock - would be real with original prices)
@@ -268,8 +262,8 @@ export const CartDrawer = () => {
                       </>
                     ) : (
                       <>
-                        <ExternalLink className="w-5 h-5 mr-2" />
-                        Gå til betaling
+                        <ArrowRight className="w-5 h-5 mr-2" />
+                        Gå til kassen
                       </>
                     )}
                   </Button>
