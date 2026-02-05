@@ -205,7 +205,21 @@ const CART_CREATE_MUTATION = `
         checkoutUrl
         totalQuantity
         cost {
+          subtotalAmount {
+            amount
+            currencyCode
+          }
           totalAmount {
+            amount
+            currencyCode
+          }
+        }
+        discountCodes {
+          code
+          applicable
+        }
+        discountAllocations {
+          discountedAmount {
             amount
             currencyCode
           }
@@ -230,6 +244,41 @@ const CART_CREATE_MUTATION = `
                 }
               }
             }
+          }
+        }
+      }
+      userErrors {
+        field
+        message
+      }
+    }
+  }
+`;
+
+const CART_DISCOUNT_CODES_UPDATE_MUTATION = `
+  mutation cartDiscountCodesUpdate($cartId: ID!, $discountCodes: [String!]!) {
+    cartDiscountCodesUpdate(cartId: $cartId, discountCodes: $discountCodes) {
+      cart {
+        id
+        checkoutUrl
+        cost {
+          subtotalAmount {
+            amount
+            currencyCode
+          }
+          totalAmount {
+            amount
+            currencyCode
+          }
+        }
+        discountCodes {
+          code
+          applicable
+        }
+        discountAllocations {
+          discountedAmount {
+            amount
+            currencyCode
           }
         }
       }
@@ -421,4 +470,67 @@ export function formatPrice(amount: string | number, currency: string = 'EUR'): 
     style: 'currency',
     currency
   }).format(numAmount);
+}
+
+// Discount code types and functions
+export interface DiscountResult {
+  applicable: boolean;
+  savings: number;
+  cartId?: string;
+  checkoutUrl?: string;
+}
+
+export async function applyDiscountCode(
+  items: CartItem[],
+  discountCode: string
+): Promise<DiscountResult> {
+  try {
+    // First create a cart with the items
+    const lines = items.map(item => ({
+      quantity: item.quantity,
+      merchandiseId: item.variantId,
+    }));
+
+    const cartData = await storefrontApiRequest(CART_CREATE_MUTATION, {
+      input: { lines },
+    });
+
+    if (!cartData || cartData.data.cartCreate.userErrors.length > 0) {
+      return { applicable: false, savings: 0 };
+    }
+
+    const cartId = cartData.data.cartCreate.cart.id;
+    const subtotal = parseFloat(cartData.data.cartCreate.cart.cost.subtotalAmount?.amount || cartData.data.cartCreate.cart.cost.totalAmount.amount);
+
+    // Now apply the discount code
+    const discountData = await storefrontApiRequest(CART_DISCOUNT_CODES_UPDATE_MUTATION, {
+      cartId,
+      discountCodes: [discountCode],
+    });
+
+    if (!discountData || discountData.data.cartDiscountCodesUpdate.userErrors.length > 0) {
+      return { applicable: false, savings: 0 };
+    }
+
+    const updatedCart = discountData.data.cartDiscountCodesUpdate.cart;
+    const discountCodes = updatedCart.discountCodes || [];
+    const applicable = discountCodes.some((d: { code: string; applicable: boolean }) => d.applicable);
+    
+    // Calculate savings from discount allocations
+    const totalAfterDiscount = parseFloat(updatedCart.cost.totalAmount.amount);
+    const savings = subtotal - totalAfterDiscount;
+
+    const url = new URL(updatedCart.checkoutUrl);
+    url.searchParams.set('channel', 'online_store');
+
+    return {
+      applicable,
+      savings: Math.max(0, savings),
+      cartId,
+      checkoutUrl: url.toString()
+    };
+  } catch (error) {
+    console.error('Error applying discount code:', error);
+    return { applicable: false, savings: 0 };
+  }
 }

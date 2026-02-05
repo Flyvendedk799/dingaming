@@ -18,6 +18,7 @@ import ClubPage from "./pages/ClubPage";
 import RewardsPage from "./pages/RewardsPage";
 import GamesPage from "./pages/GamesPage";
 import CasesPage from "./pages/CasesPage";
+import CheckoutPage from "./pages/CheckoutPage";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -44,6 +45,7 @@ const App = () => (
             <Route path="/club/rewards" element={<RewardsPage />} />
             <Route path="/club/games" element={<GamesPage />} />
             <Route path="/club/cases" element={<CasesPage />} />
+            <Route path="/checkout" element={<CheckoutPage />} />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />
           </Routes>
