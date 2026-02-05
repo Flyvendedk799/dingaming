@@ -14,6 +14,41 @@ export type Database = {
   }
   public: {
     Tables: {
+      daily_logins: {
+        Row: {
+          created_at: string
+          id: string
+          login_date: string
+          shards_awarded: number
+          streak_count: number
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          login_date: string
+          shards_awarded: number
+          streak_count?: number
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          login_date?: string
+          shards_awarded?: number
+          streak_count?: number
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "daily_logins_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       kinguin_orders: {
         Row: {
           created_at: string
@@ -146,6 +181,181 @@ export type Database = {
         }
         Relationships: []
       }
+      profiles: {
+        Row: {
+          avatar_url: string | null
+          created_at: string
+          display_name: string | null
+          id: string
+          total_purchases: number
+          updated_at: string
+        }
+        Insert: {
+          avatar_url?: string | null
+          created_at?: string
+          display_name?: string | null
+          id: string
+          total_purchases?: number
+          updated_at?: string
+        }
+        Update: {
+          avatar_url?: string | null
+          created_at?: string
+          display_name?: string | null
+          id?: string
+          total_purchases?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      reward_items: {
+        Row: {
+          created_at: string
+          description: string
+          id: string
+          image_url: string | null
+          is_active: boolean
+          name: string
+          shard_cost: number
+          stock: number | null
+          type: string
+          updated_at: string
+          value_dkk: number | null
+        }
+        Insert: {
+          created_at?: string
+          description: string
+          id?: string
+          image_url?: string | null
+          is_active?: boolean
+          name: string
+          shard_cost: number
+          stock?: number | null
+          type?: string
+          updated_at?: string
+          value_dkk?: number | null
+        }
+        Update: {
+          created_at?: string
+          description?: string
+          id?: string
+          image_url?: string | null
+          is_active?: boolean
+          name?: string
+          shard_cost?: number
+          stock?: number | null
+          type?: string
+          updated_at?: string
+          value_dkk?: number | null
+        }
+        Relationships: []
+      }
+      shard_balances: {
+        Row: {
+          balance: number
+          lifetime_earned: number
+          lifetime_spent: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          balance?: number
+          lifetime_earned?: number
+          lifetime_spent?: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          balance?: number
+          lifetime_earned?: number
+          lifetime_spent?: number
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "shard_balances_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: true
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      shard_earning_rules: {
+        Row: {
+          action_type: string
+          base_shards: number | null
+          created_at: string
+          id: string
+          is_active: boolean
+          max_shards: number | null
+          percentage: number | null
+          streak_multiplier: number | null
+          updated_at: string
+        }
+        Insert: {
+          action_type: string
+          base_shards?: number | null
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          max_shards?: number | null
+          percentage?: number | null
+          streak_multiplier?: number | null
+          updated_at?: string
+        }
+        Update: {
+          action_type?: string
+          base_shards?: number | null
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          max_shards?: number | null
+          percentage?: number | null
+          streak_multiplier?: number | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      shard_transactions: {
+        Row: {
+          amount: number
+          created_at: string
+          description: string
+          id: string
+          reference_id: string | null
+          type: string
+          user_id: string
+        }
+        Insert: {
+          amount: number
+          created_at?: string
+          description: string
+          id?: string
+          reference_id?: string | null
+          type: string
+          user_id: string
+        }
+        Update: {
+          amount?: number
+          created_at?: string
+          description?: string
+          id?: string
+          reference_id?: string | null
+          type?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "shard_transactions_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       store_settings: {
         Row: {
           created_at: string
@@ -170,6 +380,78 @@ export type Database = {
         }
         Relationships: []
       }
+      user_rewards: {
+        Row: {
+          created_at: string
+          expires_at: string | null
+          id: string
+          reward_id: string
+          shards_spent: number
+          status: string
+          used_at: string | null
+          user_id: string
+          voucher_code: string | null
+        }
+        Insert: {
+          created_at?: string
+          expires_at?: string | null
+          id?: string
+          reward_id: string
+          shards_spent: number
+          status?: string
+          used_at?: string | null
+          user_id: string
+          voucher_code?: string | null
+        }
+        Update: {
+          created_at?: string
+          expires_at?: string | null
+          id?: string
+          reward_id?: string
+          shards_spent?: number
+          status?: string
+          used_at?: string | null
+          user_id?: string
+          voucher_code?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_rewards_reward_id_fkey"
+            columns: ["reward_id"]
+            isOneToOne: false
+            referencedRelation: "reward_items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "user_rewards_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      user_roles: {
+        Row: {
+          created_at: string
+          id: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
@@ -179,9 +461,16 @@ export type Database = {
         Args: { updates: Json }
         Returns: Json
       }
+      has_role: {
+        Args: {
+          _role: Database["public"]["Enums"]["app_role"]
+          _user_id: string
+        }
+        Returns: boolean
+      }
     }
     Enums: {
-      [_ in never]: never
+      app_role: "admin" | "moderator" | "user"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -308,6 +597,8 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      app_role: ["admin", "moderator", "user"],
+    },
   },
 } as const

@@ -52,6 +52,9 @@ Deno.serve(async (req) => {
 async function handleOrderPaid(supabase: any, order: any, kinguinApiKey: string) {
   console.log('Processing paid order:', order.id)
   
+  // Award shards to customer if they have an account
+  await awardPurchaseShards(supabase, order)
+  
   // Extract Kinguin product IDs from line items
   const kinguinProducts: Array<{ kinguinId: number; qty: number; price: number }> = []
   
@@ -124,4 +127,87 @@ async function handleOrderPaid(supabase: any, order: any, kinguinApiKey: string)
   })
 
   console.log('Order saved to database')
+}
+
+// Award shards to customer based on purchase amount
+async function awardPurchaseShards(supabase: any, order: any) {
+  const email = order.email
+  if (!email) {
+    console.log('No email in order, cannot award shards')
+    return
+  }
+
+  // Look up user by email
+  const { data: users } = await supabase.auth.admin.listUsers()
+  const user = users?.users?.find((u: any) => u.email === email)
+  
+  if (!user) {
+    console.log('User not found for email:', email)
+    return
+  }
+
+  // Check if profile exists (user is in Customer Club)
+  const { data: profile } = await supabase
+    .from('profiles')
+    .select('id')
+    .eq('id', user.id)
+    .maybeSingle()
+
+  if (!profile) {
+    console.log('User has no profile, not a club member')
+    return
+  }
+
+  // Get earning rule for purchases
+  const { data: rule } = await supabase
+    .from('shard_earning_rules')
+    .select('percentage')
+    .eq('action_type', 'purchase')
+    .eq('is_active', true)
+    .maybeSingle()
+
+  const percentage = rule?.percentage || 1.0 // Default 1%
+  const orderTotal = parseFloat(order.total_price) || 0
+  
+  // Calculate shards: orderTotal * percentage% * 1000 (since 1000 shards = 1 DKK)
+  const shardsToAward = Math.floor(orderTotal * (percentage / 100) * 1000)
+
+  if (shardsToAward <= 0) {
+    console.log('No shards to award for order total:', orderTotal)
+    return
+  }
+
+  // Insert shard transaction (trigger will update balance)
+  const { error } = await supabase
+    .from('shard_transactions')
+    .insert({
+      user_id: user.id,
+      amount: shardsToAward,
+      type: 'purchase',
+      description: `Køb: Ordre #${order.order_number || order.id}`,
+      reference_id: `shopify_${order.id}`,
+    })
+
+  if (error) {
+    console.error('Failed to award shards:', error)
+    return
+  }
+
+  // Update total purchases on profile
+  const { data: currentProfile } = await supabase
+    .from('profiles')
+    .select('total_purchases')
+    .eq('id', user.id)
+    .single()
+
+  if (currentProfile) {
+    await supabase
+      .from('profiles')
+      .update({ 
+        total_purchases: (parseFloat(currentProfile.total_purchases) || 0) + orderTotal 
+      })
+      .eq('id', user.id)
+  }
+
+  console.log(`Awarded ${shardsToAward} shards to user ${user.id} for order ${order.id}`)
 }
