@@ -264,14 +264,20 @@ export async function fetchProductByHandle(handle: string) {
   }
 }
 
-async function ensurePublishedToOnlineStore(kinguinId: number) {
+type PublishResult =
+  | { ok: true }
+  | { ok: false; error: string };
+
+async function ensurePublishedToOnlineStore(kinguinId: number): Promise<PublishResult> {
   try {
+    const anonKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
     const response = await fetch(
       `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/shopify-publish-online-store`,
       {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+          apikey: anonKey,
+          Authorization: `Bearer ${anonKey}`,
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({ kinguinId }),
@@ -279,10 +285,12 @@ async function ensurePublishedToOnlineStore(kinguinId: number) {
     );
 
     const data = await response.json().catch(() => null);
-    return response.ok && data?.success === true;
+    if (response.ok && data?.success === true) return { ok: true };
+    const error = (data?.error as string | undefined) || `http_${response.status}`;
+    return { ok: false, error };
   } catch (e) {
     console.error('Failed to ensure product is published:', e);
-    return false;
+    return { ok: false, error: e instanceof Error ? e.message : String(e) };
   }
 }
 
@@ -291,7 +299,17 @@ function delay(ms: number) {
 }
 
 // Fetch the Shopify variant ID for a product using its Shopify product ID from the database
-export async function getShopifyVariantId(kinguinId: number): Promise<string | null> {
+export type VariantResolveResult =
+  | { ok: true; variantId: string }
+  | {
+      ok: false;
+      code: 'NOT_SYNCED' | 'NOT_PUBLISHED' | 'PUBLISH_PERMISSION' | 'UNKNOWN';
+      details?: string;
+    };
+
+const publishAttempted = new Set<number>();
+
+export async function getShopifyVariantId(kinguinId: number): Promise<VariantResolveResult> {
   try {
     // First, fetch the shopify_product_id from our database
     const { supabase } = await import('@/integrations/supabase/client');
@@ -304,7 +322,7 @@ export async function getShopifyVariantId(kinguinId: number): Promise<string | n
     
     if (error || !product?.shopify_product_id) {
       console.log('Product not synced to Shopify yet:', kinguinId);
-      return null;
+      return { ok: false, code: 'NOT_SYNCED' };
     }
     
     const fetchVariant = async () => {
@@ -324,17 +342,37 @@ export async function getShopifyVariantId(kinguinId: number): Promise<string | n
     // If the product exists in Admin (we have an ID) but is invisible in Storefront,
     // it's usually not published to the Online Store channel yet.
     if (!result.variantId && result.productIsNull) {
-      const published = await ensurePublishedToOnlineStore(kinguinId);
-      if (published) {
-        await delay(800);
-        result = await fetchVariant();
+      // Avoid hammering publish endpoint on repeated clicks
+      if (!publishAttempted.has(kinguinId)) {
+        publishAttempted.add(kinguinId);
+
+        const published = await ensurePublishedToOnlineStore(kinguinId);
+        if (published.ok) {
+          // Storefront propagation can take a moment
+          for (const ms of [800, 1500, 2500]) {
+            await delay(ms);
+            result = await fetchVariant();
+            if (result.variantId) break;
+          }
+        } else {
+          const publishError = (published as { ok: false; error: string }).error;
+          // Typical cause: Shopify Admin token missing read/write publications
+          return {
+            ok: false,
+            code: publishError === 'publications_not_found' ? 'PUBLISH_PERMISSION' : 'NOT_PUBLISHED',
+            details: publishError,
+          };
+        }
+      } else {
+        return { ok: false, code: 'NOT_PUBLISHED' };
       }
     }
 
-    return result.variantId ?? null;
+    if (!result.variantId) return { ok: false, code: 'NOT_PUBLISHED' };
+    return { ok: true, variantId: result.variantId };
   } catch (error) {
     console.error('Error fetching Shopify variant ID:', error);
-    return null;
+    return { ok: false, code: 'UNKNOWN', details: error instanceof Error ? error.message : String(error) };
   }
 }
 

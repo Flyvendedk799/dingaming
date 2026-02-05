@@ -15,7 +15,7 @@ function json(body: unknown, init: ResponseInit = {}) {
   })
 }
 
-async function getPublicationIds(accessToken: string, shopifyAdminUrl: string, supabase: any) {
+async function getPublicationIds(accessToken: string, shopifyAdminUrl: string, supabase: any): Promise<{ ids: string[] | null; error?: string }> {
   const CACHE_KEY = 'shopify_publication_ids'
 
   try {
@@ -32,10 +32,10 @@ async function getPublicationIds(accessToken: string, shopifyAdminUrl: string, s
 
     if (Array.isArray(raw)) {
       const ids = raw.filter((v) => typeof v === 'string' && v.startsWith('gid://shopify/Publication/')) as string[]
-      if (ids.length > 0) return ids
+       if (ids.length > 0) return { ids }
     }
 
-    if (cachedId && cachedId.startsWith('gid://shopify/Publication/')) return [cachedId]
+     if (cachedId && cachedId.startsWith('gid://shopify/Publication/')) return { ids: [cachedId] }
   } catch {
     // ignore
   }
@@ -58,15 +58,24 @@ async function getPublicationIds(accessToken: string, shopifyAdminUrl: string, s
     }),
   })
 
-  if (!response.ok) return null
+  if (!response.ok) {
+    const text = await response.text().catch(() => '')
+    return { ids: null, error: text || `http_${response.status}` }
+  }
 
   const data = await response.json().catch(() => null)
+  const gqlErrors: any[] = data?.errors || []
+  if (gqlErrors.length > 0) {
+    const message = gqlErrors.map((e) => e?.message).filter(Boolean).join('; ') || 'graphql_error'
+    return { ids: null, error: message }
+  }
+
   const edges: any[] = data?.data?.publications?.edges || []
   const ids = edges
     .map((e) => e?.node?.id)
     .filter((id) => typeof id === 'string' && id.startsWith('gid://shopify/Publication/')) as string[]
 
-  if (ids.length === 0) return null
+  if (ids.length === 0) return { ids: null, error: 'publications_not_found' }
 
   try {
     await supabase.from('store_settings').upsert({ key: CACHE_KEY, value: ids }, { onConflict: 'key' })
@@ -74,7 +83,7 @@ async function getPublicationIds(accessToken: string, shopifyAdminUrl: string, s
     // ignore cache write errors
   }
 
-  return ids
+  return { ids }
 }
 
 async function publishToPublications(accessToken: string, shopifyAdminUrl: string, productId: string, publicationIds: string[]) {
@@ -148,9 +157,10 @@ Deno.serve(async (req) => {
     }
 
     const shopifyAdminUrl = `https://${SHOPIFY_STORE_DOMAIN}/admin/api/${SHOPIFY_API_VERSION}/graphql.json`
-    const publicationIds = await getPublicationIds(shopifyAccessToken, shopifyAdminUrl, supabase)
+    const publicationLookup = await getPublicationIds(shopifyAccessToken, shopifyAdminUrl, supabase)
+    const publicationIds = publicationLookup.ids
     if (!publicationIds || publicationIds.length === 0) {
-      return json({ success: false, error: 'publications_not_found' }, { status: 500 })
+      return json({ success: false, error: publicationLookup.error || 'publications_not_found' }, { status: 500 })
     }
 
     const publishResult = await publishToPublications(shopifyAccessToken, shopifyAdminUrl, productId, publicationIds)
