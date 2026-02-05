@@ -27,11 +27,19 @@ const KinguinProductCard = ({ product, index }: KinguinProductCardProps) => {
     setIsAdding(true);
     
     // Get the Shopify variant ID for checkout
-    const shopifyVariantId = await getShopifyVariantId(product.kinguin_id);
+    const variantRes = await getShopifyVariantId(product.kinguin_id);
     
-    if (!shopifyVariantId) {
+    if (!variantRes.ok) {
+      const { code } = variantRes as Extract<typeof variantRes, { ok: false }>;
+      const description =
+        code === 'NOT_SYNCED'
+          ? 'Produktet er ikke synkroniseret til butikken endnu.'
+          : code === 'PUBLISH_PERMISSION'
+            ? 'Butikken kan ikke publicere produkter til Online Store endnu (mangler read/write publications).'
+            : 'Produktet er ikke tilgængeligt i butikken endnu.';
+
       toast.error("Kunne ikke tilføje til kurv", {
-        description: "Produktet er ikke tilgængeligt i butikken endnu."
+        description,
       });
       setIsAdding(false);
       return;
@@ -40,7 +48,7 @@ const KinguinProductCard = ({ product, index }: KinguinProductCardProps) => {
     const priceInDkk = getPrice(product.sell_price, product.margin_percent);
     
     addItem({
-      variantId: shopifyVariantId, // Use actual Shopify variant ID
+      variantId: variantRes.variantId, // Use actual Shopify variant ID
       title: product.name,
       quantity: 1,
       price: {
