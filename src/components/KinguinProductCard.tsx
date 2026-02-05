@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { motion } from "framer-motion";
-import { ShoppingCart, Check, Globe, Monitor } from "lucide-react";
+ import { ShoppingCart, Check, Globe, Monitor, Sparkles, Clock } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { KinguinProduct } from "@/lib/kinguin";
 import { getShopifyVariantId } from "@/lib/shopify";
@@ -78,76 +78,92 @@ const KinguinProductCard = ({ product, index }: KinguinProductCardProps) => {
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay: index * 0.05, duration: 0.4 }}
+       whileHover={{ y: -4 }}
+       className="h-full"
     >
       <Link 
         to={`/product/${product.kinguin_id}`}
-        className="group block bg-card rounded-xl border border-border/50 overflow-hidden hover:border-primary/50 transition-all duration-300 hover:shadow-lg hover:shadow-primary/5"
+         className="group flex flex-col h-full bg-card rounded-2xl border border-border/50 overflow-hidden hover:border-primary/40 transition-all duration-500 hover:shadow-xl hover:shadow-primary/10 relative"
       >
+         {/* Hover glow effect */}
+         <div className="absolute inset-0 rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none bg-gradient-to-b from-primary/5 via-transparent to-transparent" />
+ 
         {/* Image */}
-        <div className="relative aspect-[3/4] overflow-hidden bg-muted">
+         <div className="relative aspect-[3/4] overflow-hidden bg-gradient-to-br from-muted to-muted/50">
           <img
             src={imageUrl}
             alt={product.name}
-            className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+             className="w-full h-full object-cover transition-all duration-700 group-hover:scale-110"
             loading="lazy"
           />
+           
+           {/* Image overlay gradient */}
+           <div className="absolute inset-0 bg-gradient-to-t from-background/80 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
           
           {/* Platform badge */}
-          <div className="absolute top-3 left-3 flex items-center gap-1.5 px-2 py-1 bg-background/90 backdrop-blur-sm rounded-md text-xs font-medium">
-            <Monitor className="w-3 h-3" />
+           <div className="absolute top-3 left-3 flex items-center gap-1.5 px-2.5 py-1.5 bg-background/95 backdrop-blur-md rounded-lg text-xs font-semibold shadow-lg border border-border/50">
+             <Monitor className="w-3.5 h-3.5 text-primary" />
             {platform}
           </div>
 
           {/* Region badge */}
-          <div className="absolute top-3 right-3 flex items-center gap-1.5 px-2 py-1 bg-primary/90 backdrop-blur-sm rounded-md text-xs font-medium text-primary-foreground">
-            <Globe className="w-3 h-3" />
+           <div className="absolute top-3 right-3 flex items-center gap-1.5 px-2.5 py-1.5 bg-primary backdrop-blur-md rounded-lg text-xs font-semibold text-primary-foreground shadow-lg">
+             <Globe className="w-3.5 h-3.5" />
             {regionLabel}
           </div>
 
           {/* Stock indicator */}
           {product.qty > 0 && product.qty <= 5 && (
-            <div className="absolute bottom-3 left-3 px-2 py-1 bg-destructive/90 backdrop-blur-sm rounded-md text-xs font-medium text-destructive-foreground">
+             <div className="absolute bottom-3 left-3 px-2.5 py-1.5 bg-destructive backdrop-blur-md rounded-lg text-xs font-semibold text-destructive-foreground shadow-lg animate-pulse">
               Kun {product.qty} tilbage
             </div>
           )}
+           
+           {/* Instant delivery indicator */}
+           <div className="absolute bottom-3 right-3 flex items-center gap-1 px-2 py-1 bg-success/90 backdrop-blur-md rounded-lg text-[10px] font-semibold text-success-foreground shadow-lg opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+             <Clock className="w-3 h-3" />
+             30 sek
+           </div>
         </div>
 
         {/* Content */}
-        <div className="p-4">
-          <h3 className="font-semibold text-foreground line-clamp-2 mb-3 group-hover:text-primary transition-colors">
+         <div className="flex flex-col flex-1 p-4">
+           <h3 className="font-semibold text-foreground line-clamp-2 mb-auto group-hover:text-primary transition-colors duration-300 leading-snug">
             {product.name}
           </h3>
 
-          <div className="flex items-center justify-between gap-3">
-            <div className="flex flex-col">
-              <span className="text-lg font-bold text-primary">
+           <div className="flex items-end justify-between gap-3 mt-4">
+             <div className="flex flex-col gap-0.5">
+               <span className="text-xl font-bold text-primary tracking-tight">
                 {loading ? '...' : formatDKK(priceInDkk)}
               </span>
               {product.original_price !== product.sell_price && (
-                <span className="text-xs text-muted-foreground line-through">
+                 <span className="text-xs text-muted-foreground line-through decoration-destructive/50">
                   {loading ? '...' : formatDKK(originalPriceInDkk)}
                 </span>
               )}
             </div>
             
-            <Button
-              size="sm"
-              onClick={handleAddToCart}
-              disabled={isAdding || !product.is_available}
-              className="shrink-0"
-            >
-              {justAdded ? (
-                <>
-                  <Check className="w-4 h-4 mr-1" />
-                  Tilføjet
-                </>
-              ) : (
-                <>
-                  <ShoppingCart className="w-4 h-4 mr-1" />
-                  Køb
-                </>
-              )}
-            </Button>
+             <motion.div whileTap={{ scale: 0.95 }}>
+               <Button
+                 size="sm"
+                 onClick={handleAddToCart}
+                 disabled={isAdding || !product.is_available}
+                 className={`shrink-0 transition-all duration-300 ${justAdded ? 'bg-success hover:bg-success' : ''}`}
+               >
+                 {justAdded ? (
+                   <>
+                     <Check className="w-4 h-4" />
+                     <span className="hidden sm:inline ml-1">Tilføjet</span>
+                   </>
+                 ) : (
+                   <>
+                     <ShoppingCart className="w-4 h-4" />
+                     <span className="ml-1">Køb</span>
+                   </>
+                 )}
+               </Button>
+             </motion.div>
           </div>
         </div>
       </Link>
