@@ -14,6 +14,7 @@ import StreakCalendar from '@/components/club/StreakCalendar';
 import LiveActivityFeed from '@/components/club/LiveActivityFeed';
 import AchievementBadges from '@/components/club/AchievementBadges';
 import EnhancedBalanceCard from '@/components/club/EnhancedBalanceCard';
+import BuyShardsSection from '@/components/club/BuyShardsSection';
 
 const ClubPage = () => {
   const { user, isLoading: authLoading, signOut } = useAuth();
@@ -105,6 +106,9 @@ const ClubPage = () => {
               lifetimeSpent={balance?.lifetime_spent || 0}
               isLoading={balanceLoading}
             />
+
+            {/* Buy Shards Section */}
+            <BuyShardsSection />
 
             {/* Progress Tier */}
             <UserProgressBar

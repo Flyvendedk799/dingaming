@@ -52,15 +52,25 @@ Deno.serve(async (req) => {
 async function handleOrderPaid(supabase: any, order: any, kinguinApiKey: string) {
   console.log('Processing paid order:', order.id)
   
-  // Award shards to customer if they have an account
-  await awardPurchaseShards(supabase, order)
+  // First, check if this is a Shard bundle purchase
+  const shardsPurchased = await handleShardBundlePurchase(supabase, order)
+  
+  // Award shards to customer for regular purchases (not shard bundle purchases)
+  if (!shardsPurchased) {
+    await awardPurchaseShards(supabase, order)
+  }
   
   // Extract Kinguin product IDs from line items
   const kinguinProducts: Array<{ kinguinId: number; qty: number; price: number }> = []
   
   for (const item of order.line_items || []) {
-    // Check if this is a Kinguin product by SKU pattern
+    // Skip shard bundle products
     const sku = item.sku || ''
+    if (sku.startsWith('SHARDS-')) {
+      continue
+    }
+    
+    // Check if this is a Kinguin product by SKU pattern
     if (sku.startsWith('KINGUIN-')) {
       const kinguinId = parseInt(sku.replace('KINGUIN-', ''))
       
@@ -127,6 +137,79 @@ async function handleOrderPaid(supabase: any, order: any, kinguinApiKey: string)
   })
 
   console.log('Order saved to database')
+}
+
+// Handle Shard bundle purchases - award shards directly
+async function handleShardBundlePurchase(supabase: any, order: any): Promise<boolean> {
+  let totalShardsToAward = 0
+  let hasShardPurchase = false
+
+  // Shard bundle definitions (must match frontend)
+  const SHARD_BUNDLES: Record<string, number> = {
+    'SHARDS-5000': 5100,   // 5000 + 2% bonus
+    'SHARDS-10000': 10400, // 10000 + 4% bonus
+    'SHARDS-25000': 26500, // 25000 + 6% bonus
+    'SHARDS-50000': 54000, // 50000 + 8% bonus
+  }
+
+  for (const item of order.line_items || []) {
+    const sku = item.sku || ''
+    if (sku.startsWith('SHARDS-') && SHARD_BUNDLES[sku]) {
+      hasShardPurchase = true
+      totalShardsToAward += SHARD_BUNDLES[sku] * (item.quantity || 1)
+      console.log(`Shard bundle found: ${sku} x ${item.quantity} = ${SHARD_BUNDLES[sku] * (item.quantity || 1)} shards`)
+    }
+  }
+
+  if (!hasShardPurchase || totalShardsToAward <= 0) {
+    return false
+  }
+
+  const email = order.email
+  if (!email) {
+    console.log('No email in order, cannot award shard bundle')
+    return true // Still mark as shard purchase to prevent double-awarding
+  }
+
+  // Look up user by email
+  const { data: users } = await supabase.auth.admin.listUsers()
+  const user = users?.users?.find((u: any) => u.email === email)
+  
+  if (!user) {
+    console.log('User not found for shard bundle purchase:', email)
+    return true
+  }
+
+  // Check if this order was already processed (idempotency)
+  const { data: existingTx } = await supabase
+    .from('shard_transactions')
+    .select('id')
+    .eq('reference_id', `shopify_shards_${order.id}`)
+    .maybeSingle()
+
+  if (existingTx) {
+    console.log('Shard bundle already processed for order:', order.id)
+    return true
+  }
+
+  // Award shards
+  const { error } = await supabase
+    .from('shard_transactions')
+    .insert({
+      user_id: user.id,
+      amount: totalShardsToAward,
+      type: 'purchase_shards',
+      description: `Køb: ${totalShardsToAward.toLocaleString()} Shards pakke`,
+      reference_id: `shopify_shards_${order.id}`,
+    })
+
+  if (error) {
+    console.error('Failed to award shard bundle:', error)
+    return true
+  }
+
+  console.log(`Awarded ${totalShardsToAward} shards to user ${user.id} for shard bundle purchase`)
+  return true
 }
 
 // Award shards to customer based on purchase amount
