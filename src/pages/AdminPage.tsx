@@ -791,7 +791,7 @@ const AdminPage = () => {
                   <p className="text-2xl font-bold">
                     {loadingBalance ? (
                       <RefreshCw className="w-5 h-5 animate-spin" />
-                    ) : balance !== null ? (
+                    ) : balance != null ? (
                       `€${balance.toFixed(2)}`
                     ) : (
                       '—'
