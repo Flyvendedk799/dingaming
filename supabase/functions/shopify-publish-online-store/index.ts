@@ -15,31 +15,7 @@ function json(body: unknown, init: ResponseInit = {}) {
   })
 }
 
-async function getPublicationIds(accessToken: string, shopifyAdminUrl: string, supabase: any): Promise<{ ids: string[] | null; error?: string }> {
-  const CACHE_KEY = 'shopify_publication_ids'
-
-  try {
-    const { data: cached } = await supabase
-      .from('store_settings')
-      .select('value')
-      .eq('key', CACHE_KEY)
-      .maybeSingle()
-
-    const raw = cached?.value as unknown
-    const cachedId = typeof raw === 'string'
-      ? raw.replace(/^"|"$/g, '')
-      : (typeof raw === 'number' ? String(raw) : null)
-
-    if (Array.isArray(raw)) {
-      const ids = raw.filter((v) => typeof v === 'string' && v.startsWith('gid://shopify/Publication/')) as string[]
-       if (ids.length > 0) return { ids }
-    }
-
-     if (cachedId && cachedId.startsWith('gid://shopify/Publication/')) return { ids: [cachedId] }
-  } catch {
-    // ignore
-  }
-
+async function publishToCurrentChannel(accessToken: string, shopifyAdminUrl: string, productId: string) {
   const response = await fetch(shopifyAdminUrl, {
     method: 'POST',
     headers: {
@@ -48,73 +24,67 @@ async function getPublicationIds(accessToken: string, shopifyAdminUrl: string, s
     },
     body: JSON.stringify({
       query: `
-        query Publications($first: Int!) {
-          publications(first: $first) {
-            edges { node { id name } }
-          }
-        }
-      `,
-      variables: { first: 50 },
-    }),
-  })
-
-  if (!response.ok) {
-    const text = await response.text().catch(() => '')
-    return { ids: null, error: text || `http_${response.status}` }
-  }
-
-  const data = await response.json().catch(() => null)
-  const gqlErrors: any[] = data?.errors || []
-  if (gqlErrors.length > 0) {
-    const message = gqlErrors.map((e) => e?.message).filter(Boolean).join('; ') || 'graphql_error'
-    return { ids: null, error: message }
-  }
-
-  const edges: any[] = data?.data?.publications?.edges || []
-  const ids = edges
-    .map((e) => e?.node?.id)
-    .filter((id) => typeof id === 'string' && id.startsWith('gid://shopify/Publication/')) as string[]
-
-  if (ids.length === 0) return { ids: null, error: 'publications_not_found' }
-
-  try {
-    await supabase.from('store_settings').upsert({ key: CACHE_KEY, value: ids }, { onConflict: 'key' })
-  } catch {
-    // ignore cache write errors
-  }
-
-  return { ids }
-}
-
-async function publishToPublications(accessToken: string, shopifyAdminUrl: string, productId: string, publicationIds: string[]) {
-  const response = await fetch(shopifyAdminUrl, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'X-Shopify-Access-Token': accessToken,
-    },
-    body: JSON.stringify({
-      query: `
-        mutation Publish($id: ID!, $input: [PublicationInput!]!) {
-          publishablePublish(id: $id, input: $input) {
+        mutation PublishToCurrentChannel($id: ID!) {
+          publishablePublishToCurrentChannel(id: $id) {
             userErrors { field message }
           }
         }
       `,
         variables: {
           id: productId,
-          input: publicationIds.map((publicationId) => ({ publicationId })),
         },
     }),
   })
 
   const data = await response.json().catch(() => null)
-  const userErrors = data?.data?.publishablePublish?.userErrors || []
+  const gqlErrors: any[] = data?.errors || []
+  if (gqlErrors.length > 0) {
+    return { ok: false, error: gqlErrors.map((e) => e?.message).filter(Boolean).join('; ') || 'graphql_error' }
+  }
+
+  const userErrors = data?.data?.publishablePublishToCurrentChannel?.userErrors || []
   if (userErrors.length > 0) {
     return { ok: false, error: userErrors.map((e: any) => e?.message).filter(Boolean).join('; ') || 'publish failed' }
   }
 
   return { ok: response.ok }
+}
+
+function getNumericProductId(productGid: string): number | null {
+  // gid://shopify/Product/123
+  const match = /gid:\/\/shopify\/Product\/(\d+)/.exec(productGid)
+  if (!match) return null
+  const id = Number(match[1])
+  return Number.isFinite(id) ? id : null
+}
+
+async function publishViaRest(accessToken: string, productGid: string) {
+  const numericId = getNumericProductId(productGid)
+  if (!numericId) return { ok: false, error: 'invalid_product_gid' }
+
+  const restUrl = `https://${SHOPIFY_STORE_DOMAIN}/admin/api/${SHOPIFY_API_VERSION}/products/${numericId}.json`
+  const response = await fetch(restUrl, {
+    method: 'PUT',
+    headers: {
+      'Content-Type': 'application/json',
+      'X-Shopify-Access-Token': accessToken,
+    },
+    body: JSON.stringify({
+      product: {
+        id: numericId,
+        status: 'active',
+        // Setting published_at publishes to the Online Store sales channel
+        published_at: new Date().toISOString(),
+      },
+    }),
+  })
+
+  if (!response.ok) {
+    const text = await response.text().catch(() => '')
+    return { ok: false, error: text || `http_${response.status}` }
+  }
+
+  return { ok: true }
 }
 
 Deno.serve(async (req) => {
@@ -157,18 +127,29 @@ Deno.serve(async (req) => {
     }
 
     const shopifyAdminUrl = `https://${SHOPIFY_STORE_DOMAIN}/admin/api/${SHOPIFY_API_VERSION}/graphql.json`
-    const publicationLookup = await getPublicationIds(shopifyAccessToken, shopifyAdminUrl, supabase)
-    const publicationIds = publicationLookup.ids
-    if (!publicationIds || publicationIds.length === 0) {
-      return json({ success: false, error: publicationLookup.error || 'publications_not_found' }, { status: 500 })
+
+    // 1) Try publish via the app's current channel (works for channel apps)
+    const publishResult = await publishToCurrentChannel(shopifyAccessToken, shopifyAdminUrl, productId)
+    if (publishResult.ok) {
+      return json({ success: true, productId, method: 'current_channel' })
     }
 
-    const publishResult = await publishToPublications(shopifyAccessToken, shopifyAdminUrl, productId, publicationIds)
-    if (!publishResult.ok) {
-      return json({ success: false, error: publishResult.error || 'publish_failed' }, { status: 400 })
+    const message = (publishResult.error || '').toLowerCase()
+    const shouldFallbackToRest =
+      message.includes('channel does not exist') ||
+      message.includes('write_publications') ||
+      message.includes('access denied')
+
+    // 2) Fallback: publish to Online Store via REST (works for custom apps without a sales channel)
+    if (shouldFallbackToRest) {
+      const restResult = await publishViaRest(shopifyAccessToken, productId)
+      if (restResult.ok) {
+        return json({ success: true, productId, method: 'rest' })
+      }
+      return json({ success: false, error: restResult.error || 'publish_failed' }, { status: 400 })
     }
 
-    return json({ success: true, productId, publicationIds })
+    return json({ success: false, error: publishResult.error || 'publish_failed' }, { status: 400 })
   } catch (e) {
     console.error('Publish error:', e)
     return json({ success: false, error: e instanceof Error ? e.message : String(e) }, { status: 500 })
