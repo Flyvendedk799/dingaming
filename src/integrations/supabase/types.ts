@@ -407,6 +407,130 @@ export type Database = {
           },
         ]
       }
+      shard_case_items: {
+        Row: {
+          case_id: string
+          created_at: string
+          drop_percentage: number
+          id: string
+          kinguin_product_id: string
+        }
+        Insert: {
+          case_id: string
+          created_at?: string
+          drop_percentage: number
+          id?: string
+          kinguin_product_id: string
+        }
+        Update: {
+          case_id?: string
+          created_at?: string
+          drop_percentage?: number
+          id?: string
+          kinguin_product_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "shard_case_items_case_id_fkey"
+            columns: ["case_id"]
+            isOneToOne: false
+            referencedRelation: "shard_cases"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "shard_case_items_kinguin_product_id_fkey"
+            columns: ["kinguin_product_id"]
+            isOneToOne: false
+            referencedRelation: "kinguin_products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      shard_case_openings: {
+        Row: {
+          case_id: string
+          created_at: string
+          id: string
+          shards_spent: number
+          user_id: string
+          won_item_id: string
+        }
+        Insert: {
+          case_id: string
+          created_at?: string
+          id?: string
+          shards_spent: number
+          user_id: string
+          won_item_id: string
+        }
+        Update: {
+          case_id?: string
+          created_at?: string
+          id?: string
+          shards_spent?: number
+          user_id?: string
+          won_item_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "shard_case_openings_case_id_fkey"
+            columns: ["case_id"]
+            isOneToOne: false
+            referencedRelation: "shard_cases"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "shard_case_openings_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "shard_case_openings_won_item_id_fkey"
+            columns: ["won_item_id"]
+            isOneToOne: false
+            referencedRelation: "shard_case_items"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      shard_cases: {
+        Row: {
+          calculated_price: number
+          created_at: string
+          description: string | null
+          display_order: number | null
+          id: string
+          image_url: string | null
+          is_active: boolean
+          name: string
+          updated_at: string
+        }
+        Insert: {
+          calculated_price?: number
+          created_at?: string
+          description?: string | null
+          display_order?: number | null
+          id?: string
+          image_url?: string | null
+          is_active?: boolean
+          name: string
+          updated_at?: string
+        }
+        Update: {
+          calculated_price?: number
+          created_at?: string
+          description?: string | null
+          display_order?: number | null
+          id?: string
+          image_url?: string | null
+          is_active?: boolean
+          name?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       shard_earning_rules: {
         Row: {
           action_type: string

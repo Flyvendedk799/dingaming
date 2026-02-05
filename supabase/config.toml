@@ -70,3 +70,6 @@ verify_jwt = false
 
 [functions.play-dice]
 verify_jwt = false
+
+[functions.open-case]
+verify_jwt = false
