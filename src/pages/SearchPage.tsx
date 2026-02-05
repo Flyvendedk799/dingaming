@@ -3,7 +3,6 @@ import { useSearchParams, Link } from "react-router-dom";
 import { fetchKinguinProducts, KinguinProduct } from "@/lib/kinguin";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
-import { CartDrawer } from "@/components/CartDrawer";
 import KinguinProductCard from "@/components/KinguinProductCard";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -118,10 +117,6 @@ const SearchPage = () => {
   return (
     <div className="min-h-screen bg-background">
       <Header />
-      
-      <div className="fixed top-24 right-4 z-50">
-        <CartDrawer />
-      </div>
 
       <main className="container mx-auto px-4 py-12">
         {/* Search Header */}
