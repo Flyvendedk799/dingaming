@@ -64,3 +64,9 @@ verify_jwt = false
 
 [functions.redeem-reward]
 verify_jwt = false
+
+[functions.play-mines]
+verify_jwt = false
+
+[functions.play-dice]
+verify_jwt = false

@@ -49,6 +49,47 @@ export type Database = {
           },
         ]
       }
+      game_sessions: {
+        Row: {
+          created_at: string
+          ended_at: string | null
+          game_type: string
+          id: string
+          is_active: boolean
+          session_id: string
+          state: Json
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          ended_at?: string | null
+          game_type: string
+          id?: string
+          is_active?: boolean
+          session_id: string
+          state?: Json
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          ended_at?: string | null
+          game_type?: string
+          id?: string
+          is_active?: boolean
+          session_id?: string
+          state?: Json
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "game_sessions_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       kinguin_orders: {
         Row: {
           created_at: string
