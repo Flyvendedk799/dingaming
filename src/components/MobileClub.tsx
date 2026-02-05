@@ -188,13 +188,13 @@ const MobileClub = ({ onBack }: MobileClubProps) => {
               </div>
               <div>
                 <h1 className="font-heading text-lg font-bold flex items-center gap-2">
-                  {currentTier.name}
-                  <span className={`text-xs px-1.5 py-0.5 rounded ${currentTier.color} bg-current/10`}>
+                  {user?.user_metadata?.display_name || user?.email?.split('@')[0]}
+                  <span className={`text-xs px-1.5 py-0.5 rounded ${currentTier.color} bg-success/10`}>
                     {currentTier.name}
                   </span>
                 </h1>
                 <p className="text-xs text-muted-foreground">
-                  {user?.user_metadata?.display_name || user?.email?.split('@')[0]}
+                  Customer Club Member
                 </p>
               </div>
             </div>

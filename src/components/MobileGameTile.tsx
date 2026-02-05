@@ -54,7 +54,7 @@ const MobileGameTile = ({
       <div className="relative aspect-[4/3]">
         <img src={image} alt={title} className="w-full h-full object-cover" />
         
-        {discount && discount > 0 && (
+        {discount !== undefined && discount > 0 && (
           <div className="absolute top-2.5 left-2.5 px-2.5 py-1 rounded-xl bg-destructive text-destructive-foreground text-xs font-bold shadow-sm">
             -{discount}%
           </div>
