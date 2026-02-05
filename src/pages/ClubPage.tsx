@@ -3,7 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { 
   Zap, Gift, Flame, TrendingUp, ArrowRight, 
-  Clock, ShoppingBag, Calendar, LogOut, Sparkles 
+  Clock, ShoppingBag, Calendar, LogOut, Sparkles, Gamepad2 
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/contexts/AuthContext';
@@ -118,6 +118,13 @@ const ClubPage = () => {
                   <Button className="w-full bg-primary hover:bg-primary/90 text-primary-foreground">
                     <Gift className="w-5 h-5 mr-2" />
                     Se Rewards
+                    <ArrowRight className="w-4 h-4 ml-2" />
+                  </Button>
+                </Link>
+                <Link to="/club/games">
+                  <Button variant="outline" className="w-full border-accent text-accent hover:bg-accent/10">
+                    <Gamepad2 className="w-5 h-5 mr-2" />
+                    Sweepstake Spil
                     <ArrowRight className="w-4 h-4 ml-2" />
                   </Button>
                 </Link>
@@ -287,7 +294,7 @@ const ClubPage = () => {
           transition={{ delay: 0.4 }}
         >
           <h2 className="font-semibold text-foreground mb-4">Sådan optjener du Shards</h2>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
             <div className="p-4 bg-background rounded-xl border border-border">
               <ShoppingBag className="w-8 h-8 text-primary mb-3" />
               <h3 className="font-medium text-foreground mb-1">Køb Spil</h3>
@@ -302,8 +309,15 @@ const ClubPage = () => {
                 Hent bonus hver dag. Streaks giver endnu flere Shards!
               </p>
             </div>
+            <Link to="/club/games" className="p-4 bg-background rounded-xl border border-border hover:border-accent transition-colors group">
+              <Gamepad2 className="w-8 h-8 text-accent mb-3" />
+              <h3 className="font-medium text-foreground mb-1 group-hover:text-accent transition-colors">Sweepstake Spil</h3>
+              <p className="text-sm text-muted-foreground">
+                Spil Mines og Dice for at vinde flere Shards!
+              </p>
+            </Link>
             <div className="p-4 bg-background rounded-xl border border-border">
-              <Sparkles className="w-8 h-8 text-accent mb-3" />
+              <Sparkles className="w-8 h-8 text-muted-foreground mb-3" />
               <h3 className="font-medium text-foreground mb-1">Kommer Snart</h3>
               <p className="text-sm text-muted-foreground">
                 Sociale medier, anmeldelser, og meget mere!
