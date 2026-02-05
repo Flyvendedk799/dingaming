@@ -1,5 +1,7 @@
 import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -8,7 +10,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
-import { RefreshCw, Settings, Database, ShoppingBag, Clock, TrendingUp, Package, AlertTriangle, Download, Wallet, ShoppingCart, Key, RotateCcw, Eye, Copy, CheckCircle, XCircle, Loader2, Sparkles, Star } from "lucide-react";
+import { RefreshCw, Settings, Database, ShoppingBag, Clock, TrendingUp, Package, AlertTriangle, Download, Wallet, ShoppingCart, Key, RotateCcw, Eye, Copy, CheckCircle, XCircle, Loader2, Sparkles, Star, ShieldAlert, LogIn } from "lucide-react";
 import { Progress } from "@/components/ui/progress";
 import Header from "@/components/Header";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -55,6 +57,11 @@ interface KinguinKey {
 }
 
 const AdminPage = () => {
+  const { user, session, isLoading: authLoading } = useAuth();
+  const navigate = useNavigate();
+  const [isAdmin, setIsAdmin] = useState<boolean | null>(null);
+  const [checkingAdmin, setCheckingAdmin] = useState(true);
+
   const [settings, setSettings] = useState<Record<string, any>>({});
   const [stats, setStats] = useState<SyncStats | null>(null);
   const [loading, setLoading] = useState(true);
@@ -88,9 +95,42 @@ const AdminPage = () => {
   const [loadingKeys, setLoadingKeys] = useState(false);
   const [returningKeys, setReturningKeys] = useState(false);
 
+  // Check admin role
   useEffect(() => {
-    loadData();
-  }, []);
+    const checkAdminRole = async () => {
+      if (authLoading) return;
+      
+      if (!user) {
+        setIsAdmin(false);
+        setCheckingAdmin(false);
+        return;
+      }
+
+      try {
+        const { data, error } = await supabase
+          .from('user_roles')
+          .select('role')
+          .eq('user_id', user.id)
+          .eq('role', 'admin')
+          .maybeSingle();
+
+        setIsAdmin(!!data && !error);
+      } catch (error) {
+        console.error('Error checking admin role:', error);
+        setIsAdmin(false);
+      } finally {
+        setCheckingAdmin(false);
+      }
+    };
+
+    checkAdminRole();
+  }, [user, authLoading]);
+
+  useEffect(() => {
+    if (!checkingAdmin && isAdmin) {
+      loadData();
+    }
+  }, [checkingAdmin, isAdmin]);
 
   const loadData = async () => {
     setLoading(true);
@@ -754,6 +794,63 @@ const AdminPage = () => {
         return <Badge variant="secondary">{status}</Badge>;
     }
   };
+
+  // Show loading while checking auth
+  if (authLoading || checkingAdmin) {
+    return (
+      <div className="min-h-screen bg-background">
+        <Header />
+        <div className="container mx-auto px-4 py-8">
+          <div className="flex items-center justify-center py-20">
+            <RefreshCw className="w-8 h-8 animate-spin text-primary" />
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Show login prompt if not authenticated
+  if (!user) {
+    return (
+      <div className="min-h-screen bg-background">
+        <Header />
+        <div className="container mx-auto px-4 py-8">
+          <div className="flex flex-col items-center justify-center py-20 text-center">
+            <LogIn className="w-16 h-16 text-muted-foreground mb-4" />
+            <h1 className="text-2xl font-bold mb-2">Log ind for at fortsætte</h1>
+            <p className="text-muted-foreground mb-6">
+              Du skal være logget ind som administrator for at tilgå denne side.
+            </p>
+            <Button onClick={() => navigate('/login')}>
+              <LogIn className="w-4 h-4 mr-2" />
+              Log ind
+            </Button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Show access denied if not admin
+  if (!isAdmin) {
+    return (
+      <div className="min-h-screen bg-background">
+        <Header />
+        <div className="container mx-auto px-4 py-8">
+          <div className="flex flex-col items-center justify-center py-20 text-center">
+            <ShieldAlert className="w-16 h-16 text-destructive mb-4" />
+            <h1 className="text-2xl font-bold mb-2">Adgang nægtet</h1>
+            <p className="text-muted-foreground mb-6">
+              Du har ikke tilladelse til at tilgå admin panelet.
+            </p>
+            <Button variant="outline" onClick={() => navigate('/')}>
+              Tilbage til forsiden
+            </Button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   if (loading) {
     return (
