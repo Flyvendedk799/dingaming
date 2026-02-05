@@ -2,7 +2,7 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-event-secret',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-event-secret, x-webhook-secret, x-secret',
 }
 
 const SHOPIFY_STORE_DOMAIN = 'dingaming-js6x0.myshopify.com'
@@ -14,8 +14,17 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const eventSecret = req.headers.get('x-event-secret')
     const expectedSecret = Deno.env.get('KINGUIN_WEBHOOK_SECRET')
+    
+    // Check multiple possible header names for the secret
+    const eventSecret = req.headers.get('x-event-secret') 
+      || req.headers.get('x-webhook-secret')
+      || req.headers.get('x-secret')
+      || req.headers.get('secret')
+    
+    // Log headers for debugging (first few chars only)
+    console.log('Webhook headers received:', Array.from(req.headers.keys()).join(', '))
+    console.log('Secret match:', eventSecret ? `received (${eventSecret.substring(0,4)}...)` : 'not found', 'expected:', expectedSecret ? `${expectedSecret.substring(0,4)}...` : 'not set')
     
     if (!eventSecret || eventSecret !== expectedSecret) {
       console.error('Invalid webhook secret')
