@@ -123,6 +123,7 @@ const MobileGameTile = forwardRef<HTMLDivElement, MobileGameTileProps>(({
     // Valid tap: small movement, quick duration
     if (deltaX < 15 && deltaY < 15 && deltaTime < 500) {
       wasHandledRef.current = true;
+      console.log('[DEBUG] MobileGameTile pointerUp -> calling onClick');
       onClick();
     }
     
@@ -130,6 +131,7 @@ const MobileGameTile = forwardRef<HTMLDivElement, MobileGameTileProps>(({
   }, [onClick]);
 
   const handlePointerCancel = useCallback(() => {
+    console.log('[DEBUG] MobileGameTile pointerCancel');
     setIsPressed(false);
     pointerStartRef.current = null;
   }, []);
@@ -146,6 +148,7 @@ const MobileGameTile = forwardRef<HTMLDivElement, MobileGameTileProps>(({
     const target = e.target as HTMLElement;
     if (target.closest('button')) return;
     
+    console.log('[DEBUG] MobileGameTile click fallback -> calling onClick');
     onClick();
   }, [onClick]);
 
