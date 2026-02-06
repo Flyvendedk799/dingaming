@@ -77,6 +77,14 @@ const MobileGameTile = forwardRef<HTMLDivElement, MobileGameTileProps>(({
 
   const handleTouchEnd = (e: React.TouchEvent) => {
     setIsPressed(false);
+    
+    // If add-to-cart button was touched, don't trigger main onClick
+    const target = e.target as HTMLElement;
+    if (target.closest('button')) {
+      touchStartRef.current = null;
+      return;
+    }
+    
     if (!touchStartRef.current) return;
     
     const touch = e.changedTouches[0];
@@ -84,14 +92,21 @@ const MobileGameTile = forwardRef<HTMLDivElement, MobileGameTileProps>(({
     const deltaY = Math.abs(touch.clientY - touchStartRef.current.y);
     const deltaTime = Date.now() - touchStartRef.current.time;
     
-    if (deltaX < 10 && deltaY < 10 && deltaTime < 300) {
+    // Only trigger if it was a tap (small movement, short duration)
+    if (deltaX < 15 && deltaY < 15 && deltaTime < 500) {
+      e.preventDefault(); // Prevent the subsequent click event
       onClick();
     }
     
     touchStartRef.current = null;
   };
 
-  const handleClick = () => {
+  const handleClick = (e: React.MouseEvent) => {
+    // On touch devices, the click event fires after touchend
+    // Skip if we already handled it via touch
+    if ('ontouchstart' in window) {
+      return;
+    }
     onClick();
   };
 
