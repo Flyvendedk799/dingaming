@@ -435,6 +435,39 @@ async function createProduct(
     const userErrors = createData?.data?.productSet?.userErrors
     if (userErrors?.length > 0) {
       const msg = userErrors.map((e: any) => `${e?.field}: ${e?.message}`).join('; ')
+      
+      // Handle "handle already in use" by looking up the existing product
+      if (msg.toLowerCase().includes('handle') && msg.toLowerCase().includes('already in use')) {
+        // Try to find the existing product by handle
+        const searchResponse = await fetch(shopifyAdminUrl, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-Shopify-Access-Token': accessToken,
+          },
+          body: JSON.stringify({
+            query: `query getByHandle($handle: String!) { productByHandle(handle: $handle) { id } }`,
+            variables: { handle }
+          }),
+        })
+        
+        const searchData = await searchResponse.json().catch(() => null)
+        const existingId = searchData?.data?.productByHandle?.id
+        
+        if (existingId) {
+          // Link existing product
+          await supabase
+            .from('kinguin_products')
+            .update({
+              shopify_product_id: existingId,
+              last_synced_to_shopify: new Date().toISOString(),
+            })
+            .eq('kinguin_id', product.kinguin_id)
+          
+          return { success: true, shopifyId: existingId }
+        }
+      }
+      
       return { success: false, error: msg }
     }
 

@@ -380,10 +380,38 @@ async function createOrUpdateShopifyProduct(
     if (userErrors?.length > 0) {
       const msg = userErrors.map((e: any) => `${e?.field}: ${e?.message}`).join('; ')
       
-      // If handle is taken, try to find the existing product
-      if (msg.includes('Handle') && msg.includes('taken')) {
-        // Mark as needing reconciliation
-        return { success: false, skipped: true, error: 'Handle already exists' }
+      // If handle is taken, try to find and link the existing product
+      if (msg.toLowerCase().includes('handle') && (msg.toLowerCase().includes('taken') || msg.toLowerCase().includes('already in use'))) {
+        const handle = `kinguin-${product.kinguin_id}`
+        const searchResponse = await fetch(shopifyAdminUrl, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-Shopify-Access-Token': accessToken,
+          },
+          body: JSON.stringify({
+            query: `query getByHandle($handle: String!) { productByHandle(handle: $handle) { id } }`,
+            variables: { handle }
+          }),
+        })
+        
+        const searchData = await searchResponse.json().catch(() => null)
+        const existingId = searchData?.data?.productByHandle?.id
+        
+        if (existingId) {
+          // Link existing product
+          await supabase
+            .from('kinguin_products')
+            .update({
+              shopify_product_id: existingId,
+              last_synced_to_shopify: new Date().toISOString(),
+            })
+            .eq('kinguin_id', product.kinguin_id)
+          
+          return { success: true, shopifyId: existingId }
+        }
+        
+        return { success: false, skipped: true, error: 'Handle exists but could not find product' }
       }
       
       if (msg.toUpperCase().includes('ACCESS_DENIED')) {
