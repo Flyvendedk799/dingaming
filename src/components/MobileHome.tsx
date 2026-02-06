@@ -199,13 +199,10 @@ const MobileHome = ({ onSelectGame }: MobileHomeProps) => {
               className="flex gap-3 px-4 overflow-x-auto scrollbar-hide snap-x snap-mandatory"
               style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
             >
-              {trendingProducts.map((product, index) => (
-                <motion.div
+              {trendingProducts.map((product) => (
+                <div
                   key={product.id}
                   className="flex-shrink-0 w-[150px] snap-start"
-                  initial={{ opacity: 0, x: 20 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  transition={{ delay: index * 0.05 }}
                 >
                   <MobileGameTile 
                     title={product.name}
@@ -217,7 +214,7 @@ const MobileHome = ({ onSelectGame }: MobileHomeProps) => {
                     rating={4.5 + Math.random() * 0.5}
                     onClick={() => onSelectGame(product)} 
                   />
-                </motion.div>
+                </div>
               ))}
             </div>
           </div>
@@ -235,13 +232,8 @@ const MobileHome = ({ onSelectGame }: MobileHomeProps) => {
             </div>
             
             <div className="grid grid-cols-2 gap-3">
-              {(dealProducts.length > 0 ? dealProducts : products.slice(0, 6)).map((product, index) => (
-                <motion.div
-                  key={product.id}
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: 0.1 + index * 0.05 }}
-                >
+              {(dealProducts.length > 0 ? dealProducts : products.slice(0, 6)).map((product) => (
+                <div key={product.id}>
                   <MobileGameTile 
                     title={product.name}
                     image={product.cover_image || ''}
@@ -252,7 +244,7 @@ const MobileHome = ({ onSelectGame }: MobileHomeProps) => {
                     rating={4.5 + Math.random() * 0.5}
                     onClick={() => onSelectGame(product)} 
                   />
-                </motion.div>
+                </div>
               ))}
             </div>
           </div>

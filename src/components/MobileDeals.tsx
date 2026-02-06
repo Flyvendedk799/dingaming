@@ -99,13 +99,8 @@ const MobileDeals = ({ onSelectGame, onBack }: MobileDealsProps) => {
                 </div>
               </div>
               <div className="grid grid-cols-2 gap-3">
-                {over50.slice(0, 6).map((product, index) => (
-                  <motion.div
-                    key={product.id}
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: index * 0.05 }}
-                  >
+                {over50.slice(0, 6).map((product) => (
+                  <div key={product.id}>
                     <MobileGameTile 
                       title={product.name}
                       image={product.cover_image || ''}
@@ -116,7 +111,7 @@ const MobileDeals = ({ onSelectGame, onBack }: MobileDealsProps) => {
                       rating={4.5 + Math.random() * 0.5}
                       onClick={() => onSelectGame(product)} 
                     />
-                  </motion.div>
+                  </div>
                 ))}
               </div>
             </div>
@@ -132,13 +127,8 @@ const MobileDeals = ({ onSelectGame, onBack }: MobileDealsProps) => {
                 </div>
               </div>
               <div className="grid grid-cols-2 gap-3">
-                {over30.slice(0, 6).map((product, index) => (
-                  <motion.div
-                    key={product.id}
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: 0.2 + index * 0.05 }}
-                  >
+                {over30.slice(0, 6).map((product) => (
+                  <div key={product.id}>
                     <MobileGameTile 
                       title={product.name}
                       image={product.cover_image || ''}
@@ -149,7 +139,7 @@ const MobileDeals = ({ onSelectGame, onBack }: MobileDealsProps) => {
                       rating={4.5 + Math.random() * 0.5}
                       onClick={() => onSelectGame(product)} 
                     />
-                  </motion.div>
+                  </div>
                 ))}
               </div>
             </div>
@@ -165,13 +155,8 @@ const MobileDeals = ({ onSelectGame, onBack }: MobileDealsProps) => {
                 </div>
               </div>
               <div className="grid grid-cols-2 gap-3">
-                {under30.slice(0, 6).map((product, index) => (
-                  <motion.div
-                    key={product.id}
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: 0.4 + index * 0.05 }}
-                  >
+                {under30.slice(0, 6).map((product) => (
+                  <div key={product.id}>
                     <MobileGameTile 
                       title={product.name}
                       image={product.cover_image || ''}
@@ -182,7 +167,7 @@ const MobileDeals = ({ onSelectGame, onBack }: MobileDealsProps) => {
                       rating={4.5 + Math.random() * 0.5}
                       onClick={() => onSelectGame(product)} 
                     />
-                  </motion.div>
+                  </div>
                 ))}
               </div>
             </div>
