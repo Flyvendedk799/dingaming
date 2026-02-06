@@ -1,191 +1,189 @@
 
-# Visual Enhancement Plan: Taking DinGaming to the Next Level
 
-## Current State Analysis
+# Plan: Fix Double-Deduction Bug & Create Immersive Casino Experience
 
-Your site already has a strong premium gaming aesthetic with:
-- Warm dark palette with gold/amber accents
-- Glassmorphism effects and large border radii
-- Framer Motion animations throughout
-- Canvas-based intro animation
-- Mobile-first approach with custom touch handling
+## Part 1: Critical Bug Fix - Double Shard Deduction
 
-However, there are significant opportunities to elevate the visual experience further.
+### Root Cause Analysis
+After investigating the transaction logs and backend code, I discovered the bug:
 
----
+**The problem:** Both edge functions (`play-mines` and `play-dice`) are doing TWO things that each update the balance:
+1. **Direct update** to `shard_balances` table (lines 166-173 in play-mines, lines 135-143 in play-dice)
+2. **Insert into `shard_transactions`** which triggers the `handle_shard_transaction` database trigger that ALSO updates the balance
 
-## Proposed Enhancements
+The database trigger automatically adds/subtracts from balance whenever a transaction is inserted:
 
-### 1. Enhanced Product Cards with Depth and Motion
-
-**Current**: Cards have basic hover states and shadows
-**Upgrade**: Add 3D perspective tilt on hover, dynamic lighting, and micro-interactions
-
-- **3D Tilt Effect**: Cards will rotate subtly toward the cursor using `transform-style: preserve-3d` and mouse position tracking
-- **Dynamic Shine Layer**: A glossy reflection that follows the cursor across the card surface
-- **Image Parallax**: Cover images will shift slightly opposite to the tilt direction for depth
-- **Staggered Reveal**: On scroll, cards will cascade in with varying delays and spring physics
-
-### 2. Animated Gradient Backgrounds (Mesh Gradients)
-
-**Current**: Static gradient overlays
-**Upgrade**: Slowly morphing, organic mesh gradients
-
-- Create animated CSS mesh gradients that shift colors subtly over time
-- Add to hero sections, banners, and the Deals page header
-- Use WebGL or CSS `@property` for smooth hue/saturation transitions
-- Performance-optimized with `will-change` and GPU acceleration
-
-### 3. Skeleton Loading States with Shimmer
-
-**Current**: Spinner-based loading
-**Upgrade**: Contextual skeletons matching exact content shapes
-
-- Replace spinners with skeleton components that match product cards
-- Add animated shimmer effect sweeping across skeletons
-- Skeleton grids for product listings, individual cards for items
-- Fade-to-content transition for smooth perceived performance
-
-### 4. Enhanced Typography Hierarchy
-
-**Current**: Good heading/body separation
-**Upgrade**: More dramatic type scale and animated text reveals
-
-- Increase heading sizes for more impact (especially on mobile)
-- Add letter-spacing and weight variations for visual rhythm
-- Text reveal animations: words sliding up and fading in staggered
-- Number counters with spring physics for stats
-
-### 5. Interactive Price Displays
-
-**Current**: Static price text
-**Upgrade**: Animated price components with visual feedback
-
-- Price "pop" animation when a discount is active
-- Savings indicator with animated counter
-- Pulsing glow on discounted prices
-- "You save X kr" with confetti micro-animation on hover
-
-### 6. Premium Visual Effects Library
-
-Add new CSS utilities and components:
-
-- **Noise Texture Overlay**: Subtle film grain for depth
-- **Vignette Effect**: Darker edges on hero sections
-- **Glitch Effect**: For special promotions or flash sales
-- **Spotlight Cursor**: Subtle radial gradient following mouse
-- **Parallax Scroll Layers**: Multi-layer depth on scroll
-
-### 7. Mobile-First Haptic Visual Feedback
-
-**Current**: `active:scale-[0.97]` on tap
-**Upgrade**: Richer visual feedback synchronized with haptics
-
-- Add ripple effect on button taps (Material-style but refined)
-- Spring-back animations on cards
-- Subtle blur/glow pulse on successful actions
-- Pull-to-refresh visual indicator
-
-### 8. Enhanced Navigation and Header
-
-**Current**: Functional sticky header with blur
-**Upgrade**: More dynamic presence
-
-- Progress indicator bar for scroll depth
-- Search bar expansion animation with backdrop blur
-- Cart badge with bounce animation on item add
-- Notification dot pulse for new deals
-
-### 9. Deals Page Specific Upgrades
-
-Since you're on the Deals page:
-
-- **Countdown Timer**: Animated flip-clock style timer for daily deals
-- **Deal Cards with "Hot" Flame Animation**: Animated SVG flames on best deals
-- **Category Carousel**: Horizontal scrolling deal categories with snap points
-- **Flash Deal Section**: Full-width banner with animated background
-- **Social Proof Ticker**: "X people bought this in the last hour" sliding text
-
-### 10. Micro-Interactions Throughout
-
-- Button hover states with icon animations (arrows slide, carts bounce)
-- Input focus states with animated borders
-- Toast notifications with slide-in and progress bar
-- Menu item hover with underline animation
-- Star ratings with fill animation on render
-
----
-
-## Technical Implementation
-
-### Files to Create/Modify
-
-| File | Changes |
-|------|---------|
-| `src/components/ui/skeleton.tsx` | Enhanced with shimmer animation |
-| `src/components/ProductCard3D.tsx` | New component with 3D tilt effects |
-| `src/components/AnimatedPrice.tsx` | Price display with animations |
-| `src/components/MeshGradient.tsx` | Animated gradient backgrounds |
-| `src/components/FlipClock.tsx` | Countdown timer component |
-| `src/index.css` | New utility classes and keyframes |
-| `src/components/MobileGameTile.tsx` | Enhanced with ripple and spring |
-| `src/components/MobileDeals.tsx` | Countdown, categories, flash deals |
-| `src/pages/DealsPage.tsx` | Desktop version of enhanced deals |
-
-### New CSS Utilities to Add
-
-```css
-/* Noise overlay for depth */
-.noise-overlay { ... }
-
-/* Spotlight cursor effect */
-.spotlight-cursor { ... }
-
-/* Mesh gradient animation */
-.mesh-gradient-animated { ... }
-
-/* 3D card utilities */
-.card-3d { ... }
-.card-3d:hover { ... }
+```sql
+UPDATE public.shard_balances
+SET balance = balance + NEW.amount, ...
 ```
 
-### Performance Considerations
+So when a 100 shard bet is placed:
+- Edge function: `balance = currentBalance - 100` (first -100)
+- Transaction insert triggers: `balance = balance + (-100)` (second -100)
+- **Result: -200 shards deducted!**
 
-- All animations use `transform` and `opacity` only (GPU-accelerated)
-- Reduced motion media query respected
-- Canvas effects throttled to 30fps on mobile
-- IntersectionObserver for scroll-triggered animations
-- RequestAnimationFrame for smooth 60fps
+### Fix Strategy
+Remove the direct balance updates from edge functions and rely ONLY on the trigger-based system via `shard_transactions` inserts. This is cleaner, atomic, and consistent.
 
----
+#### Files to Modify:
+1. **`supabase/functions/play-mines/index.ts`**
+   - Remove direct `shard_balances.update()` calls (lines 166-173, 318-325, 429-435)
+   - Keep only `shard_transactions.insert()` calls (the trigger handles balance updates)
+   - Update validation to re-fetch balance after inserting bet transaction
 
-## Priority Recommendation
-
-**Phase 1 (High Impact, Lower Effort)**
-1. Skeleton loading states with shimmer
-2. Enhanced product card hover effects
-3. Animated price displays
-4. Deals page countdown timer
-
-**Phase 2 (Medium Effort)**
-5. 3D tilt cards
-6. Mesh gradient backgrounds
-7. Mobile haptic visual feedback
-8. Flash deal sections
-
-**Phase 3 (Polish)**
-9. Noise textures and vignettes
-10. Spotlight cursor effect
-11. Full micro-interaction library
+2. **`supabase/functions/play-dice/index.ts`**
+   - Remove the single direct `shard_balances.update()` call (lines 135-143)
+   - Keep only the `shard_transactions.insert()` calls
 
 ---
 
-## Expected Visual Impact
+## Part 2: Transform Casino into an Immersive Experience
 
-After implementation:
-- **Perceived Performance**: +40% (skeleton states make loading feel faster)
-- **Engagement**: Cards feel tactile and responsive
-- **Premium Feel**: Mesh gradients and depth effects rival AAA gaming sites
-- **Conversion**: Price animations draw attention to savings
-- **Mobile Experience**: Native app-like responsiveness
+### Current State
+- Single `/club/games` page with both Mines and Dice stacked
+- Basic card containers for each game
+- No visual hierarchy or casino atmosphere
+- Mobile experience is identical to desktop
+
+### Vision: Multi-Room Casino
+Create an experience similar to entering an online casino with:
+- **Casino Lobby** as the main hub
+- **Individual game rooms** that feel focused and immersive
+- **Premium visual theming** with dark, luxurious aesthetics
+- **Live elements** showing other players' wins
+
+### New Page Structure
+
+```text
+/club/casino          → Casino Lobby (new)
+/club/casino/mines    → Mines Game Room (new)
+/club/casino/dice     → Dice Game Room (new)
+/club/casino/cases    → Cases Room (move existing)
+```
+
+### Implementation Details
+
+#### 1. Casino Lobby Page (`src/pages/CasinoLobbyPage.tsx`)
+- Animated mesh gradient background with dark purple/gold theme
+- Large game selection cards with 3D tilt effects
+- Live wins ticker across the top (shows "Player X won Y shards on Mines!")
+- Balance prominently displayed with glow effect
+- Category sections: "Sweepstake Games", "Loot Cases"
+- Quick stats: Total wagered today, biggest win, etc.
+
+#### 2. Mines Game Room (`src/pages/MinesRoomPage.tsx`)
+- Full-screen immersive experience
+- Animated background (subtle particle effects)
+- Game history sidebar showing recent plays
+- Sound toggle (visual only, for future)
+- Back button to lobby
+
+#### 3. Dice Game Room (`src/pages/DicesRoomPage.tsx`)
+- Full-screen immersive experience  
+- 3D dice visualization
+- Animated roll history graph
+- Hot/cold streak indicators
+- Back button to lobby
+
+#### 4. Update Navigation
+- Change `/club/games` to redirect to `/club/casino`
+- Update MobileClub.tsx to link to `/club/casino`
+- Add casino room links to mobile navigation within casino
+
+#### 5. New Components
+
+| Component | Purpose |
+|-----------|---------|
+| `CasinoBackground.tsx` | Animated dark gradient with floating particles |
+| `GameRoomCard.tsx` | 3D tilt card for lobby game selection |
+| `LiveWinsTicker.tsx` | Scrolling ticker showing recent wins |
+| `CasinoBalance.tsx` | Premium balance display with glow |
+| `GameHistory.tsx` | Sidebar showing recent game results |
+
+#### 6. Database Addition
+- Query `game_sessions` table to power live wins feed
+- Add win amount tracking for display purposes
+
+### Visual Design Specifications
+
+**Color Palette for Casino:**
+- Background: Deep purple-black gradient (`#0a0612` → `#1a0a2e`)
+- Accent: Gold/amber for wins (`#f59e0b`)
+- Game accent: Different per game (Mines: emerald, Dice: blue)
+- Card backgrounds: Dark glass with border glow
+
+**Animations:**
+- Entrance: Fade in with scale
+- Game cards: 3D tilt on hover with light reflection
+- Balance: Pulse glow on change
+- Wins: Confetti burst on big wins
+
+### Mobile-Specific Enhancements
+- Full-screen game rooms with bottom sheet controls
+- Swipe between lobby sections
+- Haptic feedback on actions (visual cues for now)
+- Bottom navigation within casino context
+
+---
+
+## Implementation Order
+
+**Phase 1: Fix Critical Bug (Priority)**
+1. Update `play-mines/index.ts` - remove direct balance updates
+2. Update `play-dice/index.ts` - remove direct balance updates
+3. Deploy and test thoroughly
+
+**Phase 2: Casino Structure**
+4. Create `CasinoLobbyPage.tsx` with basic structure
+5. Create `MinesRoomPage.tsx` wrapping existing game
+6. Create `DiceRoomPage.tsx` wrapping existing game
+7. Update routing in `App.tsx`
+
+**Phase 3: Visual Polish**
+8. Create `CasinoBackground.tsx` component
+9. Create `LiveWinsTicker.tsx` component
+10. Add 3D game selection cards
+11. Polish mobile experience
+
+**Phase 4: Enhancements**
+12. Add game history sidebars
+13. Create statistics displays
+14. Implement win celebrations
+
+---
+
+## Technical Notes
+
+### Bug Fix Code Changes (play-mines)
+
+Remove these direct balance update blocks:
+```typescript
+// REMOVE: Direct balance update on start
+await supabaseAdmin
+  .from("shard_balances")
+  .update({
+    balance: currentBalance - betAmount,
+    lifetime_spent: ...
+  })
+  .eq("user_id", userId);
+
+// KEEP: Transaction insert (trigger handles balance)
+await supabaseAdmin.from("shard_transactions").insert({...});
+```
+
+For win/cashout scenarios, the transaction insert with positive amount will trigger the balance increase automatically.
+
+### Route Updates (App.tsx)
+
+```typescript
+// New routes
+<Route path="/club/casino" element={<CasinoLobbyPage />} />
+<Route path="/club/casino/mines" element={<MinesRoomPage />} />
+<Route path="/club/casino/dice" element={<DiceRoomPage />} />
+<Route path="/club/casino/cases" element={<CasesRoomPage />} />
+
+// Keep existing for backwards compatibility, redirect
+<Route path="/club/games" element={<Navigate to="/club/casino" />} />
+```
 
