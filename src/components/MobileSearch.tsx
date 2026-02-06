@@ -5,6 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { fetchKinguinProducts, KinguinProduct } from "@/lib/kinguin";
 import MobileGameTile from "./MobileGameTile";
+import { getStableRating } from "@/lib/stableRating";
 
 interface MobileSearchProps {
   onSelectGame: (product: KinguinProduct) => void;
@@ -143,7 +144,7 @@ const MobileSearch = ({ onSelectGame, onBack }: MobileSearchProps) => {
                       originalPrice={product.original_price}
                       platform={product.platform || 'Steam'}
                       discount={Math.round((1 - product.sell_price / product.original_price) * 100)}
-                      rating={4.5 + Math.random() * 0.5}
+                      rating={getStableRating(product.id)}
                       onClick={() => onSelectGame(product)} 
                     />
                   </div>

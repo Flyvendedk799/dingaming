@@ -26,24 +26,32 @@ const MobileGameTile = forwardRef<HTMLDivElement, MobileGameTileProps>(({
   onClick,
 }, ref) => {
   const addItem = useCartStore(state => state.addItem);
-  const touchStartRef = useRef<{ x: number; y: number; time: number } | null>(null);
+  const pointerStartRef = useRef<{ x: number; y: number; time: number; pointerId: number } | null>(null);
   const [isPressed, setIsPressed] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
   const [ripple, setRipple] = useState<{ x: number; y: number } | null>(null);
+  const wasHandledRef = useRef(false);
 
-  const handleAddToCart = useCallback((e: React.MouseEvent | React.TouchEvent) => {
+  const handleAddToCart = useCallback((e: React.MouseEvent | React.TouchEvent | React.PointerEvent) => {
     e.stopPropagation();
     e.preventDefault();
     
     // Create ripple effect
     const button = e.currentTarget as HTMLElement;
     const rect = button.getBoundingClientRect();
-    const x = 'touches' in e 
-      ? e.touches[0].clientX - rect.left 
-      : (e as React.MouseEvent).clientX - rect.left;
-    const y = 'touches' in e 
-      ? e.touches[0].clientY - rect.top 
-      : (e as React.MouseEvent).clientY - rect.top;
+    let x: number, y: number;
+    
+    if ('clientX' in e) {
+      x = e.clientX - rect.left;
+      y = e.clientY - rect.top;
+    } else if ('touches' in e && e.touches.length > 0) {
+      x = e.touches[0].clientX - rect.left;
+      y = e.touches[0].clientY - rect.top;
+    } else {
+      x = rect.width / 2;
+      y = rect.height / 2;
+    }
+    
     setRipple({ x, y });
     setTimeout(() => setRipple(null), 500);
     
@@ -65,67 +73,103 @@ const MobileGameTile = forwardRef<HTMLDivElement, MobileGameTileProps>(({
     setTimeout(() => setShowSuccess(false), 1500);
   }, [addItem, title, platform, price, image]);
 
-  const handleTouchStart = (e: React.TouchEvent) => {
+  // Pointer events for reliable tap detection across all devices
+  const handlePointerDown = useCallback((e: React.PointerEvent) => {
+    // Ignore if it's on a button (add-to-cart)
+    const target = e.target as HTMLElement;
+    if (target.closest('button')) return;
+    
     setIsPressed(true);
-    const touch = e.touches[0];
-    touchStartRef.current = {
-      x: touch.clientX,
-      y: touch.clientY,
-      time: Date.now()
+    wasHandledRef.current = false;
+    pointerStartRef.current = {
+      x: e.clientX,
+      y: e.clientY,
+      time: Date.now(),
+      pointerId: e.pointerId,
     };
-  };
+  }, []);
 
-  const handleTouchEnd = (e: React.TouchEvent) => {
+  const handlePointerMove = useCallback((e: React.PointerEvent) => {
+    if (!pointerStartRef.current) return;
+    if (e.pointerId !== pointerStartRef.current.pointerId) return;
+    
+    const deltaX = Math.abs(e.clientX - pointerStartRef.current.x);
+    const deltaY = Math.abs(e.clientY - pointerStartRef.current.y);
+    
+    // If moved too much, cancel the tap (user is scrolling)
+    if (deltaX > 15 || deltaY > 15) {
+      pointerStartRef.current = null;
+      setIsPressed(false);
+    }
+  }, []);
+
+  const handlePointerUp = useCallback((e: React.PointerEvent) => {
     setIsPressed(false);
     
-    // If add-to-cart button was touched, don't trigger main onClick
+    // If tapping on a button, let it handle itself
     const target = e.target as HTMLElement;
     if (target.closest('button')) {
-      touchStartRef.current = null;
+      pointerStartRef.current = null;
       return;
     }
     
-    if (!touchStartRef.current) return;
+    if (!pointerStartRef.current) return;
+    if (e.pointerId !== pointerStartRef.current.pointerId) return;
     
-    const touch = e.changedTouches[0];
-    const deltaX = Math.abs(touch.clientX - touchStartRef.current.x);
-    const deltaY = Math.abs(touch.clientY - touchStartRef.current.y);
-    const deltaTime = Date.now() - touchStartRef.current.time;
+    const deltaX = Math.abs(e.clientX - pointerStartRef.current.x);
+    const deltaY = Math.abs(e.clientY - pointerStartRef.current.y);
+    const deltaTime = Date.now() - pointerStartRef.current.time;
     
-    // Only trigger if it was a tap (small movement, short duration)
+    // Valid tap: small movement, quick duration
     if (deltaX < 15 && deltaY < 15 && deltaTime < 500) {
-      e.preventDefault(); // Prevent the subsequent click event
+      wasHandledRef.current = true;
       onClick();
     }
     
-    touchStartRef.current = null;
-  };
+    pointerStartRef.current = null;
+  }, [onClick]);
 
-  const handleClick = (e: React.MouseEvent) => {
-    // On touch devices, the click event fires after touchend
-    // Skip if we already handled it via touch
-    if ('ontouchstart' in window) {
+  const handlePointerCancel = useCallback(() => {
+    setIsPressed(false);
+    pointerStartRef.current = null;
+  }, []);
+
+  // Fallback click for keyboard/mouse accessibility and edge cases
+  const handleClick = useCallback((e: React.MouseEvent) => {
+    // If pointer events already handled this, skip
+    if (wasHandledRef.current) {
+      wasHandledRef.current = false;
       return;
     }
+    
+    // If clicking on a button, let it handle itself
+    const target = e.target as HTMLElement;
+    if (target.closest('button')) return;
+    
     onClick();
-  };
+  }, [onClick]);
 
   const hasDiscount = discount !== undefined && discount > 0;
   const hasBigDiscount = discount !== undefined && discount >= 40;
+
+  // Check if device supports hover (desktop)
+  const supportsHover = typeof window !== 'undefined' && window.matchMedia('(hover: hover)').matches;
 
   return (
     <motion.div
       ref={ref}
       onClick={handleClick}
-      onTouchStart={handleTouchStart}
-      onTouchEnd={handleTouchEnd}
+      onPointerDown={handlePointerDown}
+      onPointerMove={handlePointerMove}
+      onPointerUp={handlePointerUp}
+      onPointerCancel={handlePointerCancel}
       className="w-full bg-card/80 backdrop-blur-sm rounded-3xl overflow-hidden border border-border/30 text-left cursor-pointer transition-all duration-200"
       style={{ touchAction: 'manipulation' }}
       animate={{ 
         scale: isPressed ? 0.97 : 1,
       }}
       transition={{ type: "spring", stiffness: 400, damping: 25 }}
-      whileHover={{ y: -4 }}
+      whileHover={supportsHover ? { y: -4 } : undefined}
     >
       {/* Image */}
       <div className="relative aspect-[4/3] overflow-hidden">
@@ -163,14 +207,10 @@ const MobileGameTile = forwardRef<HTMLDivElement, MobileGameTileProps>(({
           {platform}
         </div>
 
-        {/* Quick add button with ripple */}
+        {/* Quick add button */}
         <motion.button
           className="absolute bottom-2.5 right-2.5 w-10 h-10 rounded-2xl bg-success flex items-center justify-center shadow-glow overflow-hidden"
           onClick={handleAddToCart}
-          onTouchEnd={(e) => {
-            e.stopPropagation();
-            handleAddToCart(e);
-          }}
           style={{ touchAction: 'manipulation' }}
           whileTap={{ scale: 0.9 }}
           animate={showSuccess ? { scale: [1, 1.2, 1] } : {}}
