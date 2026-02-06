@@ -1,7 +1,7 @@
 import { Star, ShoppingCart, Sparkles } from "lucide-react";
 import { useCartStore } from "@/stores/cartStore";
 import { toast } from "sonner";
-import { useRef, useState, useCallback } from "react";
+import { forwardRef, useRef, useState, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 
 interface MobileGameTileProps {
@@ -15,7 +15,7 @@ interface MobileGameTileProps {
   onClick: () => void;
 }
 
-const MobileGameTile = ({
+const MobileGameTile = forwardRef<HTMLDivElement, MobileGameTileProps>(({
   title,
   image,
   price,
@@ -24,7 +24,7 @@ const MobileGameTile = ({
   discount,
   rating = 4.5,
   onClick,
-}: MobileGameTileProps) => {
+}, ref) => {
   const addItem = useCartStore(state => state.addItem);
   const touchStartRef = useRef<{ x: number; y: number; time: number } | null>(null);
   const [isPressed, setIsPressed] = useState(false);
@@ -100,6 +100,7 @@ const MobileGameTile = ({
 
   return (
     <motion.div
+      ref={ref}
       onClick={handleClick}
       onTouchStart={handleTouchStart}
       onTouchEnd={handleTouchEnd}
@@ -211,6 +212,8 @@ const MobileGameTile = ({
       </div>
     </motion.div>
   );
-};
+});
+
+MobileGameTile.displayName = "MobileGameTile";
 
 export default MobileGameTile;

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { forwardRef, useState } from "react";
 import { motion, useMotionValue, useTransform } from "framer-motion";
 import { ChevronLeft, Heart, Share, Star, Zap, Shield, ShoppingCart, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -17,7 +17,7 @@ interface MobileGameCardProps {
   onClose: () => void;
 }
 
-const MobileGameCard = ({
+const MobileGameCard = forwardRef<HTMLDivElement, MobileGameCardProps>(({
   title,
   image,
   price,
@@ -27,7 +27,7 @@ const MobileGameCard = ({
   rating = 4.5,
   reviews = 234,
   onClose,
-}: MobileGameCardProps) => {
+}, ref) => {
   const addItem = useCartStore(state => state.addItem);
   const [isAdding, setIsAdding] = useState(false);
   const [isWishlisted, setIsWishlisted] = useState(false);
@@ -43,6 +43,7 @@ const MobileGameCard = ({
 
   return (
     <motion.div
+      ref={ref}
       className="fixed inset-0 z-50 bg-background md:hidden"
       initial={{ y: "100%" }}
       animate={{ y: 0 }}
@@ -178,6 +179,8 @@ const MobileGameCard = ({
       </div>
     </motion.div>
   );
-};
+});
+
+MobileGameCard.displayName = "MobileGameCard";
 
 export default MobileGameCard;

@@ -1,5 +1,5 @@
-import { motion, useMotionValue, useTransform, useSpring } from "framer-motion";
-import { useRef, MouseEvent } from "react";
+import { motion, useMotionValue, useTransform, useSpring, MotionValue } from "framer-motion";
+import { forwardRef, useRef, MouseEvent, useMemo } from "react";
 import { Link } from "react-router-dom";
 import { cn } from "@/lib/utils";
 import { LucideIcon } from "lucide-react";
@@ -16,7 +16,25 @@ interface GameRoomCardProps {
   delay?: number;
 }
 
-const GameRoomCard = ({
+// Separate component for the shine effect to avoid hook in render
+const ShineEffect = ({ mouseX, mouseY }: { mouseX: MotionValue<number>; mouseY: MotionValue<number> }) => {
+  const bgX = useTransform(mouseX, [-0.5, 0.5], ["0%", "100%"]);
+  const bgY = useTransform(mouseY, [-0.5, 0.5], ["0%", "100%"]);
+
+  return (
+    <motion.div
+      className="absolute inset-0 pointer-events-none"
+      style={{
+        background: `radial-gradient(circle at var(--shine-x) var(--shine-y), rgba(255,255,255,0.15) 0%, transparent 50%)`,
+        // @ts-ignore - CSS custom properties
+        "--shine-x": bgX,
+        "--shine-y": bgY,
+      }}
+    />
+  );
+};
+
+const GameRoomCard = forwardRef<HTMLDivElement, GameRoomCardProps>(({
   title,
   description,
   icon: Icon,
@@ -26,7 +44,7 @@ const GameRoomCard = ({
   borderColor,
   badge,
   delay = 0,
-}: GameRoomCardProps) => {
+}, ref) => {
   const cardRef = useRef<HTMLDivElement>(null);
 
   const mouseX = useMotionValue(0);
@@ -59,6 +77,7 @@ const GameRoomCard = ({
 
   return (
     <motion.div
+      ref={ref}
       initial={{ opacity: 0, y: 30 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay, duration: 0.5, ease: "easeOut" }}
@@ -83,21 +102,8 @@ const GameRoomCard = ({
           whileHover={{ scale: 1.02 }}
           whileTap={{ scale: 0.98 }}
         >
-          {/* Shine effect */}
-          <motion.div
-            className="absolute inset-0 pointer-events-none"
-            style={{
-              background: `radial-gradient(circle at ${useTransform(
-                mouseX,
-                [-0.5, 0.5],
-                ["0%", "100%"]
-              )} ${useTransform(
-                mouseY,
-                [-0.5, 0.5],
-                ["0%", "100%"]
-              )}, rgba(255,255,255,0.15) 0%, transparent 50%)`,
-            }}
-          />
+          {/* Simple shine overlay without hooks */}
+          <div className="absolute inset-0 pointer-events-none bg-gradient-to-br from-white/5 to-transparent" />
 
           {badge && (
             <div className="absolute top-4 right-4 px-2 py-1 rounded-full bg-accent text-accent-foreground text-[10px] font-bold uppercase">
@@ -141,6 +147,8 @@ const GameRoomCard = ({
       </Link>
     </motion.div>
   );
-};
+});
+
+GameRoomCard.displayName = "GameRoomCard";
 
 export default GameRoomCard;
