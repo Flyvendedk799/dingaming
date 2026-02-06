@@ -41,10 +41,12 @@ const MobileGameCard = forwardRef<HTMLDivElement, MobileGameCardProps>(({
     }
   };
 
+  console.log('[DEBUG] MobileGameCard rendering for:', title);
+  
   return (
     <motion.div
       ref={ref}
-      className="fixed inset-0 z-50 bg-background md:hidden"
+      className="fixed inset-0 z-[60] bg-background md:hidden"
       initial={{ y: "100%" }}
       animate={{ y: 0 }}
       exit={{ y: "100%" }}

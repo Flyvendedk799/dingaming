@@ -55,7 +55,11 @@ const Index = () => {
   // Prevent scroll when game card is open
   useEffect(() => {
     if (selectedGame && isMobile) {
-      document.body.style.overflow = 'hidden';
+      // Small delay to ensure sheet is rendered before locking scroll
+      const timer = setTimeout(() => {
+        document.body.style.overflow = 'hidden';
+      }, 50);
+      return () => clearTimeout(timer);
     } else {
       document.body.style.overflow = '';
     }
@@ -65,6 +69,7 @@ const Index = () => {
   }, [selectedGame, isMobile]);
 
   const handleSelectGame = (product: KinguinProduct) => {
+    console.log('[DEBUG] handleSelectGame called with:', product.name);
     setSelectedGame(product);
   };
 
@@ -111,9 +116,10 @@ const Index = () => {
             />
 
             {/* Game Detail Sheet */}
-            <AnimatePresence>
+            <AnimatePresence mode="wait">
               {selectedGame && (
                 <MobileGameCard
+                  key={selectedGame.id}
                   title={selectedGame.name}
                   image={selectedGame.cover_image || ''}
                   price={selectedGame.sell_price}
@@ -121,7 +127,10 @@ const Index = () => {
                   platform={selectedGame.platform || 'Steam'}
                   discount={Math.round((1 - selectedGame.sell_price / selectedGame.original_price) * 100)}
                   rating={4.7}
-                  onClose={() => setSelectedGame(null)}
+                  onClose={() => {
+                    console.log('[DEBUG] onClose called');
+                    setSelectedGame(null);
+                  }}
                 />
               )}
             </AnimatePresence>
