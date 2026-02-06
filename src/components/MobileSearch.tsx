@@ -134,13 +134,8 @@ const MobileSearch = ({ onSelectGame, onBack }: MobileSearchProps) => {
               </div>
             ) : (
               <div className="grid grid-cols-2 gap-3">
-                {filteredProducts.map((product, index) => (
-                  <motion.div
-                    key={product.id}
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: index * 0.03 }}
-                  >
+                {filteredProducts.map((product) => (
+                  <div key={product.id}>
                     <MobileGameTile 
                       title={product.name}
                       image={product.cover_image || ''}
@@ -151,7 +146,7 @@ const MobileSearch = ({ onSelectGame, onBack }: MobileSearchProps) => {
                       rating={4.5 + Math.random() * 0.5}
                       onClick={() => onSelectGame(product)} 
                     />
-                  </motion.div>
+                  </div>
                 ))}
               </div>
             )}
