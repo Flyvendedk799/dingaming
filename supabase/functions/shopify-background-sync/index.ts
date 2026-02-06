@@ -304,12 +304,12 @@ async function createOrUpdateShopifyProduct(
       return { success: true, shopifyId: existingProduct.id, skipped: false }
     }
 
-    // Product doesn't exist - create it
+    // Product doesn't exist - create it using productSet (supports variants in 2025-07)
     const mutation = `
-      mutation productCreate($input: ProductInput!) {
-        productCreate(input: $input) {
+      mutation productSet($input: ProductSetInput!, $synchronous: Boolean!) {
+        productSet(input: $input, synchronous: $synchronous) {
           product { id }
-          userErrors { field message }
+          userErrors { field message code }
         }
       }
     `
@@ -323,6 +323,7 @@ async function createOrUpdateShopifyProduct(
       body: JSON.stringify({
         query: mutation,
         variables: {
+          synchronous: true,
           input: {
             handle,
             title: cleanTitle,
@@ -331,7 +332,12 @@ async function createOrUpdateShopifyProduct(
             productType: 'Game Key',
             tags: [product.platform || 'Steam', regionTag, 'Digital', 'DKK'],
             status: 'ACTIVE',
+            productOptions: [{
+              name: 'Title',
+              values: [{ name: 'Default Title' }]
+            }],
             variants: [{
+              optionValues: [{ optionName: 'Title', name: 'Default Title' }],
               price: priceInDkk.toFixed(2),
               sku: sku,
               inventoryPolicy: 'CONTINUE',
@@ -370,7 +376,7 @@ async function createOrUpdateShopifyProduct(
       return { success: false, error: msg }
     }
 
-    const userErrors = data?.data?.productCreate?.userErrors
+    const userErrors = data?.data?.productSet?.userErrors
     if (userErrors?.length > 0) {
       const msg = userErrors.map((e: any) => `${e?.field}: ${e?.message}`).join('; ')
       
@@ -386,7 +392,7 @@ async function createOrUpdateShopifyProduct(
       return { success: false, error: msg }
     }
 
-    const createdProduct = data?.data?.productCreate?.product
+    const createdProduct = data?.data?.productSet?.product
     if (createdProduct?.id) {
       await supabase
         .from('kinguin_products')
