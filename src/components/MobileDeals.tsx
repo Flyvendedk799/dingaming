@@ -6,6 +6,7 @@ import MobileGameTile from "./MobileGameTile";
 import FlipClock from "./FlipClock";
 import MeshGradient from "./MeshGradient";
 import { MobileProductGridSkeleton } from "./ui/ProductCardSkeleton";
+import { getStableRating } from "@/lib/stableRating";
 
 interface MobileDealsProps {
   onSelectGame: (product: KinguinProduct) => void;
@@ -155,7 +156,7 @@ const MobileDeals = ({ onSelectGame, onBack }: MobileDealsProps) => {
                       originalPrice={product.original_price}
                       platform={product.platform || 'Steam'}
                       discount={Math.round((1 - product.sell_price / product.original_price) * 100)}
-                      rating={4.5 + Math.random() * 0.5}
+                      rating={getStableRating(product.id)}
                       onClick={() => onSelectGame(product)} 
                     />
                   </motion.div>
@@ -193,7 +194,7 @@ const MobileDeals = ({ onSelectGame, onBack }: MobileDealsProps) => {
                       originalPrice={product.original_price}
                       platform={product.platform || 'Steam'}
                       discount={Math.round((1 - product.sell_price / product.original_price) * 100)}
-                      rating={4.5 + Math.random() * 0.5}
+                      rating={getStableRating(product.id)}
                       onClick={() => onSelectGame(product)} 
                     />
                   </motion.div>
@@ -231,7 +232,7 @@ const MobileDeals = ({ onSelectGame, onBack }: MobileDealsProps) => {
                       originalPrice={product.original_price}
                       platform={product.platform || 'Steam'}
                       discount={Math.round((1 - product.sell_price / product.original_price) * 100)}
-                      rating={4.5 + Math.random() * 0.5}
+                      rating={getStableRating(product.id)}
                       onClick={() => onSelectGame(product)} 
                     />
                   </motion.div>

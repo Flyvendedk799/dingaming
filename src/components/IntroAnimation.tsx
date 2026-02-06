@@ -668,6 +668,7 @@ const IntroAnimation = ({ onComplete }: IntroAnimationProps) => {
       animate={{ opacity: isExiting ? 0 : 1 }}
       transition={{ duration: 0.6 }}
       className="fixed inset-0 z-[100] overflow-hidden bg-black"
+      style={{ pointerEvents: isExiting ? 'none' : 'auto' }}
     >
       <canvas
         ref={canvasRef}

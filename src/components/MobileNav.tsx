@@ -1,3 +1,4 @@
+import { forwardRef } from "react";
 import { Home, Search, Tag, Sparkles, ShoppingCart } from "lucide-react";
 import { motion } from "framer-motion";
 
@@ -8,7 +9,12 @@ interface MobileNavProps {
   shardBalance?: number;
 }
 
-const MobileNav = ({ activeTab, onTabChange, cartCount = 0, shardBalance = 0 }: MobileNavProps) => {
+const MobileNav = forwardRef<HTMLElement, MobileNavProps>(({ 
+  activeTab, 
+  onTabChange, 
+  cartCount = 0, 
+  shardBalance = 0 
+}, ref) => {
   const tabs = [
     { id: 'home', icon: Home, label: 'Hjem' },
     { id: 'search', icon: Search, label: 'Søg' },
@@ -19,6 +25,7 @@ const MobileNav = ({ activeTab, onTabChange, cartCount = 0, shardBalance = 0 }: 
 
   return (
     <motion.nav 
+      ref={ref}
       className="fixed bottom-0 left-0 right-0 z-50 md:hidden"
       initial={{ y: 100 }}
       animate={{ y: 0 }}
@@ -97,6 +104,8 @@ const MobileNav = ({ activeTab, onTabChange, cartCount = 0, shardBalance = 0 }: 
       </div>
     </motion.nav>
   );
-};
+});
+
+MobileNav.displayName = "MobileNav";
 
 export default MobileNav;
