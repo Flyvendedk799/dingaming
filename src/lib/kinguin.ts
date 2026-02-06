@@ -3,45 +3,84 @@ import { supabase } from '@/integrations/supabase/client';
 export interface KinguinProduct {
   id: string;
   kinguin_id: number;
-  product_id: string | null;
+  product_id?: string | null;
   name: string;
-  description: string | null;
+  description?: string | null;
   cover_image: string | null;
-  screenshots: string[] | null;
+  screenshots?: string[] | null;
   original_price: number;
   sell_price: number;
   platform: string | null;
   genres: string[] | null;
-  release_date: string | null;
-  region_id: number | null;
-  region_name: string | null;
-  is_available: boolean;
-  qty: number;
+  release_date?: string | null;
+  region_id?: number | null;
+  region_name?: string | null;
+  is_available: boolean | null;
+  qty: number | null;
   margin_percent: number | null;
-  shopify_product_id: string | null;
-  last_synced_to_shopify: string | null;
+  shopify_product_id?: string | null;
+  last_synced_to_shopify?: string | null;
+  is_featured?: boolean | null;
+  is_on_sale?: boolean | null;
+  sale_label?: string | null;
 }
 
+// Only select columns needed for display (faster query)
+const PRODUCT_LIST_COLUMNS = `
+  id,
+  kinguin_id,
+  product_id,
+  name,
+  cover_image,
+  original_price,
+  sell_price,
+  platform,
+  genres,
+  is_available,
+  qty,
+  margin_percent,
+  is_featured,
+  is_on_sale,
+  sale_label
+`;
+
 export async function fetchKinguinProducts(limit = 20, searchQuery?: string): Promise<KinguinProduct[]> {
-  let query = supabase
-    .from('kinguin_products')
-    .select('*')
-    .eq('is_available', true)
-    .order('updated_at', { ascending: false })
-    .limit(limit);
+  const maxRetries = 3;
+  let lastError: Error | null = null;
 
-  if (searchQuery) {
-    query = query.ilike('name', `%${searchQuery}%`);
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      let query = supabase
+        .from('kinguin_products')
+        .select(PRODUCT_LIST_COLUMNS)
+        .eq('is_available', true)
+        .order('updated_at', { ascending: false })
+        .limit(limit);
+
+      if (searchQuery) {
+        query = query.ilike('name', `%${searchQuery}%`);
+      }
+
+      const { data, error } = await query;
+
+      if (error) {
+        throw error;
+      }
+
+      return (data || []) as KinguinProduct[];
+    } catch (error) {
+      lastError = error as Error;
+      console.warn(`Fetch attempt ${attempt}/${maxRetries} failed:`, error);
+      
+      // Wait before retrying (exponential backoff)
+      if (attempt < maxRetries) {
+        await new Promise(resolve => setTimeout(resolve, 500 * attempt));
+      }
+    }
   }
 
-  const { data, error } = await query;
-
-  if (error) {
-    console.error('Error fetching Kinguin products:', error);
-    throw error;
-  }
-
-  return (data || []) as KinguinProduct[];
+  console.error('Error fetching Kinguin products after retries:', lastError);
+  throw lastError;
 }
 
 export async function fetchKinguinProductById(kinguinId: number): Promise<KinguinProduct | null> {
