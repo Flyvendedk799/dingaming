@@ -1,5 +1,5 @@
-import { forwardRef, useState } from "react";
-import { motion, useMotionValue, useTransform } from "framer-motion";
+import { useEffect, useState } from "react";
+import { motion } from "framer-motion";
 import { ChevronLeft, Heart, Share, Star, Zap, Shield, ShoppingCart, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useCartStore } from "@/stores/cartStore";
@@ -17,7 +17,7 @@ interface MobileGameCardProps {
   onClose: () => void;
 }
 
-const MobileGameCard = forwardRef<HTMLDivElement, MobileGameCardProps>(({
+const MobileGameCard = ({
   title,
   image,
   price,
@@ -27,13 +27,19 @@ const MobileGameCard = forwardRef<HTMLDivElement, MobileGameCardProps>(({
   rating = 4.5,
   reviews = 234,
   onClose,
-}, ref) => {
+}: MobileGameCardProps) => {
   const addItem = useCartStore(state => state.addItem);
   const [isAdding, setIsAdding] = useState(false);
   const [isWishlisted, setIsWishlisted] = useState(false);
-  const y = useMotionValue(0);
-  const opacity = useTransform(y, [0, 200], [1, 0.5]);
-  const scale = useTransform(y, [0, 200], [1, 0.95]);
+
+  // Lock body scroll while the sheet is mounted (prevents stuck "no popup but no scroll" states)
+  useEffect(() => {
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.body.style.overflow = prevOverflow;
+    };
+  }, []);
 
   const handleDragEnd = (_: any, info: any) => {
     if (info.offset.y > 100) {
@@ -41,21 +47,18 @@ const MobileGameCard = forwardRef<HTMLDivElement, MobileGameCardProps>(({
     }
   };
 
-  console.log('[DEBUG] MobileGameCard rendering for:', title);
-  
   return (
     <motion.div
-      ref={ref}
       className="fixed inset-0 z-[60] bg-background md:hidden"
       initial={{ y: "100%" }}
       animate={{ y: 0 }}
-      exit={{ y: "100%" }}
       transition={{ type: "spring", damping: 30, stiffness: 300 }}
-      style={{ opacity, scale, y }}
       drag="y"
       dragConstraints={{ top: 0, bottom: 0 }}
       dragElastic={0.2}
+      dragMomentum={false}
       onDragEnd={handleDragEnd}
+      data-mobile-game-card
     >
       {/* Drag indicator */}
       <div className="absolute top-3 left-1/2 -translate-x-1/2 w-10 h-1 bg-muted-foreground/30 rounded-full z-10" />
@@ -181,8 +184,6 @@ const MobileGameCard = forwardRef<HTMLDivElement, MobileGameCardProps>(({
       </div>
     </motion.div>
   );
-});
-
-MobileGameCard.displayName = "MobileGameCard";
+};
 
 export default MobileGameCard;
