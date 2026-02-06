@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import Header from "@/components/Header";
 import Hero from "@/components/Hero";
 import TrustBanner from "@/components/TrustBanner";
@@ -17,7 +17,7 @@ import MobileClub from "@/components/MobileClub";
 import MobileCart from "@/components/MobileCart";
 import MobileGameCard from "@/components/MobileGameCard";
 
-import { AnimatePresence } from "framer-motion";
+
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useCartStore } from "@/stores/cartStore";
 import { useAuth } from "@/contexts/AuthContext";
@@ -52,21 +52,9 @@ const Index = () => {
     setTimeout(() => setSiteReady(true), 100);
   };
 
-  // Prevent scroll when game card is open
-  useEffect(() => {
-    if (selectedGame && isMobile) {
-      // Small delay to ensure sheet is rendered before locking scroll
-      const timer = setTimeout(() => {
-        document.body.style.overflow = 'hidden';
-      }, 50);
-      return () => clearTimeout(timer);
-    } else {
-      document.body.style.overflow = '';
-    }
-    return () => {
-      document.body.style.overflow = '';
-    };
-  }, [selectedGame, isMobile]);
+  // Scroll locking is handled inside the MobileGameCard itself to avoid "stuck" states
+  // if selection happens but the sheet fails to mount/animate for any reason.
+
 
   const handleSelectGame = (product: KinguinProduct) => {
     console.log('[DEBUG] handleSelectGame called with:', product.name);
@@ -100,7 +88,7 @@ const Index = () => {
       
       <div 
         className={`min-h-screen bg-background transition-opacity duration-500 ${
-          siteReady ? 'opacity-100' : 'opacity-0'
+          siteReady ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'
         }`}
       >
         {/* Mobile Layout */}
@@ -116,24 +104,22 @@ const Index = () => {
             />
 
             {/* Game Detail Sheet */}
-            <AnimatePresence mode="wait">
-              {selectedGame && (
-                <MobileGameCard
-                  key={selectedGame.id}
-                  title={selectedGame.name}
-                  image={selectedGame.cover_image || ''}
-                  price={selectedGame.sell_price}
-                  originalPrice={selectedGame.original_price}
-                  platform={selectedGame.platform || 'Steam'}
-                  discount={Math.round((1 - selectedGame.sell_price / selectedGame.original_price) * 100)}
-                  rating={4.7}
-                  onClose={() => {
-                    console.log('[DEBUG] onClose called');
-                    setSelectedGame(null);
-                  }}
-                />
-              )}
-            </AnimatePresence>
+            {selectedGame && (
+              <MobileGameCard
+                key={selectedGame.id}
+                title={selectedGame.name}
+                image={selectedGame.cover_image || ''}
+                price={selectedGame.sell_price}
+                originalPrice={selectedGame.original_price}
+                platform={selectedGame.platform || 'Steam'}
+                discount={Math.round((1 - selectedGame.sell_price / selectedGame.original_price) * 100)}
+                rating={4.7}
+                onClose={() => {
+                  console.log('[DEBUG] onClose called');
+                  setSelectedGame(null);
+                }}
+              />
+            )}
           </>
         ) : (
           /* Desktop Layout */
