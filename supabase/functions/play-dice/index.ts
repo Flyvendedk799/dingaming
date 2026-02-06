@@ -122,27 +122,11 @@ serve(async (req) => {
     // Determine win
     const isWin = isOver ? roll > targetNumber : roll < targetNumber;
 
-    // Calculate result
-    let newBalance = currentBalance - betAmount;
-    let winAmount = 0;
+    // Calculate win amount
+    const winAmount = isWin ? Math.floor(betAmount * multiplier) : 0;
 
-    if (isWin) {
-      winAmount = Math.floor(betAmount * multiplier);
-      newBalance += winAmount;
-    }
-
-    // Update balance
-    await supabaseAdmin
-      .from("shard_balances")
-      .update({
-        balance: newBalance,
-        lifetime_earned: (balanceData.lifetime_earned || 0) + (isWin ? winAmount : 0),
-        lifetime_spent: (balanceData.lifetime_spent || 0) + betAmount,
-        updated_at: new Date().toISOString(),
-      })
-      .eq("user_id", userId);
-
-    // Record transaction(s)
+    // Record transactions - the database trigger handles balance updates
+    // NOTE: Removed direct shard_balances update to fix double-deduction bug
     const transactions = [
       {
         user_id: userId,
@@ -182,6 +166,10 @@ serve(async (req) => {
       is_active: false,
       ended_at: new Date().toISOString(),
     });
+
+    // Calculate new balance based on transactions
+    // The trigger will update the balance, but we need to return the expected new balance
+    const newBalance = currentBalance - betAmount + winAmount;
 
     return new Response(
       JSON.stringify({
