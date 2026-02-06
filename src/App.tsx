@@ -2,7 +2,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider } from "@/contexts/AuthContext";
 import Index from "./pages/Index";
 import ProductPage from "./pages/ProductPage";
@@ -19,6 +19,9 @@ import RewardsPage from "./pages/RewardsPage";
 import GamesPage from "./pages/GamesPage";
 import CasesPage from "./pages/CasesPage";
 import CheckoutPage from "./pages/CheckoutPage";
+import CasinoLobbyPage from "./pages/CasinoLobbyPage";
+import MinesRoomPage from "./pages/MinesRoomPage";
+import DiceRoomPage from "./pages/DiceRoomPage";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -43,7 +46,12 @@ const App = () => (
             <Route path="/forgot-password" element={<ForgotPasswordPage />} />
             <Route path="/club" element={<ClubPage />} />
             <Route path="/club/rewards" element={<RewardsPage />} />
-            <Route path="/club/games" element={<GamesPage />} />
+            {/* New Casino Routes */}
+            <Route path="/club/casino" element={<CasinoLobbyPage />} />
+            <Route path="/club/casino/mines" element={<MinesRoomPage />} />
+            <Route path="/club/casino/dice" element={<DiceRoomPage />} />
+            {/* Redirect old games page to new casino lobby */}
+            <Route path="/club/games" element={<Navigate to="/club/casino" replace />} />
             <Route path="/club/cases" element={<CasesPage />} />
             <Route path="/checkout" element={<CheckoutPage />} />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}

@@ -162,17 +162,8 @@ serve(async (req) => {
         );
       }
 
-      // Deduct bet amount
-      await supabaseAdmin
-        .from("shard_balances")
-        .update({
-          balance: currentBalance - betAmount,
-          lifetime_spent: (balanceData.lifetime_spent || 0) + betAmount,
-          updated_at: new Date().toISOString(),
-        })
-        .eq("user_id", userId);
-
-      // Record the bet transaction
+      // Record the bet transaction - the database trigger handles balance update
+      // NOTE: Removed direct shard_balances update to fix double-deduction bug
       await supabaseAdmin.from("shard_transactions").insert({
         user_id: userId,
         amount: -betAmount,
@@ -308,22 +299,8 @@ serve(async (req) => {
           })
           .eq("session_id", sessionId);
 
-        // Award winnings
-        const { data: newBalance } = await supabaseAdmin
-          .from("shard_balances")
-          .select("balance, lifetime_earned")
-          .eq("user_id", userId)
-          .single();
-
-        await supabaseAdmin
-          .from("shard_balances")
-          .update({
-            balance: (newBalance?.balance || 0) + winAmount,
-            lifetime_earned: (newBalance?.lifetime_earned || 0) + winAmount,
-            updated_at: new Date().toISOString(),
-          })
-          .eq("user_id", userId);
-
+        // Award winnings via transaction - trigger handles balance update
+        // NOTE: Removed direct shard_balances update to fix double-deduction bug
         await supabaseAdmin.from("shard_transactions").insert({
           user_id: userId,
           amount: winAmount,
@@ -418,22 +395,8 @@ serve(async (req) => {
         })
         .eq("session_id", sessionId);
 
-      // Award winnings
-      const { data: newBalance } = await supabaseAdmin
-        .from("shard_balances")
-        .select("balance, lifetime_earned")
-        .eq("user_id", userId)
-        .single();
-
-      await supabaseAdmin
-        .from("shard_balances")
-        .update({
-          balance: (newBalance?.balance || 0) + winAmount,
-          lifetime_earned: (newBalance?.lifetime_earned || 0) + winAmount,
-          updated_at: new Date().toISOString(),
-        })
-        .eq("user_id", userId);
-
+      // Award winnings via transaction - trigger handles balance update
+      // NOTE: Removed direct shard_balances update to fix double-deduction bug
       await supabaseAdmin.from("shard_transactions").insert({
         user_id: userId,
         amount: winAmount,

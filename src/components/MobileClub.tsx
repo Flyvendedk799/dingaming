@@ -253,7 +253,7 @@ const MobileClub = ({ onBack }: MobileClubProps) => {
                   <Gift className="w-4 h-4" />
                 </Button>
               </Link>
-              <Link to="/club/games">
+              <Link to="/club/casino">
                 <Button size="sm" variant="outline" className="w-full border-accent text-accent hover:bg-accent/10">
                   <Gamepad2 className="w-4 h-4" />
                 </Button>
@@ -358,20 +358,20 @@ const MobileClub = ({ onBack }: MobileClubProps) => {
           transition={{ delay: 0.2 }}
         >
           <Link 
-            to="/club/games"
+            to="/club/casino"
             className="p-4 rounded-2xl bg-gradient-to-br from-accent/10 to-accent/5 border border-accent/20 flex flex-col"
           >
             <div className="w-12 h-12 rounded-xl bg-accent/20 flex items-center justify-center mb-3">
               <Gamepad2 className="w-6 h-6 text-accent" />
             </div>
-            <span className="font-semibold text-foreground">Sweepstake</span>
+            <span className="font-semibold text-foreground">Casino</span>
             <span className="text-xs text-muted-foreground">Mines & Dice</span>
             <div className="mt-2 flex items-center text-accent text-xs font-medium">
               Spil nu <ChevronRight className="w-4 h-4" />
             </div>
           </Link>
 
-          <Link 
+          <Link
             to="/club/cases"
             className="p-4 rounded-2xl bg-gradient-to-br from-primary/10 to-primary/5 border border-primary/20 flex flex-col"
           >
