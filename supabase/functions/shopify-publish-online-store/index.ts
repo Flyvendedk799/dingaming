@@ -37,7 +37,8 @@ async function publishToCurrentChannel(accessToken: string, shopifyAdminUrl: str
   })
 
   const data = await response.json().catch(() => null)
-  const gqlErrors: any[] = data?.errors || []
+  const rawErrors = data?.errors
+  const gqlErrors: any[] = Array.isArray(rawErrors) ? rawErrors : rawErrors ? [rawErrors] : []
   if (gqlErrors.length > 0) {
     return { ok: false, error: gqlErrors.map((e) => e?.message).filter(Boolean).join('; ') || 'graphql_error' }
   }
