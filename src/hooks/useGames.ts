@@ -303,7 +303,7 @@ export const usePlayBlackjack = () => {
 
   return useMutation({
     mutationFn: async (params: {
-      action: 'deal' | 'hit' | 'stand';
+      action: 'deal' | 'hit' | 'stand' | 'double';
       betAmount?: number;
       sessionId?: string;
     }): Promise<BlackjackResponse> => {

@@ -229,8 +229,61 @@ serve(async (req) => {
       return await resolveDealerTurn(supabaseAdmin, state, sessionId, userId);
     }
 
+    // ---- DOUBLE DOWN ----
+    if (action === "double") {
+      if (!sessionId) {
+        return new Response(JSON.stringify({ error: "Missing sessionId" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      }
+
+      const { data: sessionData, error: sessionError } = await supabaseAdmin
+        .from("game_sessions").select("*")
+        .eq("session_id", sessionId).eq("user_id", userId).eq("is_active", true).single();
+
+      if (sessionError || !sessionData) {
+        return new Response(JSON.stringify({ error: "Game session not found" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      }
+
+      const state = sessionData.state as unknown as BlackjackState;
+      if (state.status !== "playing" || state.playerHand.length !== 2) {
+        return new Response(JSON.stringify({ error: "Double only allowed on first two cards" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      }
+
+      // Check balance for extra bet
+      const { data: balRes } = await supabaseAdmin.from("shard_balances").select("balance").eq("user_id", userId).single();
+      if ((balRes?.balance || 0) < state.betAmount) {
+        return new Response(JSON.stringify({ error: "Insufficient balance to double" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      }
+
+      // Deduct extra bet
+      await supabaseAdmin.from("shard_transactions").insert({
+        user_id: userId, amount: -state.betAmount, type: "game_bet",
+        description: "Blackjack double down", reference_id: sessionId,
+      });
+
+      // Double the bet, draw exactly one card
+      state.betAmount *= 2;
+      state.playerHand.push(state.deck.pop()!);
+      const pVal = handValue(state.playerHand);
+
+      if (pVal > 21) {
+        state.status = "player_bust";
+        state.winAmount = 0;
+        await supabaseAdmin.from("game_sessions").update({
+          state: state as any, is_active: false, ended_at: new Date().toISOString(),
+        }).eq("session_id", sessionId);
+        return new Response(JSON.stringify({
+          success: true, playerHand: state.playerHand, dealerHand: state.dealerHand,
+          playerValue: pVal, dealerValue: handValue(state.dealerHand),
+          betAmount: state.betAmount, status: "player_bust", winAmount: 0,
+        }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      }
+
+      // Auto-stand after double
+      return await resolveDealerTurn(supabaseAdmin, state, sessionId, userId);
+    }
+
     return new Response(
-      JSON.stringify({ error: "Invalid action. Use: deal, hit, stand" }),
+      JSON.stringify({ error: "Invalid action. Use: deal, hit, stand, double" }),
       { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
 
