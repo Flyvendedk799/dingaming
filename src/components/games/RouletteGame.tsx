@@ -21,7 +21,41 @@ const isRed = (n: number) => RED_NUMBERS.includes(n);
 
 const SLOT_ANGLE = 360 / 37;
 
-const RouletteWheel = ({ rotation, result, isAnimating, resultIsRed }: { rotation: number; result: number | null; isAnimating: boolean; resultIsRed: boolean | null }) => {
+// How many degrees the wheel needs to rotate so the result slot sits under the pointer (top).
+// The pointer is at 12 o'clock, wheel segment 0 (index 0 in WHEEL_ORDER) starts at 0°.
+function targetRotationForResult(resultNumber: number, currentRotation: number): number {
+  const slotIndex = WHEEL_ORDER.indexOf(resultNumber);
+  // The slot centre sits at slotIndex * SLOT_ANGLE degrees from the 12 o'clock position
+  // (since SVG draws segments starting at 0° = right, we need -90° offset handled by pointer).
+  // We want: (currentRotation + delta) % 360  lands the slot under the pointer.
+  // Add extra full rotations so the ball travels realistically (8 full rotations).
+  const EXTRA_ROTATIONS = 8;
+  const slotDeg = slotIndex * SLOT_ANGLE; // where the slot lives in the wheel's local coords
+  // How much do we need the wheel to have turned from 0° to bring slotDeg to top (0°)?
+  // wheel must rotate (360 - slotDeg) to bring it to top, then add full rounds.
+  const landingOffset = (360 - slotDeg) % 360;
+  // Current position within 360°
+  const currentMod = ((currentRotation % 360) + 360) % 360;
+  // How much extra to add to go from currentMod to landingOffset
+  const diff = ((landingOffset - currentMod) + 360) % 360;
+  return currentRotation + EXTRA_ROTATIONS * 360 + diff;
+}
+
+const RouletteWheel = ({
+  rotation,
+  spinning,
+  spinDuration,
+  result,
+  isAnimating,
+  resultIsRed,
+}: {
+  rotation: number;
+  spinning: boolean;
+  spinDuration: number;
+  result: number | null;
+  isAnimating: boolean;
+  resultIsRed: boolean | null;
+}) => {
   const segments = useMemo(() => {
     return WHEEL_ORDER.map((num, i) => {
       const angle = i * SLOT_ANGLE;
@@ -32,7 +66,7 @@ const RouletteWheel = ({ rotation, result, isAnimating, resultIsRed }: { rotatio
 
   return (
     <div className="relative w-52 h-52 sm:w-64 sm:h-64 mx-auto">
-      {/* Outer ring glow */}
+      {/* Outer glow */}
       <div className="absolute inset-0 rounded-full" style={{
         boxShadow: isAnimating
           ? '0 0 30px hsl(38 92% 50% / 0.4), inset 0 0 20px hsl(38 92% 50% / 0.1)'
@@ -40,13 +74,15 @@ const RouletteWheel = ({ rotation, result, isAnimating, resultIsRed }: { rotatio
         transition: 'box-shadow 0.5s ease'
       }} />
 
-      {/* Spinning wheel */}
+      {/* Spinning wheel — single CSS transition, duration driven by prop */}
       <motion.div
         className="w-full h-full rounded-full border-[3px] border-border/50 overflow-hidden relative"
         animate={{ rotate: rotation }}
-        transition={{ duration: 4.5, ease: [0.15, 0.85, 0.25, 1] }}
+        transition={{
+          duration: spinDuration,
+          ease: spinning ? [0.1, 0.8, 0.15, 1] : [0, 0, 1, 1],
+        }}
       >
-        {/* SVG wheel */}
         <svg viewBox="0 0 200 200" className="w-full h-full">
           {segments.map(({ num, angle, color }) => {
             const startAngle = (angle - SLOT_ANGLE / 2) * (Math.PI / 180);
@@ -57,7 +93,6 @@ const RouletteWheel = ({ rotation, result, isAnimating, resultIsRed }: { rotatio
             const y1 = cy + r * Math.sin(startAngle);
             const x2 = cx + r * Math.cos(endAngle);
             const y2 = cy + r * Math.sin(endAngle);
-
             const textAngle = angle * (Math.PI / 180);
             const textR = 82;
             const tx = cx + textR * Math.cos(textAngle);
@@ -72,8 +107,7 @@ const RouletteWheel = ({ rotation, result, isAnimating, resultIsRed }: { rotatio
                   strokeWidth="0.3"
                 />
                 <text
-                  x={tx}
-                  y={ty}
+                  x={tx} y={ty}
                   fill="white"
                   fontSize="7"
                   fontWeight="bold"
@@ -86,13 +120,12 @@ const RouletteWheel = ({ rotation, result, isAnimating, resultIsRed }: { rotatio
               </g>
             );
           })}
-          {/* Inner circle */}
           <circle cx="100" cy="100" r="38" fill="hsl(30 8% 10%)" stroke="hsl(30 6% 18%)" strokeWidth="1.5" />
           <circle cx="100" cy="100" r="35" fill="hsl(30 10% 6%)" />
         </svg>
       </motion.div>
 
-      {/* Center display */}
+      {/* Centre display */}
       <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
         <div className="w-16 h-16 sm:w-[72px] sm:h-[72px] rounded-full flex items-center justify-center">
           <AnimatePresence mode="wait">
@@ -122,7 +155,7 @@ const RouletteWheel = ({ rotation, result, isAnimating, resultIsRed }: { rotatio
         </div>
       </div>
 
-      {/* Pointer triangle */}
+      {/* Pointer */}
       <div className="absolute top-0 left-1/2 -translate-x-1/2 -translate-y-1 z-20">
         <div className="w-0 h-0 border-l-[10px] border-l-transparent border-r-[10px] border-r-transparent border-t-[16px] border-t-primary drop-shadow-lg" />
       </div>
@@ -130,15 +163,17 @@ const RouletteWheel = ({ rotation, result, isAnimating, resultIsRed }: { rotatio
   );
 };
 
+
+const SPIN_DURATION_S = 5.5; // seconds for the single wheel spin animation
+
 const RouletteGame = () => {
   const { data: balance, refetch: refetchBalance } = useShardBalance();
   const playRoulette = usePlayRoulette();
 
   const [chipAmount, setChipAmount] = useState(100);
   const [bets, setBets] = useState<Bet[]>([]);
-  const [isSpinning, setIsSpinning] = useState(false);
   const [isAnimating, setIsAnimating] = useState(false);
-  const [isWaitingForServer, setIsWaitingForServer] = useState(false);
+  const [spinning, setSpinning] = useState(false);
   const [result, setResult] = useState<number | null>(null);
   const [resultIsRed, setResultIsRed] = useState<boolean | null>(null);
   const [lastWin, setLastWin] = useState<number>(0);
@@ -147,7 +182,7 @@ const RouletteGame = () => {
   const [history, setHistory] = useState<number[]>([]);
 
   const totalBet = bets.reduce((s, b) => s + b.amount, 0);
-  const isBusy = isSpinning || isAnimating;
+  const isBusy = isAnimating;
 
   const addBet = (type: BetType, value?: number) => {
     if (isBusy || chipAmount < 10) return;
@@ -175,30 +210,25 @@ const RouletteGame = () => {
     setLastWin(0);
     setIsAnimating(true);
 
-    // Kick wheel spinning IMMEDIATELY with a placeholder rotation
-    // so the user sees it moving right away regardless of server speed.
-    const PRE_SPIN_ROTATIONS = 360 * 4; // 4 full rotations as a "pending" spin
-    setWheelRotation(prev => prev + PRE_SPIN_ROTATIONS);
-
-    // Minimum time we want the wheel to visibly spin before revealing result
-    const MIN_SPIN_MS = 4800;
+    // Minimum time the spin animation must play (must match SPIN_DURATION_S)
+    const MIN_SPIN_MS = SPIN_DURATION_S * 1000;
 
     try {
-      // API call and minimum wait run in parallel
+      // Fetch result AND enforce minimum animation time in parallel
       const [data] = await Promise.all([
         playRoulette.mutateAsync({ bets }),
-        new Promise(r => setTimeout(r, MIN_SPIN_MS)),
+        new Promise(r => setTimeout(r, 300)), // small grace to let React settle before we set rotation
       ]);
 
-      // Both done — now apply the corrected final position
-      const resultIndex = WHEEL_ORDER.indexOf(data.result);
-      // Add extra rotations on top of current to land on result
-      const targetDeg = 360 * 4 + (360 - resultIndex * SLOT_ANGLE);
-      setWheelRotation(prev => prev + targetDeg);
+      // Calculate ONE target rotation that lands the correct slot under the pointer
+      const finalRotation = targetRotationForResult(data.result, wheelRotation);
+      setWheelRotation(finalRotation);
+      setSpinning(true);
 
-      // Wait for this final spin CSS transition
-      await new Promise(r => setTimeout(r, MIN_SPIN_MS));
+      // Wait for the spin animation to complete
+      await new Promise(r => setTimeout(r, MIN_SPIN_MS + 300));
 
+      setSpinning(false);
       setResult(data.result);
       setResultIsRed(data.isRed);
       setLastWin(data.totalWin);
@@ -214,7 +244,7 @@ const RouletteGame = () => {
       // no-op
     } finally {
       setIsAnimating(false);
-      setIsSpinning(false);
+      setSpinning(false);
     }
   };
 
@@ -280,7 +310,7 @@ const RouletteGame = () => {
 
           {/* Wheel */}
           <div className="py-2">
-            <RouletteWheel rotation={wheelRotation} result={result} isAnimating={isAnimating} resultIsRed={resultIsRed} />
+            <RouletteWheel rotation={wheelRotation} spinning={spinning} spinDuration={SPIN_DURATION_S} result={result} isAnimating={isAnimating} resultIsRed={resultIsRed} />
           </div>
 
           {/* Result banner */}
@@ -356,7 +386,7 @@ const RouletteGame = () => {
                 onClick={handleSpin}
                 disabled={isBusy || bets.length === 0 || totalBet > (balance?.balance || 0)}
               >
-                {isSpinning ? <Loader2 className="w-5 h-5 animate-spin" /> : isAnimating ? (
+                {spinning ? <Loader2 className="w-5 h-5 animate-spin" /> : isAnimating ? (
                   <motion.span animate={{ opacity: [0.5, 1, 0.5] }} transition={{ duration: 0.8, repeat: Infinity }}>Spinner...</motion.span>
                 ) : (
                   <><Zap className="w-5 h-5 mr-2" />Spin ({formatShards(totalBet)} Shards)</>
