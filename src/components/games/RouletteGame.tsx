@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { useShardBalance } from '@/hooks/useShards';
 import { usePlayRoulette } from '@/hooks/useGames';
 import { cn } from '@/lib/utils';
+import SlowConnectionBanner from '@/components/casino/SlowConnectionBanner';
 
 const RED_NUMBERS = [1,3,5,7,9,12,14,16,18,19,21,23,25,27,30,32,34,36];
 const WHEEL_ORDER = [0,32,15,19,4,21,2,25,17,34,6,27,13,36,11,30,8,23,10,5,24,16,33,1,20,14,31,9,22,18,29,7,28,12,35,3,26];
@@ -43,15 +44,13 @@ function targetRotationForResult(resultNumber: number, currentRotation: number):
 
 const RouletteWheel = ({
   rotation,
-  spinning,
-  spinDuration,
+  phase,
   result,
   isAnimating,
   resultIsRed,
 }: {
   rotation: number;
-  spinning: boolean;
-  spinDuration: number;
+  phase: 'idle' | 'pre-spin' | 'landing';
   result: number | null;
   isAnimating: boolean;
   resultIsRed: boolean | null;
@@ -64,6 +63,12 @@ const RouletteWheel = ({
     });
   }, []);
 
+  // Duration and easing differ by phase:
+  // pre-spin → constant velocity (linear), fast
+  // landing  → decelerating ease, LAND_DURATION_S seconds
+  const duration = phase === 'landing' ? LAND_DURATION_S : phase === 'pre-spin' ? PRE_SPIN_SPEED_DEG_PER_S / 360 : 0;
+  const ease = phase === 'landing' ? ([0.05, 0.85, 0.12, 1] as const) : ([0, 0, 1, 1] as const);
+
   return (
     <div className="relative w-52 h-52 sm:w-64 sm:h-64 mx-auto">
       {/* Outer glow */}
@@ -74,13 +79,13 @@ const RouletteWheel = ({
         transition: 'box-shadow 0.5s ease'
       }} />
 
-      {/* Spinning wheel — single CSS transition, duration driven by prop */}
+      {/* Spinning wheel — transition controlled by phase */}
       <motion.div
         className="w-full h-full rounded-full border-[3px] border-border/50 overflow-hidden relative"
         animate={{ rotate: rotation }}
         transition={{
-          duration: spinDuration,
-          ease: spinning ? [0.1, 0.8, 0.15, 1] : [0, 0, 1, 1],
+          duration,
+          ease,
         }}
       >
         <svg viewBox="0 0 200 200" className="w-full h-full">
@@ -164,7 +169,10 @@ const RouletteWheel = ({
 };
 
 
-const SPIN_DURATION_S = 5.5; // seconds for the single wheel spin animation
+// Pre-spin: fast continuous rotation while waiting for server result
+const PRE_SPIN_SPEED_DEG_PER_S = 600; // degrees per second during pre-spin
+// Landing spin: slow deceleration into exact slot
+const LAND_DURATION_S = 4.0;
 
 const RouletteGame = () => {
   const { data: balance, refetch: refetchBalance } = useShardBalance();
@@ -173,13 +181,17 @@ const RouletteGame = () => {
   const [chipAmount, setChipAmount] = useState(100);
   const [bets, setBets] = useState<Bet[]>([]);
   const [isAnimating, setIsAnimating] = useState(false);
-  const [spinning, setSpinning] = useState(false);
+  const [spinPhase, setSpinPhase] = useState<'idle' | 'pre-spin' | 'landing'>('idle');
   const [result, setResult] = useState<number | null>(null);
   const [resultIsRed, setResultIsRed] = useState<boolean | null>(null);
   const [lastWin, setLastWin] = useState<number>(0);
   const [showCelebration, setShowCelebration] = useState(false);
   const [wheelRotation, setWheelRotation] = useState(0);
   const [history, setHistory] = useState<number[]>([]);
+  const [error, setError] = useState<string | null>(null);
+  // tracks the accumulated rotation so pre-spin → landing is seamless
+  const rotationRef = useRef(0);
+
 
   const totalBet = bets.reduce((s, b) => s + b.amount, 0);
   const isBusy = isAnimating;
@@ -208,44 +220,54 @@ const RouletteGame = () => {
     if (isBusy || bets.length === 0 || totalBet > (balance?.balance || 0)) return;
     setResult(null);
     setLastWin(0);
+    setError(null);
     setIsAnimating(true);
 
-    // Minimum time the spin animation must play (must match SPIN_DURATION_S)
-    const MIN_SPIN_MS = SPIN_DURATION_S * 1000;
+    // ── Phase 1: pre-spin starts immediately (5 full rotations at constant speed)
+    const PRE_SPIN_ROTATIONS = 5;
+    const preDeg = rotationRef.current + PRE_SPIN_ROTATIONS * 360;
+    rotationRef.current = preDeg;
+    setWheelRotation(preDeg);
+    setSpinPhase('pre-spin');
+    const preDurationMs = (PRE_SPIN_ROTATIONS * 360 / PRE_SPIN_SPEED_DEG_PER_S) * 1000;
+
+    let data: Awaited<ReturnType<typeof playRoulette.mutateAsync>> | null = null;
 
     try {
-      // Fetch result AND enforce minimum animation time in parallel
-      const [data] = await Promise.all([
+      // Run server call in parallel with the pre-spin time
+      [data] = await Promise.all([
         playRoulette.mutateAsync({ bets }),
-        new Promise(r => setTimeout(r, 300)), // small grace to let React settle before we set rotation
+        new Promise(r => setTimeout(r, preDurationMs)),
       ]);
-
-      // Calculate ONE target rotation that lands the correct slot under the pointer
-      const finalRotation = targetRotationForResult(data.result, wheelRotation);
-      setWheelRotation(finalRotation);
-      setSpinning(true);
-
-      // Wait for the spin animation to complete
-      await new Promise(r => setTimeout(r, MIN_SPIN_MS + 300));
-
-      setSpinning(false);
-      setResult(data.result);
-      setResultIsRed(data.isRed);
-      setLastWin(data.totalWin);
-      setHistory(prev => [data.result, ...prev.slice(0, 19)]);
-
-      if (data.totalWin > 0) {
-        setShowCelebration(true);
-        setTimeout(() => setShowCelebration(false), 2500);
-      }
-
-      refetchBalance();
     } catch {
-      // no-op
-    } finally {
+      setError('Forbindelsen fejlede – prøv igen');
       setIsAnimating(false);
-      setSpinning(false);
+      setSpinPhase('idle');
+      return;
     }
+
+    // ── Phase 2: decelerate precisely onto the result slot
+    const landingTarget = targetRotationForResult(data!.result, rotationRef.current);
+    rotationRef.current = landingTarget;
+    setWheelRotation(landingTarget);
+    setSpinPhase('landing');
+
+    // Wait for landing animation to complete
+    await new Promise(r => setTimeout(r, LAND_DURATION_S * 1000 + 300));
+
+    setSpinPhase('idle');
+    setResult(data!.result);
+    setResultIsRed(data!.isRed ?? null);
+    setLastWin(data!.totalWin);
+    setHistory(prev => [data!.result, ...prev.slice(0, 19)]);
+
+    if (data!.totalWin > 0) {
+      setShowCelebration(true);
+      setTimeout(() => setShowCelebration(false), 2500);
+    }
+
+    refetchBalance();
+    setIsAnimating(false);
   };
 
   const handleNewRound = () => {
@@ -310,8 +332,25 @@ const RouletteGame = () => {
 
           {/* Wheel */}
           <div className="py-2">
-            <RouletteWheel rotation={wheelRotation} spinning={spinning} spinDuration={SPIN_DURATION_S} result={result} isAnimating={isAnimating} resultIsRed={resultIsRed} />
+            <RouletteWheel rotation={wheelRotation} phase={spinPhase} result={result} isAnimating={isAnimating} resultIsRed={resultIsRed} />
           </div>
+
+          {/* Slow-connection banner (shows after 2.5 s of spinning) */}
+          <SlowConnectionBanner visible={spinPhase === 'pre-spin'} delayMs={2500} />
+
+          {/* Error banner */}
+          <AnimatePresence>
+            {error && (
+              <motion.div
+                initial={{ opacity: 0, y: -8 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0 }}
+                className="rounded-xl py-2.5 px-4 bg-destructive/10 border border-destructive/30 text-destructive text-sm text-center"
+              >
+                {error}
+              </motion.div>
+            )}
+          </AnimatePresence>
 
           {/* Result banner */}
           <AnimatePresence>
@@ -386,7 +425,7 @@ const RouletteGame = () => {
                 onClick={handleSpin}
                 disabled={isBusy || bets.length === 0 || totalBet > (balance?.balance || 0)}
               >
-                {spinning ? <Loader2 className="w-5 h-5 animate-spin" /> : isAnimating ? (
+                {spinPhase === 'landing' ? <Loader2 className="w-5 h-5 animate-spin" /> : isAnimating ? (
                   <motion.span animate={{ opacity: [0.5, 1, 0.5] }} transition={{ duration: 0.8, repeat: Infinity }}>Spinner...</motion.span>
                 ) : (
                   <><Zap className="w-5 h-5 mr-2" />Spin ({formatShards(totalBet)} Shards)</>

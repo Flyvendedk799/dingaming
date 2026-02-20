@@ -33,7 +33,7 @@ const LinesRoomPage = () => {
 
   return (
     <div className="min-h-screen relative">
-      <CasinoBackground variant="dice" />
+      <CasinoBackground variant="lines" />
 
       <div className="relative z-10">
         <header

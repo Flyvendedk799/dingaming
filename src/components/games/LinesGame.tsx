@@ -7,6 +7,7 @@ import { Slider } from '@/components/ui/slider';
 import { useShardBalance } from '@/hooks/useShards';
 import { usePlayLines, calculateDiceMultiplier, LineConfig, LinesSpinResponse } from '@/hooks/useGames';
 import { cn } from '@/lib/utils';
+import SlowConnectionBanner from '@/components/casino/SlowConnectionBanner';
 
 // ─── Colour palette per line ─────────────────────────────────────────────────
 const LINE_META = [
@@ -280,31 +281,34 @@ const LinesGame = () => {
     setResult(null);
     setShowCelebration(false);
 
-    const MIN_ROLL_MS = 1600 + lineCount * 100;
+    const MIN_ROLL_MS = 1800 + lineCount * 120;
 
+    let data: LinesSpinResponse | null = null;
     try {
-      const [data] = await Promise.all([
+      [data] = await Promise.all([
         spin.mutateAsync({ betAmount, lineConfigs: lineConfigs.slice(0, lineCount) }),
         new Promise(r => setTimeout(r, MIN_ROLL_MS)),
       ]);
-
-      setIsRolling(false);
-      await new Promise(r => setTimeout(r, 100));
-      setResult(data);
-      setRevealed(true);
-
-      if (data.totalWin > 0) {
-        setShowCelebration(true);
-        setTimeout(() => setShowCelebration(false), 3500);
-      }
-
-      setHistory(prev => [{ net: data.netResult, mult: data.combinedMultiplier }, ...prev.slice(0, 14)]);
-      refetchBalance();
     } catch {
       setIsRolling(false);
-    } finally {
       setIsSpinning(false);
+      return;
     }
+
+    // Brief pause so the tickers all show random on the same frame
+    setIsRolling(false);
+    await new Promise(r => setTimeout(r, 120));
+    setResult(data!);
+    setRevealed(true);
+
+    if (data!.totalWin > 0) {
+      setShowCelebration(true);
+      setTimeout(() => setShowCelebration(false), 3500);
+    }
+
+    setHistory(prev => [{ net: data!.netResult, mult: data!.combinedMultiplier }, ...prev.slice(0, 14)]);
+    refetchBalance();
+    setIsSpinning(false);
   }, [canSpin, betAmount, lineCount, lineConfigs, spin, refetchBalance]);
 
   const bigWin = result && result.totalWin >= totalBet * 5;
