@@ -150,7 +150,7 @@ const DiceGame = () => {
   const DiceIcon = getDiceIconComponent(displayRoll);
 
   return (
-    <div className="bg-card border border-border rounded-2xl p-6 relative overflow-hidden">
+    <div className="bg-card border border-border rounded-2xl p-4 sm:p-6 relative overflow-hidden">
       {/* Win celebration particles */}
       <AnimatePresence>
         {showWinCelebration && (
@@ -220,7 +220,7 @@ const DiceGame = () => {
         </AnimatePresence>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div className="flex flex-col lg:grid lg:grid-cols-2 gap-4 sm:gap-6">
         {/* Controls */}
         <div className="space-y-4">
           {/* Bet Amount */}
@@ -412,11 +412,11 @@ const DiceGame = () => {
         </div>
 
         {/* Dice Display */}
-        <div className="flex flex-col items-center justify-center">
+        <div className="flex flex-col items-center justify-center order-first lg:order-last">
           {/* Roll Result Display */}
           <motion.div
             className={cn(
-              "relative w-44 h-44 rounded-3xl bg-background border-2 flex items-center justify-center overflow-hidden transition-colors duration-300",
+              "relative w-36 h-36 sm:w-44 sm:h-44 rounded-3xl bg-background border-2 flex items-center justify-center overflow-hidden transition-colors duration-300",
               lastResult?.isWin && !isRolling ? "border-success shadow-lg shadow-success/20" : 
               lastResult && !lastResult.isWin && !isRolling ? "border-destructive shadow-lg shadow-destructive/20" : 
               "border-border"

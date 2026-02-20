@@ -257,7 +257,7 @@ const BlackjackGame = () => {
   }
 
   return (
-    <div className="bg-card border border-border rounded-2xl p-6 relative overflow-hidden">
+    <div className="bg-card border border-border rounded-2xl p-4 sm:p-6 relative overflow-hidden">
       {/* Celebration particles */}
       <AnimatePresence>
         {showCelebration && (
@@ -294,7 +294,7 @@ const BlackjackGame = () => {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div className="flex flex-col lg:grid lg:grid-cols-2 gap-4 sm:gap-6">
         {/* Controls */}
         <div className="space-y-4">
           {/* Balance */}
@@ -387,20 +387,20 @@ const BlackjackGame = () => {
               <div className="grid grid-cols-2 gap-3">
                 <motion.div whileTap={{ scale: 0.95 }}>
                   <Button
-                    className="w-full h-12 text-base font-semibold bg-success hover:bg-success/90"
+                    className="w-full h-14 sm:h-12 text-lg sm:text-base font-semibold bg-success hover:bg-success/90"
                     onClick={handleHit}
                     disabled={isBusy}
                   >
-                    {isActing ? <Loader2 className="w-4 h-4 animate-spin" /> : <><Hand className="w-4 h-4 mr-2" />Hit</>}
+                    {isActing ? <Loader2 className="w-4 h-4 animate-spin" /> : <><Hand className="w-5 h-5 sm:w-4 sm:h-4 mr-2" />Hit</>}
                   </Button>
                 </motion.div>
                 <motion.div whileTap={{ scale: 0.95 }}>
                   <Button
-                    className="w-full h-12 text-base font-semibold bg-accent hover:bg-accent/90"
+                    className="w-full h-14 sm:h-12 text-lg sm:text-base font-semibold bg-accent hover:bg-accent/90"
                     onClick={handleStand}
                     disabled={isBusy}
                   >
-                    {isActing ? <Loader2 className="w-4 h-4 animate-spin" /> : <><Square className="w-4 h-4 mr-2" />Stand</>}
+                    {isActing ? <Loader2 className="w-4 h-4 animate-spin" /> : <><Square className="w-5 h-5 sm:w-4 sm:h-4 mr-2" />Stand</>}
                   </Button>
                 </motion.div>
               </div>
@@ -419,7 +419,7 @@ const BlackjackGame = () => {
         </div>
 
         {/* Table */}
-        <div className="flex flex-col items-center justify-center min-h-[300px]">
+        <div className="flex flex-col items-center justify-center min-h-[250px] sm:min-h-[300px] order-first lg:order-last">
           {status === 'idle' && !isAnimating ? (
             <div className="text-center text-muted-foreground">
               <span className="text-6xl mb-4 block">🃏</span>

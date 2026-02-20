@@ -1,8 +1,7 @@
-import { useState, useCallback, useRef } from 'react';
+import { useState, useRef, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Zap, Loader2, Sparkles, RotateCcw, X } from 'lucide-react';
+import { Zap, Loader2, Sparkles, RotateCcw, X, Minus, Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { useShardBalance } from '@/hooks/useShards';
 import { usePlayRoulette } from '@/hooks/useGames';
 import { cn } from '@/lib/utils';
@@ -19,6 +18,117 @@ interface Bet {
 }
 
 const isRed = (n: number) => RED_NUMBERS.includes(n);
+
+const SLOT_ANGLE = 360 / 37;
+
+const RouletteWheel = ({ rotation, result, isAnimating, resultIsRed }: { rotation: number; result: number | null; isAnimating: boolean; resultIsRed: boolean | null }) => {
+  const segments = useMemo(() => {
+    return WHEEL_ORDER.map((num, i) => {
+      const angle = i * SLOT_ANGLE;
+      const color = num === 0 ? '#0a7e2e' : isRed(num) ? '#c62828' : '#1a1a2e';
+      return { num, angle, color };
+    });
+  }, []);
+
+  return (
+    <div className="relative w-52 h-52 sm:w-64 sm:h-64 mx-auto">
+      {/* Outer ring glow */}
+      <div className="absolute inset-0 rounded-full" style={{
+        boxShadow: isAnimating
+          ? '0 0 30px hsl(38 92% 50% / 0.4), inset 0 0 20px hsl(38 92% 50% / 0.1)'
+          : '0 0 15px hsl(38 92% 50% / 0.15)',
+        transition: 'box-shadow 0.5s ease'
+      }} />
+
+      {/* Spinning wheel */}
+      <motion.div
+        className="w-full h-full rounded-full border-[3px] border-border/50 overflow-hidden relative"
+        animate={{ rotate: rotation }}
+        transition={{ duration: 4.5, ease: [0.15, 0.85, 0.25, 1] }}
+      >
+        {/* SVG wheel */}
+        <svg viewBox="0 0 200 200" className="w-full h-full">
+          {segments.map(({ num, angle, color }) => {
+            const startAngle = (angle - SLOT_ANGLE / 2) * (Math.PI / 180);
+            const endAngle = (angle + SLOT_ANGLE / 2) * (Math.PI / 180);
+            const r = 100;
+            const cx = 100, cy = 100;
+            const x1 = cx + r * Math.cos(startAngle);
+            const y1 = cy + r * Math.sin(startAngle);
+            const x2 = cx + r * Math.cos(endAngle);
+            const y2 = cy + r * Math.sin(endAngle);
+
+            const textAngle = angle * (Math.PI / 180);
+            const textR = 82;
+            const tx = cx + textR * Math.cos(textAngle);
+            const ty = cy + textR * Math.sin(textAngle);
+
+            return (
+              <g key={num}>
+                <path
+                  d={`M ${cx} ${cy} L ${x1} ${y1} A ${r} ${r} 0 0 1 ${x2} ${y2} Z`}
+                  fill={color}
+                  stroke="hsl(30 6% 18%)"
+                  strokeWidth="0.3"
+                />
+                <text
+                  x={tx}
+                  y={ty}
+                  fill="white"
+                  fontSize="7"
+                  fontWeight="bold"
+                  textAnchor="middle"
+                  dominantBaseline="central"
+                  transform={`rotate(${angle + 90}, ${tx}, ${ty})`}
+                >
+                  {num}
+                </text>
+              </g>
+            );
+          })}
+          {/* Inner circle */}
+          <circle cx="100" cy="100" r="38" fill="hsl(30 8% 10%)" stroke="hsl(30 6% 18%)" strokeWidth="1.5" />
+          <circle cx="100" cy="100" r="35" fill="hsl(30 10% 6%)" />
+        </svg>
+      </motion.div>
+
+      {/* Center display */}
+      <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+        <div className="w-16 h-16 sm:w-[72px] sm:h-[72px] rounded-full flex items-center justify-center">
+          <AnimatePresence mode="wait">
+            {result !== null ? (
+              <motion.span
+                key={`result-${result}`}
+                initial={{ scale: 0, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
+                className={cn(
+                  'text-3xl sm:text-4xl font-heading font-bold drop-shadow-lg',
+                  result === 0 ? 'text-emerald-400' : resultIsRed ? 'text-red-400' : 'text-foreground'
+                )}
+              >
+                {result}
+              </motion.span>
+            ) : isAnimating ? (
+              <motion.div
+                animate={{ rotate: 360 }}
+                transition={{ duration: 1, repeat: Infinity, ease: 'linear' }}
+              >
+                <Sparkles className="w-6 h-6 text-primary" />
+              </motion.div>
+            ) : (
+              <span className="text-muted-foreground text-xs font-medium uppercase tracking-wider">Spin</span>
+            )}
+          </AnimatePresence>
+        </div>
+      </div>
+
+      {/* Pointer triangle */}
+      <div className="absolute top-0 left-1/2 -translate-x-1/2 -translate-y-1 z-20">
+        <div className="w-0 h-0 border-l-[10px] border-l-transparent border-r-[10px] border-r-transparent border-t-[16px] border-t-primary drop-shadow-lg" />
+      </div>
+    </div>
+  );
+};
 
 const RouletteGame = () => {
   const { data: balance, refetch: refetchBalance } = useShardBalance();
@@ -51,18 +161,12 @@ const RouletteGame = () => {
     });
   };
 
-  const clearBets = () => {
-    if (isBusy) return;
-    setBets([]);
-  };
+  const clearBets = () => { if (!isBusy) setBets([]); };
 
-  const getBetOnNumber = (n: number): number => {
-    return bets.filter(b => b.type === 'number' && b.value === n).reduce((s, b) => s + b.amount, 0);
-  };
-
-  const getBetOnType = (type: BetType): number => {
-    return bets.filter(b => b.type === type).reduce((s, b) => s + b.amount, 0);
-  };
+  const getBetOnNumber = (n: number): number =>
+    bets.filter(b => b.type === 'number' && b.value === n).reduce((s, b) => s + b.amount, 0);
+  const getBetOnType = (type: BetType): number =>
+    bets.filter(b => b.type === type).reduce((s, b) => s + b.amount, 0);
 
   const handleSpin = async () => {
     if (isBusy || bets.length === 0 || totalBet > (balance?.balance || 0)) return;
@@ -72,18 +176,14 @@ const RouletteGame = () => {
 
     try {
       const data = await playRoulette.mutateAsync({ bets });
-
-      // Animate the wheel
       setIsAnimating(true);
       setIsSpinning(false);
 
       const resultIndex = WHEEL_ORDER.indexOf(data.result);
-      const degreesPerSlot = 360 / 37;
-      const targetDeg = 360 * 5 + (360 - resultIndex * degreesPerSlot); // 5 full spins + landing
+      const targetDeg = 360 * 6 + (360 - resultIndex * SLOT_ANGLE);
       setWheelRotation(prev => prev + targetDeg);
 
-      // Wait for wheel animation
-      await new Promise(r => setTimeout(r, 4000));
+      await new Promise(r => setTimeout(r, 4800));
 
       setResult(data.result);
       setResultIsRed(data.isRed);
@@ -113,7 +213,7 @@ const RouletteGame = () => {
 
   const quickChips = [50, 100, 500, 1000];
 
-  // Board layout - 3 columns × 12 rows
+  // Board: numbers 1-36 in 12 rows × 3 cols
   const boardRows: number[][] = [];
   for (let row = 0; row < 12; row++) {
     boardRows.push([row * 3 + 1, row * 3 + 2, row * 3 + 3]);
@@ -125,15 +225,15 @@ const RouletteGame = () => {
       <AnimatePresence>
         {showCelebration && (
           <motion.div className="absolute inset-0 pointer-events-none z-50" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
-            {[...Array(15)].map((_, i) => (
+            {[...Array(20)].map((_, i) => (
               <motion.div
                 key={i}
                 className="absolute"
                 initial={{ x: '50%', y: '40%', scale: 0, opacity: 1 }}
-                animate={{ x: `${20 + Math.random() * 60}%`, y: `${Math.random() * 80}%`, scale: [0, 1.2, 0.8], opacity: [1, 1, 0], rotate: Math.random() * 360 }}
-                transition={{ duration: 1.2, delay: Math.random() * 0.2, ease: 'easeOut' }}
+                animate={{ x: `${15 + Math.random() * 70}%`, y: `${Math.random() * 80}%`, scale: [0, 1.3, 0.7], opacity: [1, 1, 0], rotate: Math.random() * 720 }}
+                transition={{ duration: 1.5, delay: Math.random() * 0.3, ease: 'easeOut' }}
               >
-                <Sparkles className="w-4 h-4 text-success" />
+                <Sparkles className="w-5 h-5 text-primary" />
               </motion.div>
             ))}
           </motion.div>
@@ -141,19 +241,20 @@ const RouletteGame = () => {
       </AnimatePresence>
 
       {/* Header */}
-      <div className="flex items-center gap-3 mb-4">
+      <div className="flex items-center gap-3 mb-5">
         <div className="w-10 h-10 rounded-xl bg-red-500/10 flex items-center justify-center">
           <span className="text-xl">🎰</span>
         </div>
         <div>
           <h2 className="font-heading text-xl text-foreground">Roulette</h2>
-          <p className="text-sm text-muted-foreground">Placer dine chips og spin hjulet!</p>
+          <p className="text-sm text-muted-foreground">Europæisk roulette – placer chips og spin!</p>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 xl:grid-cols-[1fr_auto] gap-6">
-        {/* Left: Wheel + Controls */}
-        <div className="space-y-4">
+      {/* Main layout: stacked on mobile, side-by-side on desktop */}
+      <div className="flex flex-col xl:flex-row gap-6">
+        {/* Left column: wheel + controls */}
+        <div className="flex-1 space-y-4 min-w-0">
           {/* Balance */}
           <div className="bg-background/50 rounded-xl p-3 flex items-center justify-between">
             <span className="text-sm text-muted-foreground">Din saldo</span>
@@ -162,45 +263,9 @@ const RouletteGame = () => {
             </motion.span>
           </div>
 
-          {/* Wheel visualization */}
-          <div className="flex justify-center py-4">
-            <div className="relative w-48 h-48 sm:w-56 sm:h-56">
-              {/* Wheel */}
-              <motion.div
-                className="w-full h-full rounded-full border-4 border-border relative overflow-hidden"
-                style={{ background: 'conic-gradient(from 0deg, #1a1a2e 0deg, #c62828 9.73deg, #1a1a2e 19.46deg, #c62828 29.19deg, #1a1a2e 38.92deg, #c62828 48.65deg, #1a1a2e 58.38deg, #c62828 68.11deg, #1a1a2e 77.84deg, #c62828 87.57deg, #1a1a2e 97.30deg, #c62828 107.03deg, #1a1a2e 116.76deg, #c62828 126.49deg, #1a1a2e 136.22deg, #c62828 145.95deg, #1a1a2e 155.68deg, #c62828 165.41deg, #0a5e1e 175.14deg, #c62828 184.87deg, #1a1a2e 194.59deg, #c62828 204.32deg, #1a1a2e 214.05deg, #c62828 223.78deg, #1a1a2e 233.51deg, #c62828 243.24deg, #1a1a2e 252.97deg, #c62828 262.70deg, #1a1a2e 272.43deg, #c62828 282.16deg, #1a1a2e 291.89deg, #c62828 301.62deg, #1a1a2e 311.35deg, #c62828 321.08deg, #1a1a2e 330.81deg, #c62828 340.54deg, #1a1a2e 350.27deg)' }}
-                animate={{ rotate: wheelRotation }}
-                transition={{ duration: 4, ease: [0.12, 0.8, 0.3, 1] }}
-              >
-                <div className="absolute inset-[20%] rounded-full bg-card border-2 border-border flex items-center justify-center">
-                  <AnimatePresence mode="wait">
-                    {result !== null ? (
-                      <motion.span
-                        key={result}
-                        initial={{ scale: 0, opacity: 0 }}
-                        animate={{ scale: 1, opacity: 1 }}
-                        className={cn(
-                          'text-3xl font-heading font-bold',
-                          result === 0 ? 'text-emerald-400' : resultIsRed ? 'text-red-400' : 'text-foreground'
-                        )}
-                      >
-                        {result}
-                      </motion.span>
-                    ) : isAnimating ? (
-                      <motion.span animate={{ opacity: [0.3, 1, 0.3] }} transition={{ duration: 0.8, repeat: Infinity }} className="text-xl text-muted-foreground">
-                        ●
-                      </motion.span>
-                    ) : (
-                      <span className="text-muted-foreground text-sm">Spin</span>
-                    )}
-                  </AnimatePresence>
-                </div>
-              </motion.div>
-              {/* Pointer */}
-              <div className="absolute top-0 left-1/2 -translate-x-1/2 -translate-y-1 w-4 h-6 z-10">
-                <div className="w-0 h-0 border-l-[8px] border-l-transparent border-r-[8px] border-r-transparent border-t-[12px] border-t-primary" />
-              </div>
-            </div>
+          {/* Wheel */}
+          <div className="py-2">
+            <RouletteWheel rotation={wheelRotation} result={result} isAnimating={isAnimating} resultIsRed={resultIsRed} />
           </div>
 
           {/* Result banner */}
@@ -229,7 +294,7 @@ const RouletteGame = () => {
                   key={c}
                   variant={chipAmount === c ? "default" : "outline"}
                   size="sm"
-                  className={cn("flex-1", chipAmount === c && "bg-primary")}
+                  className={cn("flex-1 text-xs sm:text-sm", chipAmount === c && "bg-primary")}
                   onClick={() => setChipAmount(c)}
                   disabled={isBusy}
                 >
@@ -237,19 +302,18 @@ const RouletteGame = () => {
                 </Button>
               ))}
             </div>
-            <div className="flex gap-2 mt-2">
-              <Input
-                type="number"
-                value={chipAmount}
-                onChange={(e) => setChipAmount(parseInt(e.target.value) || 0)}
-                onBlur={() => setChipAmount(prev => Math.max(10, prev))}
-                className="bg-background"
-                disabled={isBusy}
-              />
+            <div className="flex items-center gap-2 mt-2">
+              <Button variant="outline" size="icon" className="h-9 w-9 shrink-0" onClick={() => setChipAmount(prev => Math.max(10, prev - 50))} disabled={isBusy || chipAmount <= 10}>
+                <Minus className="w-4 h-4" />
+              </Button>
+              <div className="flex-1 text-center font-semibold text-foreground bg-background rounded-lg py-2">{formatShards(chipAmount)}</div>
+              <Button variant="outline" size="icon" className="h-9 w-9 shrink-0" onClick={() => setChipAmount(prev => prev + 50)} disabled={isBusy}>
+                <Plus className="w-4 h-4" />
+              </Button>
             </div>
           </div>
 
-          {/* Bet info + actions */}
+          {/* Bet info */}
           {bets.length > 0 && (
             <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="bg-background rounded-xl p-3 space-y-2">
               <div className="flex justify-between">
@@ -265,7 +329,7 @@ const RouletteGame = () => {
             </motion.div>
           )}
 
-          {/* Spin / New round button */}
+          {/* Spin / New round */}
           <motion.div whileTap={{ scale: 0.98 }}>
             {result !== null ? (
               <Button className="w-full h-14 text-lg font-semibold bg-primary hover:bg-primary/90 shadow-lg shadow-primary/20" onClick={handleNewRound}>
@@ -309,47 +373,55 @@ const RouletteGame = () => {
           )}
         </div>
 
-        {/* Right: Betting board */}
-        <div className="space-y-2">
-          <label className="text-xs text-muted-foreground">Klik for at placere chips</label>
+        {/* Right column: Betting board */}
+        <div className="xl:w-[280px] shrink-0 space-y-3">
+          <label className="text-xs text-muted-foreground font-medium uppercase tracking-wider">Betting Board</label>
 
           {/* Number grid */}
-          <div className="grid grid-cols-3 gap-0.5 max-w-[220px]">
+          <div className="rounded-xl overflow-hidden border border-border">
             {/* Zero */}
             <motion.button
-              whileTap={{ scale: 0.9 }}
+              whileTap={{ scale: 0.95 }}
               onClick={() => addBet('number', 0)}
               disabled={isBusy}
               className={cn(
-                'col-span-3 h-10 rounded-t-lg bg-emerald-700 hover:bg-emerald-600 text-white text-sm font-bold relative transition-colors',
-                getBetOnNumber(0) > 0 && 'ring-2 ring-primary'
+                'w-full h-10 bg-emerald-700 hover:bg-emerald-600 text-white text-sm font-bold relative transition-all',
+                getBetOnNumber(0) > 0 && 'ring-2 ring-inset ring-primary'
               )}
             >
               0
-              {getBetOnNumber(0) > 0 && <span className="absolute top-0.5 right-1 text-[9px] bg-primary text-primary-foreground px-1 rounded">{getBetOnNumber(0)}</span>}
+              {getBetOnNumber(0) > 0 && (
+                <span className="absolute top-1 right-2 text-[9px] bg-primary text-primary-foreground px-1.5 py-0.5 rounded-full font-bold">{formatShards(getBetOnNumber(0))}</span>
+              )}
             </motion.button>
 
             {/* Numbers 1-36 */}
-            {boardRows.map(row => row.map(n => (
-              <motion.button
-                key={n}
-                whileTap={{ scale: 0.9 }}
-                onClick={() => addBet('number', n)}
-                disabled={isBusy}
-                className={cn(
-                  'h-9 text-xs font-bold text-white relative transition-colors',
-                  isRed(n) ? 'bg-red-700 hover:bg-red-600' : 'bg-zinc-800 hover:bg-zinc-700',
-                  getBetOnNumber(n) > 0 && 'ring-2 ring-primary'
-                )}
-              >
-                {n}
-                {getBetOnNumber(n) > 0 && <span className="absolute -top-1 -right-1 text-[8px] bg-primary text-primary-foreground w-4 h-4 rounded-full flex items-center justify-center">{getBetOnNumber(n)}</span>}
-              </motion.button>
-            )))}
+            <div className="grid grid-cols-3">
+              {boardRows.map(row => row.map(n => (
+                <motion.button
+                  key={n}
+                  whileTap={{ scale: 0.92 }}
+                  onClick={() => addBet('number', n)}
+                  disabled={isBusy}
+                  className={cn(
+                    'h-10 text-sm font-bold text-white relative transition-all border-t border-border/30',
+                    isRed(n) ? 'bg-red-700 hover:bg-red-600' : 'bg-zinc-800 hover:bg-zinc-700',
+                    getBetOnNumber(n) > 0 && 'ring-2 ring-inset ring-primary',
+                    // Highlight result number
+                    result === n && 'ring-2 ring-inset ring-primary animate-pulse'
+                  )}
+                >
+                  {n}
+                  {getBetOnNumber(n) > 0 && (
+                    <span className="absolute -top-1 -right-1 text-[7px] bg-primary text-primary-foreground w-4 h-4 rounded-full flex items-center justify-center font-bold z-10">✓</span>
+                  )}
+                </motion.button>
+              )))}
+            </div>
           </div>
 
-          {/* Outside bets */}
-          <div className="grid grid-cols-3 gap-1 max-w-[220px]">
+          {/* Dozens */}
+          <div className="grid grid-cols-3 gap-1.5">
             {[
               { label: '1st 12', type: '1st12' as BetType },
               { label: '2nd 12', type: '2nd12' as BetType },
@@ -357,12 +429,12 @@ const RouletteGame = () => {
             ].map(b => (
               <motion.button
                 key={b.type}
-                whileTap={{ scale: 0.9 }}
+                whileTap={{ scale: 0.92 }}
                 onClick={() => addBet(b.type)}
                 disabled={isBusy}
                 className={cn(
-                  'h-8 rounded-md bg-muted hover:bg-muted/80 text-foreground text-xs font-semibold transition-colors',
-                  getBetOnType(b.type) > 0 && 'ring-2 ring-primary'
+                  'h-9 rounded-lg bg-muted hover:bg-muted/70 text-foreground text-xs font-semibold transition-all border border-border/50',
+                  getBetOnType(b.type) > 0 && 'ring-2 ring-primary bg-primary/10'
                 )}
               >
                 {b.label}
@@ -370,22 +442,23 @@ const RouletteGame = () => {
             ))}
           </div>
 
-          <div className="grid grid-cols-2 gap-1 max-w-[220px]">
+          {/* Outside bets */}
+          <div className="grid grid-cols-2 gap-1.5">
             {[
-              { label: '🔴 Rød', type: 'red' as BetType, cls: 'bg-red-700 hover:bg-red-600 text-white' },
-              { label: '⚫ Sort', type: 'black' as BetType, cls: 'bg-zinc-800 hover:bg-zinc-700 text-white' },
-              { label: 'Ulige', type: 'odd' as BetType, cls: 'bg-muted hover:bg-muted/80 text-foreground' },
-              { label: 'Lige', type: 'even' as BetType, cls: 'bg-muted hover:bg-muted/80 text-foreground' },
-              { label: '1-18', type: '1-18' as BetType, cls: 'bg-muted hover:bg-muted/80 text-foreground' },
-              { label: '19-36', type: '19-36' as BetType, cls: 'bg-muted hover:bg-muted/80 text-foreground' },
+              { label: '🔴 Rød', type: 'red' as BetType, cls: 'bg-red-700/80 hover:bg-red-600 text-white border-red-600/50' },
+              { label: '⚫ Sort', type: 'black' as BetType, cls: 'bg-zinc-800 hover:bg-zinc-700 text-white border-zinc-700/50' },
+              { label: 'Ulige', type: 'odd' as BetType, cls: 'bg-muted hover:bg-muted/70 text-foreground border-border/50' },
+              { label: 'Lige', type: 'even' as BetType, cls: 'bg-muted hover:bg-muted/70 text-foreground border-border/50' },
+              { label: '1-18', type: '1-18' as BetType, cls: 'bg-muted hover:bg-muted/70 text-foreground border-border/50' },
+              { label: '19-36', type: '19-36' as BetType, cls: 'bg-muted hover:bg-muted/70 text-foreground border-border/50' },
             ].map(b => (
               <motion.button
                 key={b.type}
-                whileTap={{ scale: 0.9 }}
+                whileTap={{ scale: 0.92 }}
                 onClick={() => addBet(b.type)}
                 disabled={isBusy}
                 className={cn(
-                  'h-9 rounded-md text-xs font-semibold transition-colors',
+                  'h-10 rounded-lg text-xs font-semibold transition-all border',
                   b.cls,
                   getBetOnType(b.type) > 0 && 'ring-2 ring-primary'
                 )}
