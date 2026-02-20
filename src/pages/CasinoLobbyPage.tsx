@@ -10,6 +10,7 @@ import {
   Sparkles,
   Spade,
   CircleDot,
+  ArrowUpDown,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/contexts/AuthContext";
@@ -153,8 +154,19 @@ const CasinoLobbyPage = () => {
               gradient="linear-gradient(145deg, rgba(220, 38, 38, 0.15) 0%, rgba(127, 29, 29, 0.3) 100%)"
               iconColor="text-red-400"
               borderColor="border-red-500/30"
-              badge="Nyt"
               delay={0.35}
+            />
+
+            <GameRoomCard
+              title="Hi-Lo"
+              description="Gæt om næste kort er højere eller lavere – byg din streak!"
+              icon={ArrowUpDown}
+              href="/club/casino/hilo"
+              gradient="linear-gradient(145deg, rgba(139, 92, 246, 0.15) 0%, rgba(76, 29, 149, 0.3) 100%)"
+              iconColor="text-violet-400"
+              borderColor="border-violet-500/30"
+              badge="Nyt"
+              delay={0.4}
             />
 
             <GameRoomCard

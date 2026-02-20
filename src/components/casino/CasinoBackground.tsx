@@ -1,7 +1,7 @@
 import { motion } from "framer-motion";
 
 interface CasinoBackgroundProps {
-  variant?: "lobby" | "mines" | "dice" | "blackjack" | "roulette";
+  variant?: "lobby" | "mines" | "dice" | "blackjack" | "roulette" | "hilo";
 }
 
 const CasinoBackground = ({ variant = "lobby" }: CasinoBackgroundProps) => {
@@ -30,6 +30,11 @@ const CasinoBackground = ({ variant = "lobby" }: CasinoBackgroundProps) => {
       primary: "hsl(0, 50%, 8%)",
       secondary: "hsl(350, 40%, 12%)",
       accent: "hsl(0, 80%, 50%)",
+    },
+    hilo: {
+      primary: "hsl(270, 50%, 8%)",
+      secondary: "hsl(280, 40%, 12%)",
+      accent: "hsl(280, 80%, 55%)",
     },
   };
 
