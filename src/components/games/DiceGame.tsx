@@ -232,7 +232,8 @@ const DiceGame = () => {
               <Input
                 type="number"
                 value={betAmount}
-                onChange={(e) => setBetAmount(Math.max(10, parseInt(e.target.value) || 0))}
+                onChange={(e) => setBetAmount(parseInt(e.target.value) || 0)}
+                onBlur={() => setBetAmount(prev => Math.max(10, prev))}
                 disabled={isRolling}
                 className="bg-background"
               />
