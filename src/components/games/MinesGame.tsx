@@ -272,7 +272,7 @@ const MinesGame = () => {
   }
 
   return (
-    <div className="bg-card border border-border rounded-2xl p-6 relative overflow-hidden">
+    <div className="bg-card border border-border rounded-2xl p-4 sm:p-6 relative overflow-hidden">
       {/* Session restoration indicator */}
       <AnimatePresence>
         {isRestoringSession && (
@@ -352,7 +352,7 @@ const MinesGame = () => {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 relative">
+      <div className="flex flex-col lg:grid lg:grid-cols-2 gap-4 sm:gap-6 relative">
         {/* Controls */}
         <div className="space-y-4">
           {/* Balance Display */}
@@ -581,9 +581,9 @@ const MinesGame = () => {
         </div>
 
         {/* Game Grid */}
-        <div className="aspect-square" ref={gridRef}>
+        <div className="aspect-square order-first lg:order-last" ref={gridRef}>
           <motion.div 
-            className="grid grid-cols-5 gap-2 h-full"
+            className="grid grid-cols-5 gap-1.5 sm:gap-2 h-full"
             animate={gameOver && !gameWon ? { x: [0, -5, 5, -5, 5, 0] } : {}}
             transition={{ duration: 0.4 }}
           >
