@@ -18,16 +18,19 @@ const suitColor = (suit: string) => {
   return suit === '♥' || suit === '♦' ? 'text-red-500' : 'text-foreground';
 };
 
-const PlayingCard = ({ card, index, hidden = false, delay = 0 }: { card: Card; index: number; hidden?: boolean; delay?: number }) => (
+const PlayingCard = ({ card, index, hidden = false, delay = 0, flipReveal = false }: { card: Card; index: number; hidden?: boolean; delay?: number; flipReveal?: boolean }) => (
   <motion.div
-    initial={{ opacity: 0, y: -40, rotateY: hidden ? 180 : 0 }}
-    animate={{ opacity: 1, y: 0, rotateY: 0 }}
-    transition={{ delay: delay * 0.15, type: 'spring', stiffness: 300, damping: 20 }}
+    initial={flipReveal ? { rotateY: 180, scale: 0.9 } : { opacity: 0, y: -60, x: 30, rotate: -8, scale: 0.7 }}
+    animate={flipReveal ? { rotateY: 0, scale: 1 } : { opacity: 1, y: 0, x: 0, rotate: 0, scale: 1 }}
+    transition={flipReveal
+      ? { delay: delay, duration: 0.6, type: 'spring', stiffness: 200, damping: 18 }
+      : { delay: delay, duration: 0.5, type: 'spring', stiffness: 250, damping: 22 }
+    }
     className={cn(
       'relative w-16 h-24 sm:w-20 sm:h-28 rounded-xl border-2 border-border flex flex-col items-center justify-center font-bold shadow-lg select-none',
       hidden ? 'bg-gradient-to-br from-primary/80 to-primary' : 'bg-card'
     )}
-    style={{ marginLeft: index > 0 ? '-16px' : '0', zIndex: index }}
+    style={{ marginLeft: index > 0 ? '-16px' : '0', zIndex: index, perspective: '600px' }}
   >
     {hidden ? (
       <div className="text-primary-foreground text-2xl">?</div>
@@ -109,7 +112,7 @@ const BlackjackGame = () => {
     hasRestored.current = false;
   }, []);
 
-  // Animate dealer cards sequentially, then reveal result
+  // Animate dealer cards sequentially with dramatic pacing
   const animateDealerReveal = useCallback(async (
     fullDealerHand: Card[],
     finalStatus: string,
@@ -119,22 +122,29 @@ const BlackjackGame = () => {
   ) => {
     setIsAnimating(true);
 
-    // Step 1: Reveal hole card (the second card)
+    // Step 1: Dramatic pause – build suspense
+    await new Promise(r => setTimeout(r, 500));
+
+    // Step 2: Flip the hole card (second card) with a flip animation
+    // We set a flag so PlayingCard renders with flipReveal
     setDealerHand([fullDealerHand[0], fullDealerHand[1]]);
     setDealerValue(handValueCalc(fullDealerHand.slice(0, 2)));
-    await new Promise(r => setTimeout(r, 600));
+    await new Promise(r => setTimeout(r, 900));
 
-    // Step 2: Draw additional cards one by one
+    // Step 3: Draw additional cards one by one with suspenseful timing
     for (let i = 2; i < fullDealerHand.length; i++) {
+      // Longer pause before each new card for suspense
+      await new Promise(r => setTimeout(r, 300));
       setDealerHand(fullDealerHand.slice(0, i + 1));
       setDealerValue(handValueCalc(fullDealerHand.slice(0, i + 1)));
-      await new Promise(r => setTimeout(r, 700));
+      // Wait for card to land
+      await new Promise(r => setTimeout(r, 800));
     }
 
-    // Step 3: Short pause before showing result
-    await new Promise(r => setTimeout(r, 400));
+    // Step 4: Dramatic pause before revealing the result
+    await new Promise(r => setTimeout(r, 600));
 
-    // Step 4: Now reveal the final result
+    // Step 5: Show final result
     setPlayerValue(finalPlayerValue);
     setDealerValue(finalDealerValue);
     setStatus(finalStatus);
@@ -150,13 +160,28 @@ const BlackjackGame = () => {
 
     try {
       const result = await playBlackjack.mutateAsync({ action: 'deal', betAmount });
-      setSessionId(result.sessionId);
+      
+      // Animate dealing: cards appear one by one
+      // Player card 1
+      setPlayerHand([result.playerHand[0]]);
+      setDealerHand([]);
+      await new Promise(r => setTimeout(r, 350));
+      
+      // Dealer card 1 (face up)
+      setDealerHand([result.dealerHand[0]]);
+      await new Promise(r => setTimeout(r, 350));
+      
+      // Player card 2
       setPlayerHand(result.playerHand);
-      setDealerHand(result.dealerHand);
       setPlayerValue(result.playerValue);
+      await new Promise(r => setTimeout(r, 350));
+      
+      // Dealer hole card (face down) - show as hidden
       setDealerValue(result.dealerValue);
+      setSessionId(result.sessionId);
       setStatus(result.status);
       setWinAmount(result.winAmount || 0);
+      
       refetchBalance();
     } catch {
       // handled by mutation
@@ -406,13 +431,24 @@ const BlackjackGame = () => {
               </div>
             ) : isAnimating ? (
               <div className="text-center py-3">
-                <motion.p
+                <motion.div
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
-                  className="text-muted-foreground text-sm font-medium"
+                  className="flex flex-col items-center gap-2"
                 >
-                  Dealer trækker kort...
-                </motion.p>
+                  <motion.div
+                    className="flex gap-1"
+                    animate={{ opacity: [0.4, 1, 0.4] }}
+                    transition={{ duration: 1.2, repeat: Infinity }}
+                  >
+                    <span className="text-lg">🃏</span>
+                    <span className="text-lg">🃏</span>
+                    <span className="text-lg">🃏</span>
+                  </motion.div>
+                  <p className="text-muted-foreground text-sm font-medium">
+                    Dealer trækker kort...
+                  </p>
+                </motion.div>
               </div>
             ) : null}
           </div>
@@ -443,13 +479,19 @@ const BlackjackGame = () => {
                     {dealerValue}
                   </motion.span>
                 </div>
-                <div className="flex justify-center">
+                <div className="flex justify-center" style={{ perspective: '600px' }}>
                   {dealerHand.map((card, i) => (
-                    <PlayingCard key={`d-${i}-${card.rank}${card.suit}`} card={card} index={i} delay={i} />
+                    <PlayingCard
+                      key={`d-${i}-${card.rank}${card.suit}`}
+                      card={card}
+                      index={i}
+                      delay={i * 0.2}
+                      flipReveal={isAnimating && i === 1}
+                    />
                   ))}
                   {/* Hidden hole card during play */}
                   {isPlaying && dealerHand.length === 1 && (
-                    <PlayingCard card={{ suit: '', rank: '', value: 0 }} index={1} hidden delay={1} />
+                    <PlayingCard card={{ suit: '', rank: '', value: 0 }} index={1} hidden delay={0.35} />
                   )}
                 </div>
               </div>
@@ -491,7 +533,7 @@ const BlackjackGame = () => {
                 </div>
                 <div className="flex justify-center">
                   {playerHand.map((card, i) => (
-                    <PlayingCard key={`p-${i}-${card.rank}${card.suit}`} card={card} index={i} delay={i} />
+                    <PlayingCard key={`p-${i}-${card.rank}${card.suit}`} card={card} index={i} delay={i * 0.15} />
                   ))}
                 </div>
               </div>
