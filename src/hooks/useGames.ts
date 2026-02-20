@@ -347,6 +347,56 @@ export const usePlayBlackjack = () => {
   });
 };
 
+// ----- Roulette -----
+
+interface RouletteBet {
+  type: string;
+  value?: number;
+  amount: number;
+}
+
+interface RouletteResponse {
+  success: boolean;
+  result: number;
+  isRed: boolean | null;
+  betResults: Array<RouletteBet & { won: boolean; payout: number }>;
+  totalBet: number;
+  totalWin: number;
+}
+
+export const usePlayRoulette = () => {
+  const queryClient = useQueryClient();
+  const { session } = useAuth();
+
+  return useMutation({
+    mutationFn: async (params: { bets: RouletteBet[] }): Promise<RouletteResponse> => {
+      if (!session) throw new Error('Not authenticated');
+
+      const response = await supabase.functions.invoke('play-roulette', {
+        headers: { Authorization: `Bearer ${session.access_token}` },
+        body: params,
+      });
+
+      if (response.error) throw response.error;
+      if (!response.data.success) throw new Error(response.data.error);
+      return response.data;
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ['shard-balance'] });
+      queryClient.invalidateQueries({ queryKey: ['shard-transactions'] });
+
+      if (data.totalWin > 0) {
+        toast.success(`Vandt ${data.totalWin} Shards!`, { description: `Resultat: ${data.result}` });
+      } else {
+        toast.error(`Tabte ${data.totalBet} Shards`, { description: `Resultat: ${data.result}` });
+      }
+    },
+    onError: (error: Error) => {
+      toast.error(error.message || 'Kunne ikke spille');
+    },
+  });
+};
+
 // ----- Sell Case Item -----
 
 export const useSellCaseItem = () => {

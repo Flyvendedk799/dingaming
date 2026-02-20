@@ -79,3 +79,6 @@ verify_jwt = false
 
 [functions.sell-case-item]
 verify_jwt = false
+
+[functions.play-roulette]
+verify_jwt = false
