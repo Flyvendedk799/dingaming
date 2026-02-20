@@ -67,7 +67,7 @@ interface DicePlayResponse {
 }
 
 // Hook to fetch active game session (for page refresh restoration)
-export const useActiveGameSession = (gameType: 'mines' | 'dice') => {
+export const useActiveGameSession = (gameType: 'mines' | 'dice' | 'blackjack') => {
   const { user } = useAuth();
 
   return useQuery({
@@ -279,4 +279,102 @@ export const calculateMinesMultiplier = (revealed: number, mineCount: number): n
   }
   
   return Math.floor(multiplier * 0.97 * 100) / 100;
+};
+
+// ----- Blackjack -----
+
+interface BlackjackResponse {
+  success: boolean;
+  sessionId: string;
+  playerHand: Array<{ suit: string; rank: string; value: number }>;
+  dealerHand: Array<{ suit: string; rank: string; value: number }>;
+  playerValue: number;
+  dealerValue: number;
+  betAmount: number;
+  status: string;
+  winAmount?: number;
+  newBalance?: number;
+  restored?: boolean;
+}
+
+export const usePlayBlackjack = () => {
+  const queryClient = useQueryClient();
+  const { session } = useAuth();
+
+  return useMutation({
+    mutationFn: async (params: {
+      action: 'deal' | 'hit' | 'stand';
+      betAmount?: number;
+      sessionId?: string;
+    }): Promise<BlackjackResponse> => {
+      if (!session) throw new Error('Not authenticated');
+
+      const response = await supabase.functions.invoke('play-blackjack', {
+        headers: { Authorization: `Bearer ${session.access_token}` },
+        body: params,
+      });
+
+      if (response.error) throw response.error;
+      if (!response.data.success) throw new Error(response.data.error);
+      return response.data;
+    },
+    onSuccess: (data) => {
+      const ended = data.status !== 'playing';
+      if (ended) {
+        queryClient.invalidateQueries({ queryKey: ['shard-balance'] });
+        queryClient.invalidateQueries({ queryKey: ['shard-transactions'] });
+        queryClient.invalidateQueries({ queryKey: ['active-game-session', 'blackjack'] });
+
+        if (data.status === 'blackjack') {
+          toast.success(`BLACKJACK! +${data.winAmount} Shards!`);
+        } else if (data.status === 'player_win' || data.status === 'dealer_bust') {
+          toast.success(`Vandt ${data.winAmount} Shards!`);
+        } else if (data.status === 'push') {
+          toast.info('Push – indsats returneret');
+        } else if (data.status === 'player_bust' || data.status === 'dealer_win') {
+          toast.error(`Tabte ${data.betAmount} Shards`);
+        }
+      }
+      if (data.status === 'playing' && data.restored) {
+        // balance already deducted
+      } else if (!ended) {
+        queryClient.invalidateQueries({ queryKey: ['shard-balance'] });
+      }
+    },
+    onError: (error: Error) => {
+      toast.error(error.message || 'Kunne ikke spille');
+    },
+  });
+};
+
+// ----- Sell Case Item -----
+
+export const useSellCaseItem = () => {
+  const queryClient = useQueryClient();
+  const { session } = useAuth();
+
+  return useMutation({
+    mutationFn: async (openingId: string): Promise<{ success: boolean; shardsReceived: number; productName: string }> => {
+      if (!session) throw new Error('Not authenticated');
+
+      const response = await supabase.functions.invoke('sell-case-item', {
+        headers: { Authorization: `Bearer ${session.access_token}` },
+        body: { openingId },
+      });
+
+      if (response.error) throw response.error;
+      if (!response.data.success) throw new Error(response.data.error);
+      return response.data;
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ['shard-balance'] });
+      queryClient.invalidateQueries({ queryKey: ['shard-transactions'] });
+      toast.success(`+${new Intl.NumberFormat('da-DK').format(data.shardsReceived)} Shards!`, {
+        description: `Solgte ${data.productName}`,
+      });
+    },
+    onError: (error: Error) => {
+      toast.error(error.message || 'Kunne ikke sælge');
+    },
+  });
 };

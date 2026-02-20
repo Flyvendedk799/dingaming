@@ -10,6 +10,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { useAuth } from '@/contexts/AuthContext';
 import { useShardBalance } from '@/hooks/useShards';
 import { useCases, useOpenCase, OpenCaseResult } from '@/hooks/useCases';
+import { useSellCaseItem } from '@/hooks/useGames';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
 import CaseOpeningAnimation from '@/components/games/CaseOpeningAnimation';
@@ -20,11 +21,13 @@ const CasesPage = () => {
   const { data: balance } = useShardBalance();
   const { data: cases, isLoading: casesLoading } = useCases();
   const openCase = useOpenCase();
+  const sellItem = useSellCaseItem();
   
   const [selectedCase, setSelectedCase] = useState<string | null>(null);
   const [previewCase, setPreviewCase] = useState<string | null>(null);
   const [openingResult, setOpeningResult] = useState<OpenCaseResult | null>(null);
   const [isAnimating, setIsAnimating] = useState(false);
+  const [lastOpeningId, setLastOpeningId] = useState<string | null>(null);
 
   const formatShards = (shards: number) => {
     return new Intl.NumberFormat('da-DK').format(shards);
@@ -49,6 +52,7 @@ const CasesPage = () => {
     try {
       const result = await openCase.mutateAsync(caseId);
       setOpeningResult(result);
+      setLastOpeningId(result.openingId || null);
     } catch (error) {
       setIsAnimating(false);
       setSelectedCase(null);
@@ -59,6 +63,17 @@ const CasesPage = () => {
     setIsAnimating(false);
     setOpeningResult(null);
     setSelectedCase(null);
+    setLastOpeningId(null);
+  };
+
+  const handleSell = async () => {
+    if (!lastOpeningId) return;
+    try {
+      await sellItem.mutateAsync(lastOpeningId);
+      handleCloseAnimation();
+    } catch {
+      // handled by mutation
+    }
   };
 
   const currentCase = cases?.find(c => c.id === selectedCase);
@@ -325,10 +340,13 @@ const CasesPage = () => {
         <CaseOpeningAnimation
           isOpen={isAnimating}
           onClose={handleCloseAnimation}
+          onSell={lastOpeningId ? handleSell : undefined}
+          isSelling={sellItem.isPending}
           items={openingResult.allItems}
           wonItem={openingResult.wonItem}
           caseName={currentCase.name}
           shardsSpent={openingResult.shardsSpent}
+          openingId={lastOpeningId}
         />
       )}
     </div>

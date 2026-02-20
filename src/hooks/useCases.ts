@@ -28,6 +28,7 @@ export interface ShardCase {
 
 export interface OpenCaseResult {
   success: boolean;
+  openingId: string | null;
   wonItem: {
     id: string;
     productId: string;
