@@ -7,40 +7,15 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
-// Symbol definitions with weights and multipliers
-// Each line rolls 3 dice (symbols). A line wins if all 3 match.
-const SYMBOLS = [
-  { id: "gem",     emoji: "💎", label: "Gem",     weight: 3,  multiplier: 50  },
-  { id: "crown",   emoji: "👑", label: "Crown",   weight: 5,  multiplier: 25  },
-  { id: "fire",    emoji: "🔥", label: "Fire",    weight: 8,  multiplier: 12  },
-  { id: "bolt",    emoji: "⚡", label: "Bolt",    weight: 10, multiplier: 8   },
-  { id: "star",    emoji: "⭐", label: "Star",    weight: 15, multiplier: 5   },
-  { id: "coin",    emoji: "🪙", label: "Coin",    weight: 20, multiplier: 3   },
-  { id: "crystal", emoji: "🔷", label: "Crystal", weight: 25, multiplier: 2   },
-  { id: "dice",    emoji: "🎲", label: "Dice",    weight: 30, multiplier: 1.5 },
-];
-
-const TOTAL_WEIGHT = SYMBOLS.reduce((s, x) => s + x.weight, 0);
-
-function rollSymbol() {
-  let r = Math.random() * TOTAL_WEIGHT;
-  for (const sym of SYMBOLS) {
-    r -= sym.weight;
-    if (r <= 0) return sym;
-  }
-  return SYMBOLS[SYMBOLS.length - 1];
+// Same math as play-dice: winChance 1–98, house edge 3%
+function calcMultiplier(winChance: number): number {
+  const payout = (100 / winChance) * 0.97;
+  return Math.floor(payout * 100) / 100;
 }
 
-function rollLine(): typeof SYMBOLS[number][] {
-  return [rollSymbol(), rollSymbol(), rollSymbol()];
-}
-
-function evaluateLine(dice: typeof SYMBOLS[number][]) {
-  const [a, b, c] = dice;
-  if (a.id === b.id && b.id === c.id) {
-    return { isWin: true, multiplier: a.multiplier, symbolId: a.id };
-  }
-  return { isWin: false, multiplier: 0, symbolId: null };
+interface LineConfig {
+  targetNumber: number; // 2–98
+  isOver: boolean;
 }
 
 serve(async (req) => {
@@ -63,15 +38,26 @@ serve(async (req) => {
     if (authError || !user) throw new Error("Not authenticated");
 
     const body = await req.json();
-    const { betAmount, lines } = body;
+    const { betAmount, lineConfigs } = body as {
+      betAmount: number;
+      lineConfigs: LineConfig[];
+    };
 
-    // Validate inputs
+    // Validate
     if (!betAmount || betAmount < 10) throw new Error("Minimum bet is 10 shards");
-    if (!lines || lines < 1 || lines > 5) throw new Error("Lines must be 1–5");
+    if (!lineConfigs || lineConfigs.length < 1 || lineConfigs.length > 5) {
+      throw new Error("Must have 1–5 lines");
+    }
+    for (const cfg of lineConfigs) {
+      if (cfg.targetNumber < 2 || cfg.targetNumber > 98) {
+        throw new Error("Target number must be 2–98");
+      }
+    }
 
+    const lines = lineConfigs.length;
     const totalBet = betAmount * lines;
 
-    // Get balance
+    // Check balance
     const { data: balData } = await supabaseAdmin
       .from("shard_balances")
       .select("balance")
@@ -82,19 +68,40 @@ serve(async (req) => {
       throw new Error("Ikke nok shards");
     }
 
-    // Roll all lines
-    const lineResults = Array.from({ length: lines }, () => {
-      const dice = rollLine();
-      const { isWin, multiplier, symbolId } = evaluateLine(dice);
-      return { dice, isWin, multiplier, symbolId };
+    // Roll each line independently (same as dice: random 1–100)
+    const lineResults = lineConfigs.map((cfg) => {
+      const roll = Math.floor(Math.random() * 100) + 1; // 1–100
+      const winChance = cfg.isOver
+        ? 99 - cfg.targetNumber  // over: numbers from target+1 to 99
+        : cfg.targetNumber - 1;  // under: numbers from 1 to target-1
+      const multiplier = calcMultiplier(winChance);
+      const isWin = cfg.isOver ? roll > cfg.targetNumber : roll < cfg.targetNumber;
+      return {
+        roll,
+        targetNumber: cfg.targetNumber,
+        isOver: cfg.isOver,
+        winChance,
+        multiplier,
+        isWin,
+      };
     });
 
-    const winningLines = lineResults.filter(l => l.isWin);
-    const totalWin = winningLines.reduce((sum, l) => sum + Math.floor(betAmount * l.multiplier), 0);
+    // Payout: each winning line contributes its multiplier multiplicatively
+    // Total win = betAmount × (product of winning line multipliers)
+    const winningLines = lineResults.filter((l) => l.isWin);
+    let combinedMultiplier = 0;
+    let totalWin = 0;
+    if (winningLines.length > 0) {
+      combinedMultiplier = winningLines.reduce((acc, l) => acc * l.multiplier, 1);
+      combinedMultiplier = Math.floor(combinedMultiplier * 100) / 100;
+      totalWin = Math.floor(betAmount * combinedMultiplier);
+    }
     const netResult = totalWin - totalBet;
     const newBalance = balData.balance - totalBet + totalWin;
 
-    // Update balance + record transactions in parallel
+    const winsCount = winningLines.length;
+
+    // Persist
     await Promise.all([
       supabaseAdmin
         .from("shard_balances")
@@ -104,24 +111,21 @@ serve(async (req) => {
         user_id: user.id,
         amount: netResult,
         type: netResult >= 0 ? "game_win" : "game_bet",
-        description: `Lines (${lines} linjer): ${winningLines.length} gevinst${winningLines.length !== 1 ? "er" : ""}`,
+        description: `Lines (${lines} linjer): ${winsCount}/${lines} vandt${winsCount > 0 ? ` x${combinedMultiplier}` : ""}`,
       }),
     ]);
 
     return new Response(
       JSON.stringify({
         success: true,
-        lineResults: lineResults.map(l => ({
-          dice: l.dice.map(d => ({ id: d.id, emoji: d.emoji, label: d.label, multiplier: d.multiplier })),
-          isWin: l.isWin,
-          multiplier: l.multiplier,
-          win: l.isWin ? Math.floor(betAmount * l.multiplier) : 0,
-        })),
+        lineResults,
+        combinedMultiplier,
         totalBet,
         totalWin,
         netResult,
         newBalance,
-        winningLines: winningLines.length,
+        winningLinesCount: winsCount,
+        allWon: winsCount === lines,
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );

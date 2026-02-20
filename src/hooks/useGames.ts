@@ -509,19 +509,30 @@ export const usePlayHiLo = () => {
 
 // ----- Lines -----
 
-interface LinesSpinResponse {
+export interface LineConfig {
+  targetNumber: number;
+  isOver: boolean;
+}
+
+export interface LineResult {
+  roll: number;
+  targetNumber: number;
+  isOver: boolean;
+  winChance: number;
+  multiplier: number;
+  isWin: boolean;
+}
+
+export interface LinesSpinResponse {
   success: boolean;
-  lineResults: Array<{
-    dice: Array<{ id: string; emoji: string; label: string; multiplier: number }>;
-    isWin: boolean;
-    multiplier: number;
-    win: number;
-  }>;
+  lineResults: LineResult[];
+  combinedMultiplier: number;
   totalBet: number;
   totalWin: number;
   netResult: number;
   newBalance: number;
-  winningLines: number;
+  winningLinesCount: number;
+  allWon: boolean;
 }
 
 export const usePlayLines = () => {
@@ -529,11 +540,14 @@ export const usePlayLines = () => {
   const { session } = useAuth();
 
   const spin = useMutation({
-    mutationFn: async ({ betAmount, lines }: { betAmount: number; lines: number }): Promise<LinesSpinResponse> => {
+    mutationFn: async ({ betAmount, lineConfigs }: {
+      betAmount: number;
+      lineConfigs: LineConfig[];
+    }): Promise<LinesSpinResponse> => {
       if (!session) throw new Error('Not authenticated');
       const response = await supabase.functions.invoke('play-lines', {
         headers: { Authorization: `Bearer ${session.access_token}` },
-        body: { betAmount, lines },
+        body: { betAmount, lineConfigs },
       });
       if (response.error) throw response.error;
       if (!response.data.success) throw new Error(response.data.error);
