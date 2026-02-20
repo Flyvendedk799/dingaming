@@ -11,6 +11,7 @@ import {
   Spade,
   CircleDot,
   ArrowUpDown,
+  AlignJustify,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/contexts/AuthContext";
@@ -170,6 +171,18 @@ const CasinoLobbyPage = () => {
             />
 
             <GameRoomCard
+              title="Lines"
+              description="Spin op til 5 linjer og match 3 symboler – multiplier op til x50!"
+              icon={AlignJustify}
+              href="/club/casino/lines"
+              gradient="linear-gradient(145deg, rgba(6, 182, 212, 0.15) 0%, rgba(8, 51, 68, 0.3) 100%)"
+              iconColor="text-cyan-400"
+              borderColor="border-cyan-500/30"
+              badge="Nyt"
+              delay={0.45}
+            />
+
+            <GameRoomCard
               title="Cases"
               description="Åbn mystery cases og vind rigtige spil til din samling"
               icon={Package}
@@ -178,7 +191,7 @@ const CasinoLobbyPage = () => {
               iconColor="text-purple-400"
               borderColor="border-purple-500/30"
               badge="Spil"
-              delay={0.45}
+              delay={0.5}
             />
           </div>
 

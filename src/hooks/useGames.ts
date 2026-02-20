@@ -507,6 +507,50 @@ export const usePlayHiLo = () => {
   return { startGame, makeGuess, cashOut };
 };
 
+// ----- Lines -----
+
+interface LinesSpinResponse {
+  success: boolean;
+  lineResults: Array<{
+    dice: Array<{ id: string; emoji: string; label: string; multiplier: number }>;
+    isWin: boolean;
+    multiplier: number;
+    win: number;
+  }>;
+  totalBet: number;
+  totalWin: number;
+  netResult: number;
+  newBalance: number;
+  winningLines: number;
+}
+
+export const usePlayLines = () => {
+  const queryClient = useQueryClient();
+  const { session } = useAuth();
+
+  const spin = useMutation({
+    mutationFn: async ({ betAmount, lines }: { betAmount: number; lines: number }): Promise<LinesSpinResponse> => {
+      if (!session) throw new Error('Not authenticated');
+      const response = await supabase.functions.invoke('play-lines', {
+        headers: { Authorization: `Bearer ${session.access_token}` },
+        body: { betAmount, lines },
+      });
+      if (response.error) throw response.error;
+      if (!response.data.success) throw new Error(response.data.error);
+      return response.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['shard-balance'] });
+      queryClient.invalidateQueries({ queryKey: ['shard-transactions'] });
+    },
+    onError: (error: Error) => {
+      toast.error(error.message || 'Kunne ikke spille');
+    },
+  });
+
+  return { spin };
+};
+
 // ----- Sell Case Item -----
 
 export const useSellCaseItem = () => {
