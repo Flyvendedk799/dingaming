@@ -397,6 +397,116 @@ export const usePlayRoulette = () => {
   });
 };
 
+// ----- Hi-Lo -----
+
+interface HiLoCard {
+  suit: string;
+  rank: string;
+  value: number;
+}
+
+interface HiLoStartResponse {
+  success: boolean;
+  sessionId: string;
+  currentCard: HiLoCard;
+  streak: number;
+  currentMultiplier: number;
+  higherMultiplier: number;
+  lowerMultiplier: number;
+  betAmount: number;
+  potentialWin: number;
+}
+
+interface HiLoGuessResponse {
+  success: boolean;
+  isWin: boolean;
+  isTie: boolean;
+  nextCard: HiLoCard;
+  streak: number;
+  currentMultiplier: number;
+  potentialWin: number;
+  higherMultiplier: number;
+  lowerMultiplier: number;
+  cardsRemaining: number;
+}
+
+interface HiLoCashoutResponse {
+  success: boolean;
+  winAmount: number;
+  multiplier: number;
+  streak: number;
+}
+
+export const usePlayHiLo = () => {
+  const queryClient = useQueryClient();
+  const { session } = useAuth();
+
+  const startGame = useMutation({
+    mutationFn: async ({ betAmount }: { betAmount: number }): Promise<HiLoStartResponse> => {
+      if (!session) throw new Error('Not authenticated');
+      const response = await supabase.functions.invoke('play-hilo', {
+        headers: { Authorization: `Bearer ${session.access_token}` },
+        body: { action: 'start', betAmount },
+      });
+      if (response.error) throw response.error;
+      if (!response.data.success) throw new Error(response.data.error);
+      return response.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['shard-balance'] });
+      queryClient.invalidateQueries({ queryKey: ['shard-transactions'] });
+    },
+    onError: (error: Error) => {
+      toast.error(error.message || 'Kunne ikke starte spil');
+    },
+  });
+
+  const makeGuess = useMutation({
+    mutationFn: async ({ sessionId, guess }: { sessionId: string; guess: 'higher' | 'lower' }): Promise<HiLoGuessResponse> => {
+      if (!session) throw new Error('Not authenticated');
+      const response = await supabase.functions.invoke('play-hilo', {
+        headers: { Authorization: `Bearer ${session.access_token}` },
+        body: { action: 'guess', sessionId, guess },
+      });
+      if (response.error) throw response.error;
+      if (!response.data.success) throw new Error(response.data.error);
+      return response.data;
+    },
+    onSuccess: (data) => {
+      if (!data.isWin) {
+        queryClient.invalidateQueries({ queryKey: ['shard-balance'] });
+        queryClient.invalidateQueries({ queryKey: ['shard-transactions'] });
+        toast.error('Forkert gæt!');
+      }
+    },
+  });
+
+  const cashOut = useMutation({
+    mutationFn: async ({ sessionId }: { sessionId: string }): Promise<HiLoCashoutResponse> => {
+      if (!session) throw new Error('Not authenticated');
+      const response = await supabase.functions.invoke('play-hilo', {
+        headers: { Authorization: `Bearer ${session.access_token}` },
+        body: { action: 'cashout', sessionId },
+      });
+      if (response.error) throw response.error;
+      if (!response.data.success) throw new Error(response.data.error);
+      return response.data;
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ['shard-balance'] });
+      queryClient.invalidateQueries({ queryKey: ['shard-transactions'] });
+      toast.success(`+${new Intl.NumberFormat('da-DK').format(data.winAmount)} Shards!`, {
+        description: `x${data.multiplier} multiplier • ${data.streak} streak`,
+      });
+    },
+    onError: (error: Error) => {
+      toast.error(error.message || 'Kunne ikke udbetale');
+    },
+  });
+
+  return { startGame, makeGuess, cashOut };
+};
+
 // ----- Sell Case Item -----
 
 export const useSellCaseItem = () => {
