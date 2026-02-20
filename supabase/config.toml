@@ -73,3 +73,9 @@ verify_jwt = false
 
 [functions.open-case]
 verify_jwt = false
+
+[functions.play-blackjack]
+verify_jwt = false
+
+[functions.sell-case-item]
+verify_jwt = false

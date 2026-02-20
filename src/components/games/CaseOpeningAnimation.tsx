@@ -14,19 +14,25 @@ interface CaseItem {
 interface CaseOpeningAnimationProps {
   isOpen: boolean;
   onClose: () => void;
+  onSell?: () => void;
+  isSelling?: boolean;
   items: CaseItem[];
   wonItem: CaseItem | null;
   caseName: string;
   shardsSpent: number;
+  openingId?: string | null;
 }
 
 const CaseOpeningAnimation = ({
   isOpen,
   onClose,
+  onSell,
+  isSelling,
   items,
   wonItem,
   caseName,
   shardsSpent,
+  openingId,
 }: CaseOpeningAnimationProps) => {
   const [phase, setPhase] = useState<'spinning' | 'slowing' | 'reveal'>('spinning');
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -217,12 +223,26 @@ const CaseOpeningAnimation = ({
                 </p>
                 
                 <div className="flex justify-center gap-3">
+                  {onSell && wonItem && (
+                    <Button
+                      onClick={onSell}
+                      disabled={isSelling}
+                      className="bg-success hover:bg-success/90 text-success-foreground"
+                    >
+                      {isSelling ? (
+                        <Sparkles className="w-4 h-4 animate-spin mr-2" />
+                      ) : (
+                        <Sparkles className="w-4 h-4 mr-2" />
+                      )}
+                      Sælg for {Math.round(wonItem.price * 1000).toLocaleString('da-DK')} Shards
+                    </Button>
+                  )}
                   <Button
                     variant="outline"
                     onClick={onClose}
                     className="border-border"
                   >
-                    Luk
+                    Behold
                   </Button>
                   <Button
                     onClick={onClose}

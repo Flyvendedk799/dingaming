@@ -153,23 +153,25 @@ Deno.serve(async (req) => {
     }
 
     // Record the opening
-    const { error: openingError } = await supabase
+    const { data: openingRecord, error: openingError } = await supabase
       .from('shard_case_openings')
       .insert({
         user_id: user.id,
         case_id: caseId,
         won_item_id: wonItem.id,
         shards_spent: caseData.calculated_price,
-      });
+      })
+      .select('id')
+      .single();
 
     if (openingError) {
       console.error('Failed to record opening:', openingError);
-      // Don't fail the request, item was already won
     }
 
     return new Response(
       JSON.stringify({
         success: true,
+        openingId: openingRecord?.id || null,
         wonItem: {
           id: wonItem.id,
           productId: wonItem.kinguin_product_id,
