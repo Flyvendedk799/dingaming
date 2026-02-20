@@ -76,37 +76,34 @@ serve(async (req) => {
       { global: { headers: { Authorization: authHeader } } }
     );
 
-    // Verify user using getClaims (more reliable than getUser)
-    const token = authHeader.replace("Bearer ", "");
-    const { data: claimsData, error: claimsError } = await supabaseAuth.auth.getClaims(token);
-    
-    if (claimsError || !claimsData?.claims) {
-      console.error("Token verification failed:", claimsError?.message || "No claims");
+    // Fast auth: use getUser directly
+    const { data: userData, error: userError } = await supabaseAuth.auth.getUser();
+    if (userError || !userData?.user) {
+      console.error("Token verification failed:", userError?.message || "No user");
       return new Response(
         JSON.stringify({ error: "Invalid token" }),
         { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
-    const userId = claimsData.claims.sub as string;
+    const userId = userData.user.id;
 
     const { action, mineCount, betAmount, tileIndex, sessionId } = await req.json();
 
-    // Get user's current balance
-    const { data: balanceData, error: balanceError } = await supabaseAdmin
-      .from("shard_balances")
-      .select("balance, lifetime_earned, lifetime_spent")
-      .eq("user_id", userId)
-      .single();
+    // Parallel: get balance + check existing session (for start action)
+    const [balanceRes, bodyData] = await Promise.all([
+      supabaseAdmin.from("shard_balances").select("balance").eq("user_id", userId).single(),
+      Promise.resolve(null), // body already parsed below
+    ]);
 
-    if (balanceError) {
+    if (balanceRes.error) {
       return new Response(
         JSON.stringify({ error: "Could not fetch balance" }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
-    const currentBalance = balanceData?.balance || 0;
+    const currentBalance = balanceRes.data?.balance || 0;
 
     if (action === "start") {
       // Idempotency: if a mines game is already active, return it instead of charging again

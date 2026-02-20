@@ -43,19 +43,17 @@ serve(async (req) => {
       { global: { headers: { Authorization: authHeader } } }
     );
 
-    // Verify user using getClaims (more reliable than getUser)
-    const token = authHeader.replace("Bearer ", "");
-    const { data: claimsData, error: claimsError } = await supabaseAuth.auth.getClaims(token);
-    
-    if (claimsError || !claimsData?.claims) {
-      console.error("Token verification failed:", claimsError?.message || "No claims");
+    // Fast auth: use getUser directly
+    const { data: userData, error: userError } = await supabaseAuth.auth.getUser();
+    if (userError || !userData?.user) {
+      console.error("Token verification failed:", userError?.message || "No user");
       return new Response(
         JSON.stringify({ error: "Invalid token" }),
         { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
-    const userId = claimsData.claims.sub as string;
+    const userId = userData.user.id;
 
     const { betAmount, targetNumber, isOver } = await req.json();
 
@@ -125,8 +123,7 @@ serve(async (req) => {
     // Calculate win amount
     const winAmount = isWin ? Math.floor(betAmount * multiplier) : 0;
 
-    // Record transactions - the database trigger handles balance updates
-    // NOTE: Removed direct shard_balances update to fix double-deduction bug
+    // Record transactions and game session in parallel
     const transactions = [
       {
         user_id: userId,
@@ -147,25 +144,17 @@ serve(async (req) => {
       });
     }
 
-    await supabaseAdmin.from("shard_transactions").insert(transactions);
-
-    // Record game result
-    await supabaseAdmin.from("game_sessions").insert({
-      session_id: `dice_${userId}_${Date.now()}`,
-      user_id: userId,
-      game_type: "dice",
-      state: {
-        betAmount,
-        targetNumber,
-        isOver,
-        roll,
-        isWin,
-        multiplier,
-        winAmount,
-      },
-      is_active: false,
-      ended_at: new Date().toISOString(),
-    });
+    await Promise.all([
+      supabaseAdmin.from("shard_transactions").insert(transactions),
+      supabaseAdmin.from("game_sessions").insert({
+        session_id: `dice_${userId}_${Date.now()}`,
+        user_id: userId,
+        game_type: "dice",
+        state: { betAmount, targetNumber, isOver, roll, isWin, multiplier, winAmount },
+        is_active: false,
+        ended_at: new Date().toISOString(),
+      }),
+    ]);
 
     // Calculate new balance based on transactions
     // The trigger will update the balance, but we need to return the expected new balance

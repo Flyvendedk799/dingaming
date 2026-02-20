@@ -9,6 +9,7 @@ import {
   AlertTriangle,
   Sparkles,
   Spade,
+  CircleDot,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/contexts/AuthContext";
@@ -145,6 +146,18 @@ const CasinoLobbyPage = () => {
             />
 
             <GameRoomCard
+              title="Roulette"
+              description="Placer chips og spin hjulet – europæisk roulette med 0-36"
+              icon={CircleDot}
+              href="/club/casino/roulette"
+              gradient="linear-gradient(145deg, rgba(220, 38, 38, 0.15) 0%, rgba(127, 29, 29, 0.3) 100%)"
+              iconColor="text-red-400"
+              borderColor="border-red-500/30"
+              badge="Nyt"
+              delay={0.35}
+            />
+
+            <GameRoomCard
               title="Cases"
               description="Åbn mystery cases og vind rigtige spil til din samling"
               icon={Package}
@@ -153,7 +166,7 @@ const CasinoLobbyPage = () => {
               iconColor="text-purple-400"
               borderColor="border-purple-500/30"
               badge="Spil"
-              delay={0.4}
+              delay={0.45}
             />
           </div>
 

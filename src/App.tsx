@@ -23,6 +23,7 @@ import CasinoLobbyPage from "./pages/CasinoLobbyPage";
 import MinesRoomPage from "./pages/MinesRoomPage";
 import DiceRoomPage from "./pages/DiceRoomPage";
 import BlackjackRoomPage from "./pages/BlackjackRoomPage";
+import RouletteRoomPage from "./pages/RouletteRoomPage";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -52,6 +53,7 @@ const App = () => (
             <Route path="/club/casino/mines" element={<MinesRoomPage />} />
             <Route path="/club/casino/dice" element={<DiceRoomPage />} />
             <Route path="/club/casino/blackjack" element={<BlackjackRoomPage />} />
+            <Route path="/club/casino/roulette" element={<RouletteRoomPage />} />
             {/* Redirect old games page to new casino lobby */}
             <Route path="/club/games" element={<Navigate to="/club/casino" replace />} />
             <Route path="/club/cases" element={<CasesPage />} />
