@@ -56,6 +56,8 @@ const BlackjackGame = () => {
   const [winAmount, setWinAmount] = useState(0);
   const [showCelebration, setShowCelebration] = useState(false);
   const [isActing, setIsActing] = useState(false);
+  // True while we're animating dealer cards (buttons disabled, but no spinner)
+  const [isAnimating, setIsAnimating] = useState(false);
 
   const hasRestored = useRef(false);
 
@@ -103,11 +105,46 @@ const BlackjackGame = () => {
     setStatus('idle');
     setWinAmount(0);
     setShowCelebration(false);
+    setIsAnimating(false);
     hasRestored.current = false;
   }, []);
 
+  // Animate dealer cards sequentially, then reveal result
+  const animateDealerReveal = useCallback(async (
+    fullDealerHand: Card[],
+    finalStatus: string,
+    finalWinAmount: number,
+    finalPlayerValue: number,
+    finalDealerValue: number,
+  ) => {
+    setIsAnimating(true);
+
+    // Step 1: Reveal hole card (the second card)
+    setDealerHand([fullDealerHand[0], fullDealerHand[1]]);
+    setDealerValue(handValueCalc(fullDealerHand.slice(0, 2)));
+    await new Promise(r => setTimeout(r, 600));
+
+    // Step 2: Draw additional cards one by one
+    for (let i = 2; i < fullDealerHand.length; i++) {
+      setDealerHand(fullDealerHand.slice(0, i + 1));
+      setDealerValue(handValueCalc(fullDealerHand.slice(0, i + 1)));
+      await new Promise(r => setTimeout(r, 700));
+    }
+
+    // Step 3: Short pause before showing result
+    await new Promise(r => setTimeout(r, 400));
+
+    // Step 4: Now reveal the final result
+    setPlayerValue(finalPlayerValue);
+    setDealerValue(finalDealerValue);
+    setStatus(finalStatus);
+    setWinAmount(finalWinAmount);
+    setIsAnimating(false);
+    refetchBalance();
+  }, [refetchBalance]);
+
   const handleDeal = async () => {
-    if (isActing || betAmount < 10 || betAmount > (balance?.balance || 0)) return;
+    if (isActing || isAnimating || betAmount < 10 || betAmount > (balance?.balance || 0)) return;
     setIsActing(true);
     resetGame();
 
@@ -129,55 +166,67 @@ const BlackjackGame = () => {
   };
 
   const handleHit = async () => {
-    if (!sessionId || isActing || !isPlaying) return;
+    if (!sessionId || isActing || isAnimating || !isPlaying) return;
     setIsActing(true);
 
     try {
       const result = await playBlackjack.mutateAsync({ action: 'hit', sessionId });
+
+      // Always show the new player card first
       setPlayerHand(result.playerHand);
-      setDealerHand(result.dealerHand);
       setPlayerValue(result.playerValue);
-      setDealerValue(result.dealerValue);
-      setStatus(result.status);
-      setWinAmount(result.winAmount || 0);
-      if (result.status !== 'playing') refetchBalance();
+
+      if (result.status === 'playing') {
+        // Still playing – keep dealer hidden
+        setDealerHand(result.dealerHand);
+        setDealerValue(result.dealerValue);
+        setIsActing(false);
+      } else if (result.status === 'player_bust') {
+        // Bust – reveal dealer cards, then show result
+        setIsActing(false);
+        await animateDealerReveal(
+          result.dealerHand,
+          result.status,
+          result.winAmount || 0,
+          result.playerValue,
+          result.dealerValue,
+        );
+      } else {
+        // Auto-stand on 21 – animate dealer
+        setIsActing(false);
+        await animateDealerReveal(
+          result.dealerHand,
+          result.status,
+          result.winAmount || 0,
+          result.playerValue,
+          result.dealerValue,
+        );
+      }
     } catch {
-      // handled
-    } finally {
       setIsActing(false);
     }
   };
 
   const handleStand = async () => {
-    if (!sessionId || isActing || !isPlaying) return;
+    if (!sessionId || isActing || isAnimating || !isPlaying) return;
     setIsActing(true);
 
     try {
       const result = await playBlackjack.mutateAsync({ action: 'stand', sessionId });
+
+      // Don't set status yet – animate first
       setPlayerHand(result.playerHand);
-      setPlayerValue(result.playerValue);
-      setStatus(result.status);
-      setWinAmount(result.winAmount || 0);
-      
-      // Animate dealer cards one-by-one
-      const fullDealerHand = result.dealerHand as Card[];
-      // Show hole card first
-      setDealerHand([fullDealerHand[0], fullDealerHand[1]]);
-      setDealerValue(handValueCalc(fullDealerHand.slice(0, 2)));
-      
-      // Then animate additional cards
-      for (let i = 2; i < fullDealerHand.length; i++) {
-        await new Promise(r => setTimeout(r, 500));
-        setDealerHand(prev => [...prev, fullDealerHand[i]]);
-        setDealerValue(handValueCalc(fullDealerHand.slice(0, i + 1)));
-      }
-      
-      // Final value
-      setDealerValue(result.dealerValue);
-      refetchBalance();
+      setIsActing(false);
+
+      // Animate dealer cards, then show result
+      await animateDealerReveal(
+        result.dealerHand,
+        result.status,
+        result.winAmount || 0,
+        result.playerValue,
+        result.dealerValue,
+      );
     } catch {
-      // handled
-    } finally {
       setIsActing(false);
     }
   };
@@ -197,6 +246,7 @@ const BlackjackGame = () => {
   };
 
   const quickBets = [100, 500, 1000, 5000];
+  const isBusy = isActing || isAnimating;
 
   if (loadingSession) {
     return (
@@ -261,7 +311,7 @@ const BlackjackGame = () => {
           </div>
 
           {/* Bet controls (only when not playing) */}
-          {!isPlaying && (
+          {!isPlaying && !isAnimating && (
             <>
               <div>
                 <label className="text-sm text-muted-foreground mb-2 block">Indsats</label>
@@ -287,7 +337,7 @@ const BlackjackGame = () => {
           )}
 
           {/* Game info during play */}
-          {(isPlaying || isGameOver) && (
+          {(isPlaying || isGameOver || isAnimating) && (
             <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="bg-background rounded-xl p-4 space-y-2">
               <div className="flex justify-between">
                 <span className="text-muted-foreground">Indsats</span>
@@ -310,12 +360,12 @@ const BlackjackGame = () => {
 
           {/* Action buttons */}
           <div className="space-y-2">
-            {status === 'idle' || isGameOver ? (
+            {(status === 'idle' || isGameOver) && !isAnimating ? (
               <motion.div whileTap={{ scale: 0.98 }}>
                 <Button
                   className="w-full h-14 text-lg font-semibold bg-primary hover:bg-primary/90 shadow-lg shadow-primary/20"
                   onClick={handleDeal}
-                  disabled={isActing || betAmount > (balance?.balance || 0) || betAmount < 10}
+                  disabled={isBusy || betAmount > (balance?.balance || 0) || betAmount < 10}
                 >
                   {isActing ? (
                     <Loader2 className="w-5 h-5 animate-spin" />
@@ -332,13 +382,13 @@ const BlackjackGame = () => {
                   )}
                 </Button>
               </motion.div>
-            ) : (
+            ) : isPlaying ? (
               <div className="grid grid-cols-2 gap-3">
                 <motion.div whileTap={{ scale: 0.95 }}>
                   <Button
                     className="w-full h-12 text-base font-semibold bg-success hover:bg-success/90"
                     onClick={handleHit}
-                    disabled={isActing}
+                    disabled={isBusy}
                   >
                     {isActing ? <Loader2 className="w-4 h-4 animate-spin" /> : <><Hand className="w-4 h-4 mr-2" />Hit</>}
                   </Button>
@@ -347,19 +397,29 @@ const BlackjackGame = () => {
                   <Button
                     className="w-full h-12 text-base font-semibold bg-accent hover:bg-accent/90"
                     onClick={handleStand}
-                    disabled={isActing}
+                    disabled={isBusy}
                   >
                     {isActing ? <Loader2 className="w-4 h-4 animate-spin" /> : <><Square className="w-4 h-4 mr-2" />Stand</>}
                   </Button>
                 </motion.div>
               </div>
-            )}
+            ) : isAnimating ? (
+              <div className="text-center py-3">
+                <motion.p
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  className="text-muted-foreground text-sm font-medium"
+                >
+                  Dealer trækker kort...
+                </motion.p>
+              </div>
+            ) : null}
           </div>
         </div>
 
         {/* Table */}
         <div className="flex flex-col items-center justify-center min-h-[300px]">
-          {status === 'idle' ? (
+          {status === 'idle' && !isAnimating ? (
             <div className="text-center text-muted-foreground">
               <span className="text-6xl mb-4 block">🃏</span>
               <p className="text-lg font-medium">Placer din indsats og tryk Deal</p>
@@ -384,7 +444,7 @@ const BlackjackGame = () => {
                 </div>
                 <div className="flex justify-center">
                   {dealerHand.map((card, i) => (
-                    <PlayingCard key={`d-${i}`} card={card} index={i} delay={i} />
+                    <PlayingCard key={`d-${i}-${card.rank}${card.suit}`} card={card} index={i} delay={i} />
                   ))}
                   {/* Hidden hole card during play */}
                   {isPlaying && dealerHand.length === 1 && (
@@ -430,7 +490,7 @@ const BlackjackGame = () => {
                 </div>
                 <div className="flex justify-center">
                   {playerHand.map((card, i) => (
-                    <PlayingCard key={`p-${i}`} card={card} index={i} delay={i} />
+                    <PlayingCard key={`p-${i}-${card.rank}${card.suit}`} card={card} index={i} delay={i} />
                   ))}
                 </div>
               </div>
