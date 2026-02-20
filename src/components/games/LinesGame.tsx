@@ -1,247 +1,227 @@
-import { useState, useCallback, useRef } from 'react';
+import { useState, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Plus, Minus, Zap, Loader2, Sparkles, RotateCcw, TrendingUp, Trophy } from 'lucide-react';
+import { Plus, Minus, Zap, Loader2, ArrowUp, ArrowDown, Trophy, TrendingUp, Sparkles, RotateCcw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Slider } from '@/components/ui/slider';
 import { useShardBalance } from '@/hooks/useShards';
-import { usePlayLines } from '@/hooks/useGames';
+import { usePlayLines, calculateDiceMultiplier, LineConfig, LinesSpinResponse } from '@/hooks/useGames';
 import { cn } from '@/lib/utils';
 
-const SYMBOLS = [
-  { id: 'gem',     emoji: '💎', label: 'Gem',     multiplier: 50  },
-  { id: 'crown',   emoji: '👑', label: 'Crown',   multiplier: 25  },
-  { id: 'fire',    emoji: '🔥', label: 'Fire',    multiplier: 12  },
-  { id: 'bolt',    emoji: '⚡', label: 'Bolt',    multiplier: 8   },
-  { id: 'star',    emoji: '⭐', label: 'Star',    multiplier: 5   },
-  { id: 'coin',    emoji: '🪙', label: 'Coin',    multiplier: 3   },
-  { id: 'crystal', emoji: '🔷', label: 'Crystal', multiplier: 2   },
-  { id: 'dice',    emoji: '🎲', label: 'Dice',    multiplier: 1.5 },
+// ─── Colour palette per line ─────────────────────────────────────────────────
+const LINE_META = [
+  { label: 'Linje 1', dot: 'bg-primary',      ring: 'border-primary',      glow: 'shadow-primary/40',      gradient: 'from-primary/25 to-primary/5',      track: 'hsl(var(--primary))' },
+  { label: 'Linje 2', dot: 'bg-blue-500',      ring: 'border-blue-500',     glow: 'shadow-blue-500/40',     gradient: 'from-blue-500/25 to-blue-500/5',     track: 'hsl(217 91% 60%)' },
+  { label: 'Linje 3', dot: 'bg-emerald-500',   ring: 'border-emerald-500',  glow: 'shadow-emerald-500/40',  gradient: 'from-emerald-500/25 to-emerald-500/5',track: 'hsl(160 84% 39%)' },
+  { label: 'Linje 4', dot: 'bg-amber-400',     ring: 'border-amber-400',    glow: 'shadow-amber-400/40',    gradient: 'from-amber-400/25 to-amber-400/5',    track: 'hsl(43 96% 56%)' },
+  { label: 'Linje 5', dot: 'bg-rose-500',      ring: 'border-rose-500',     glow: 'shadow-rose-500/40',     gradient: 'from-rose-500/25 to-rose-500/5',      track: 'hsl(0 84% 60%)' },
 ];
 
-const LINE_COLORS = [
-  'from-primary/30 to-primary/10 border-primary/40',
-  'from-blue-500/30 to-blue-500/10 border-blue-500/40',
-  'from-emerald-500/30 to-emerald-500/10 border-emerald-500/40',
-  'from-amber-500/30 to-amber-500/10 border-amber-500/40',
-  'from-rose-500/30 to-rose-500/10 border-rose-500/40',
-];
-
-const LINE_GLOW = [
-  'shadow-primary/40',
-  'shadow-blue-500/40',
-  'shadow-emerald-500/40',
-  'shadow-amber-500/40',
-  'shadow-rose-500/40',
-];
-
-const WIN_BORDER = [
-  'border-primary',
-  'border-blue-500',
-  'border-emerald-500',
-  'border-amber-500',
-  'border-rose-500',
-];
-
-interface DiceSymbol {
-  id: string;
-  emoji: string;
-  label: string;
-  multiplier: number;
-}
-
-interface LineResult {
-  dice: DiceSymbol[];
-  isWin: boolean;
-  multiplier: number;
-  win: number;
-}
-
-interface SpinResult {
-  lineResults: LineResult[];
-  totalBet: number;
-  totalWin: number;
-  netResult: number;
-  newBalance: number;
-  winningLines: number;
-}
-
-// Individual die cell with rolling animation
-const DieFace = ({
-  symbol,
+// ─── Roll display ─────────────────────────────────────────────────────────────
+const RollDisplay = ({
+  roll,
   isRolling,
-  rollDelay,
   isWin,
-  isNew,
+  isLoss,
+  targetNumber,
+  isOver,
+  lineIdx,
 }: {
-  symbol: DiceSymbol | null;
+  roll: number | null;
   isRolling: boolean;
-  rollDelay: number;
   isWin: boolean;
-  isNew: boolean;
+  isLoss: boolean;
+  targetNumber: number;
+  isOver: boolean;
+  lineIdx: number;
 }) => {
+  const meta = LINE_META[lineIdx];
   return (
     <motion.div
       className={cn(
-        'relative w-14 h-14 sm:w-16 sm:h-16 rounded-xl flex items-center justify-center text-2xl sm:text-3xl',
-        'border-2 transition-all duration-300 select-none overflow-hidden',
-        isWin
-          ? 'bg-success/15 border-success shadow-lg shadow-success/30'
-          : 'bg-muted/40 border-border/60'
+        'relative w-16 h-16 rounded-2xl border-2 flex items-center justify-center overflow-hidden flex-shrink-0 transition-all duration-300',
+        isWin  ? `${meta.ring} shadow-lg ${meta.glow}` :
+        isLoss ? 'border-destructive shadow-lg shadow-destructive/30' :
+        'border-border/50 bg-muted/30'
       )}
-      initial={isNew ? { rotateX: 0 } : false}
-      animate={
-        isRolling
-          ? { rotateX: [0, 90, 180, 270, 360], scale: [1, 0.85, 1, 0.85, 1] }
-          : { rotateX: 0, scale: 1 }
-      }
-      transition={
-        isRolling
-          ? {
-              duration: 0.45,
-              delay: rollDelay,
-              ease: 'easeInOut',
-              repeat: 3,
-              repeatType: 'loop',
-            }
-          : { type: 'spring', stiffness: 300, damping: 22 }
-      }
-      style={{ perspective: '200px', transformStyle: 'preserve-3d' }}
     >
-      {/* Rolling blur overlay */}
-      <AnimatePresence>
-        {isRolling && (
-          <motion.div
-            className="absolute inset-0 rounded-xl bg-gradient-to-b from-primary/20 to-transparent"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: [0, 0.6, 0] }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.45, repeat: Infinity, delay: rollDelay }}
-          />
-        )}
-      </AnimatePresence>
-
-      {/* Win glow ring */}
+      {/* animated gradient bg */}
+      <motion.div
+        className={cn('absolute inset-0', isWin ? `bg-gradient-to-br ${meta.gradient}` : isLoss ? 'bg-destructive/10' : 'bg-transparent')}
+        animate={isRolling ? { opacity: [0.4, 1, 0.4] } : { opacity: 1 }}
+        transition={{ duration: 0.4, repeat: isRolling ? Infinity : 0 }}
+      />
+      {/* win pulse ring */}
       {isWin && (
         <motion.div
-          className="absolute inset-0 rounded-xl border-2 border-success"
-          animate={{ opacity: [0.5, 1, 0.5] }}
+          className={cn('absolute inset-0 rounded-2xl border-2', meta.ring)}
+          animate={{ opacity: [0.4, 1, 0.4] }}
           transition={{ duration: 1.2, repeat: Infinity }}
         />
       )}
-
       <motion.span
-        key={symbol?.id}
-        initial={isNew ? { scale: 0, rotate: -20 } : false}
-        animate={{ scale: 1, rotate: 0 }}
-        transition={{ type: 'spring', stiffness: 350, damping: 18, delay: rollDelay + 0.15 }}
-        className="relative z-10"
+        key={String(roll) + String(isRolling)}
+        initial={{ scale: 0.7, opacity: 0.5 }}
+        animate={{ scale: 1, opacity: 1 }}
+        transition={{ type: 'spring', stiffness: 400, damping: 20 }}
+        className={cn(
+          'relative z-10 text-xl font-heading font-bold tabular-nums',
+          isWin  ? 'text-foreground' :
+          isLoss ? 'text-destructive' :
+          'text-muted-foreground'
+        )}
       >
-        {symbol ? symbol.emoji : '❓'}
+        {isRolling ? Math.floor(Math.random() * 100) + 1 : (roll ?? '–')}
       </motion.span>
     </motion.div>
   );
 };
 
-// One entire line of 3 dice
-const GameLine = ({
-  lineIndex,
-  dice,
-  isRolling,
-  isWin,
-  win,
-  multiplier,
-  isNew,
-  isActive,
-}: {
-  lineIndex: number;
-  dice: DiceSymbol[] | null;
-  isRolling: boolean;
-  isWin: boolean;
-  win: number;
-  multiplier: number;
-  isNew: boolean;
+// ─── Single Line Card ─────────────────────────────────────────────────────────
+interface LineCardProps {
+  lineIdx: number;
   isActive: boolean;
-}) => {
-  const baseDelay = lineIndex * 0.12;
+  config: LineConfig;
+  onChange: (cfg: LineConfig) => void;
+  rollResult: { roll: number; isWin: boolean; multiplier: number } | null;
+  isRolling: boolean;
+  revealed: boolean;
+}
+
+const LineCard = ({ lineIdx, isActive, config, onChange, rollResult, isRolling, revealed }: LineCardProps) => {
+  const meta = LINE_META[lineIdx];
+  const winChance = config.isOver ? (99 - config.targetNumber) : (config.targetNumber - 1);
+  const multiplier = calculateDiceMultiplier(winChance);
+  const isWin = revealed && !!rollResult?.isWin;
+  const isLoss = revealed && rollResult !== null && !rollResult.isWin;
 
   return (
     <motion.div
-      initial={{ opacity: 0, x: -20 }}
-      animate={{ opacity: isActive ? 1 : 0.35, x: 0 }}
-      transition={{ delay: lineIndex * 0.06 }}
+      initial={{ opacity: 0, y: 8 }}
+      animate={{
+        opacity: isActive ? 1 : 0.3,
+        y: 0,
+        scale: isActive ? 1 : 0.98,
+      }}
+      transition={{ delay: lineIdx * 0.05 }}
       className="relative"
     >
       <div
         className={cn(
-          'relative rounded-2xl border bg-gradient-to-r p-3 sm:p-4 transition-all duration-500',
-          LINE_COLORS[lineIndex],
-          isWin && 'shadow-xl',
-          isWin && LINE_GLOW[lineIndex],
+          'rounded-2xl border bg-gradient-to-r p-4 transition-all duration-500',
+          isActive ? `${meta.gradient} border-border/60` : 'from-muted/10 to-muted/5 border-border/20',
+          isWin  && `shadow-xl ${meta.glow} border-opacity-100`,
+          isLoss && 'border-destructive/40',
         )}
       >
-        {/* Line label */}
-        <div className="flex items-center justify-between mb-2">
-          <div className="flex items-center gap-1.5">
-            <div
-              className={cn(
-                'w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold text-background',
-                lineIndex === 0 ? 'bg-primary' :
-                lineIndex === 1 ? 'bg-blue-500' :
-                lineIndex === 2 ? 'bg-emerald-500' :
-                lineIndex === 3 ? 'bg-amber-500' : 'bg-rose-500'
-              )}
-            >
-              {lineIndex + 1}
+        {/* Header row */}
+        <div className="flex items-center justify-between mb-3">
+          <div className="flex items-center gap-2">
+            <div className={cn('w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold text-primary-foreground', meta.dot)}>
+              {lineIdx + 1}
             </div>
-            <span className="text-xs font-medium text-muted-foreground">Linje {lineIndex + 1}</span>
+            <span className="text-xs font-semibold text-muted-foreground">{meta.label}</span>
           </div>
 
           {/* Win badge */}
           <AnimatePresence>
-            {isWin && win > 0 && (
+            {isWin && (
               <motion.div
-                initial={{ scale: 0, x: 20 }}
+                initial={{ scale: 0, x: 16 }}
                 animate={{ scale: 1, x: 0 }}
                 exit={{ scale: 0 }}
                 transition={{ type: 'spring', stiffness: 400, damping: 18 }}
-                className="flex items-center gap-1 px-2.5 py-1 rounded-full bg-success/20 border border-success/40"
+                className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-success/15 border border-success/40"
               >
                 <Trophy className="w-3 h-3 text-success" />
-                <span className="text-xs font-bold text-success">+{win.toLocaleString('da-DK')}</span>
-                <span className="text-[10px] text-success/70">x{multiplier}</span>
+                <span className="text-xs font-bold text-success">x{rollResult!.multiplier.toFixed(2)}</span>
+              </motion.div>
+            )}
+            {isLoss && (
+              <motion.div
+                initial={{ scale: 0, x: 16 }}
+                animate={{ scale: 1, x: 0 }}
+                exit={{ scale: 0 }}
+                className="flex items-center gap-1 px-2.5 py-1 rounded-full bg-destructive/10 border border-destructive/30"
+              >
+                <span className="text-xs font-semibold text-destructive">Tabte</span>
               </motion.div>
             )}
           </AnimatePresence>
         </div>
 
-        {/* Dice row */}
-        <div className="flex items-center justify-center gap-2 sm:gap-3">
-          {[0, 1, 2].map(dieIdx => (
-            <DieFace
-              key={dieIdx}
-              symbol={dice ? dice[dieIdx] : null}
-              isRolling={isRolling}
-              rollDelay={baseDelay + dieIdx * 0.08}
-              isWin={isWin}
-              isNew={isNew}
+        <div className="flex items-center gap-3">
+          {/* Roll result display */}
+          <RollDisplay
+            roll={rollResult?.roll ?? null}
+            isRolling={isRolling && isActive}
+            isWin={isWin}
+            isLoss={isLoss}
+            targetNumber={config.targetNumber}
+            isOver={config.isOver}
+            lineIdx={lineIdx}
+          />
+
+          {/* Controls */}
+          <div className="flex-1 min-w-0">
+            {/* Over/Under toggle */}
+            <div className="grid grid-cols-2 gap-1.5 mb-2">
+              <Button
+                size="sm"
+                variant={config.isOver ? 'default' : 'outline'}
+                onClick={() => onChange({ ...config, isOver: true })}
+                disabled={isRolling}
+                className={cn(
+                  'h-7 text-xs transition-all duration-200',
+                  config.isOver && 'bg-success hover:bg-success/90 text-success-foreground shadow-md shadow-success/20'
+                )}
+              >
+                <ArrowUp className="w-3 h-3 mr-1" />
+                Over {config.targetNumber}
+              </Button>
+              <Button
+                size="sm"
+                variant={!config.isOver ? 'default' : 'outline'}
+                onClick={() => onChange({ ...config, isOver: false })}
+                disabled={isRolling}
+                className={cn(
+                  'h-7 text-xs transition-all duration-200',
+                  !config.isOver && 'bg-accent hover:bg-accent/90 text-accent-foreground shadow-md shadow-accent/20'
+                )}
+              >
+                <ArrowDown className="w-3 h-3 mr-1" />
+                Under {config.targetNumber}
+              </Button>
+            </div>
+
+            {/* Slider */}
+            <Slider
+              value={[config.targetNumber]}
+              onValueChange={([v]) => onChange({ ...config, targetNumber: v })}
+              min={2}
+              max={98}
+              step={1}
+              disabled={isRolling || !isActive}
+              className="mb-1"
             />
-          ))}
+
+            {/* Stats row */}
+            <div className="flex items-center justify-between text-[11px] text-muted-foreground">
+              <span>Chance: <span className={cn('font-semibold', winChance > 50 ? 'text-success' : winChance > 25 ? 'text-accent' : 'text-destructive')}>{winChance}%</span></span>
+              <span>Multiplier: <span className="font-bold text-foreground">x{multiplier.toFixed(2)}</span></span>
+            </div>
+          </div>
         </div>
 
-        {/* Win line sweep animation */}
+        {/* Win sweep shimmer */}
         <AnimatePresence>
           {isWin && (
-            <motion.div
-              className="absolute inset-0 rounded-2xl overflow-hidden pointer-events-none"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-            >
+            <motion.div className="absolute inset-0 rounded-2xl overflow-hidden pointer-events-none" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
               <motion.div
-                className="absolute top-0 bottom-0 w-24 bg-gradient-to-r from-transparent via-white/15 to-transparent"
-                initial={{ left: '-20%' }}
-                animate={{ left: '120%' }}
-                transition={{ duration: 0.7, delay: baseDelay + 0.6 }}
+                className="absolute top-0 bottom-0 w-32 bg-gradient-to-r from-transparent via-white/12 to-transparent"
+                initial={{ left: '-30%' }}
+                animate={{ left: '130%' }}
+                transition={{ duration: 0.8, delay: lineIdx * 0.08 + 0.3 }}
               />
             </motion.div>
           )}
@@ -251,143 +231,133 @@ const GameLine = ({
   );
 };
 
-// Paytable popup
-const Paytable = ({ onClose }: { onClose: () => void }) => (
-  <motion.div
-    initial={{ opacity: 0, scale: 0.95, y: 10 }}
-    animate={{ opacity: 1, scale: 1, y: 0 }}
-    exit={{ opacity: 0, scale: 0.95, y: 10 }}
-    className="absolute inset-x-0 top-full mt-2 z-50 bg-card border border-border rounded-2xl p-4 shadow-2xl"
-  >
-    <div className="flex items-center justify-between mb-3">
-      <h3 className="font-semibold text-sm">Udbetalingsoversigt (3 ens)</h3>
-      <button onClick={onClose} className="text-muted-foreground hover:text-foreground text-xs px-2 py-1 rounded-lg hover:bg-muted transition-colors">Luk</button>
-    </div>
-    <div className="space-y-1.5">
-      {SYMBOLS.map(sym => (
-        <div key={sym.id} className="flex items-center justify-between text-sm">
-          <div className="flex items-center gap-2">
-            <span className="text-xl">{sym.emoji} {sym.emoji} {sym.emoji}</span>
-          </div>
-          <span className="font-bold text-primary">x{sym.multiplier}</span>
-        </div>
-      ))}
-    </div>
-  </motion.div>
-);
+// ─── Main Component ───────────────────────────────────────────────────────────
+
+const DEFAULT_LINE: LineConfig = { targetNumber: 50, isOver: true };
 
 const LinesGame = () => {
   const { data: balance, refetch: refetchBalance } = useShardBalance();
   const { spin } = usePlayLines();
 
-  const [betPerLine, setBetPerLine] = useState(100);
+  const [betAmount, setBetAmount] = useState(100);
   const [lineCount, setLineCount] = useState(1);
+  const [lineConfigs, setLineConfigs] = useState<LineConfig[]>([
+    { targetNumber: 50, isOver: true },
+    { targetNumber: 50, isOver: true },
+    { targetNumber: 50, isOver: true },
+    { targetNumber: 50, isOver: true },
+    { targetNumber: 50, isOver: true },
+  ]);
+
   const [isSpinning, setIsSpinning] = useState(false);
   const [isRolling, setIsRolling] = useState(false);
-  const [result, setResult] = useState<SpinResult | null>(null);
-  const [showResult, setShowResult] = useState(false);
+  const [result, setResult] = useState<LinesSpinResponse | null>(null);
+  const [revealed, setRevealed] = useState(false);
   const [showCelebration, setShowCelebration] = useState(false);
-  const [showPaytable, setShowPaytable] = useState(false);
-  const [history, setHistory] = useState<{ net: number; lines: number }[]>([]);
-  const [diceRevealDone, setDiceRevealDone] = useState(false);
+  const [history, setHistory] = useState<{ net: number; mult: number }[]>([]);
 
-  const totalBet = betPerLine * lineCount;
-  const canSpin = !isSpinning && totalBet <= (balance?.balance || 0) && betPerLine >= 10;
-
+  const totalBet = betAmount * lineCount;
+  const canSpin = !isSpinning && totalBet <= (balance?.balance || 0) && betAmount >= 10;
   const formatShards = (n: number) => new Intl.NumberFormat('da-DK').format(n);
-  const quickBets = [50, 100, 500, 1000];
+
+  // Combined multiplier shown before spin (product of active line multipliers)
+  const previewCombinedMult = lineConfigs.slice(0, lineCount).reduce((acc, cfg) => {
+    const wc = cfg.isOver ? 99 - cfg.targetNumber : cfg.targetNumber - 1;
+    return acc * calculateDiceMultiplier(wc);
+  }, 1);
+  const previewPotentialWin = Math.floor(betAmount * Math.floor(previewCombinedMult * 100) / 100);
+
+  const handleLineConfigChange = useCallback((idx: number, cfg: LineConfig) => {
+    setLineConfigs(prev => prev.map((c, i) => i === idx ? cfg : c));
+  }, []);
 
   const handleSpin = useCallback(async () => {
     if (!canSpin) return;
 
     setIsSpinning(true);
     setIsRolling(true);
-    setShowResult(false);
+    setRevealed(false);
     setResult(null);
-    setDiceRevealDone(false);
     setShowCelebration(false);
 
-    // Minimum roll animation duration — scales slightly with line count
-    const MIN_ROLL_MS = 1800 + lineCount * 120;
+    const MIN_ROLL_MS = 1600 + lineCount * 100;
 
     try {
-      // API call and animation timer run IN PARALLEL — both must finish before reveal
       const [data] = await Promise.all([
-        spin.mutateAsync({ betAmount: betPerLine, lines: lineCount }),
+        spin.mutateAsync({ betAmount, lineConfigs: lineConfigs.slice(0, lineCount) }),
         new Promise(r => setTimeout(r, MIN_ROLL_MS)),
       ]);
 
       setIsRolling(false);
-
-      // Brief pause then reveal result
-      await new Promise(r => setTimeout(r, 120));
+      await new Promise(r => setTimeout(r, 100));
       setResult(data);
-      setDiceRevealDone(true);
-
-      await new Promise(r => setTimeout(r, 400));
-      setShowResult(true);
+      setRevealed(true);
 
       if (data.totalWin > 0) {
         setShowCelebration(true);
         setTimeout(() => setShowCelebration(false), 3500);
       }
 
-      setHistory(prev => [{ net: data.netResult, lines: data.winningLines }, ...prev.slice(0, 14)]);
+      setHistory(prev => [{ net: data.netResult, mult: data.combinedMultiplier }, ...prev.slice(0, 14)]);
       refetchBalance();
     } catch {
       setIsRolling(false);
     } finally {
       setIsSpinning(false);
     }
-  }, [canSpin, betPerLine, lineCount, spin, refetchBalance]);
+  }, [canSpin, betAmount, lineCount, lineConfigs, spin, refetchBalance]);
 
   const bigWin = result && result.totalWin >= totalBet * 5;
+  const quickBets = [50, 100, 500, 1000];
 
   return (
     <div className="bg-card border border-border rounded-2xl p-4 sm:p-6 relative overflow-hidden">
+
       {/* Celebration particles */}
       <AnimatePresence>
         {showCelebration && (
           <motion.div className="absolute inset-0 pointer-events-none z-50" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
-            {[...Array(30)].map((_, i) => (
+            {[...Array(32)].map((_, i) => (
               <motion.div
                 key={i}
                 className="absolute"
-                initial={{ x: `${30 + Math.random() * 40}%`, y: '50%', scale: 0, opacity: 1 }}
+                initial={{ x: `${20 + Math.random() * 60}%`, y: '50%', scale: 0, opacity: 1 }}
                 animate={{
                   x: `${5 + Math.random() * 90}%`,
                   y: `${Math.random() * 90}%`,
-                  scale: [0, 1.8, 0.6],
+                  scale: [0, 2, 0.6],
                   opacity: [1, 1, 0],
                   rotate: Math.random() * 720 - 360,
                 }}
-                transition={{ duration: 2 + Math.random() * 1, delay: Math.random() * 0.5, ease: 'easeOut' }}
+                transition={{ duration: 2 + Math.random() * 1.2, delay: Math.random() * 0.5, ease: 'easeOut' }}
               >
-                {['✨', '💫', '⭐', '🌟'][Math.floor(Math.random() * 4)]}
+                {['✨', '💫', '⭐', '🌟', '🎉'][Math.floor(Math.random() * 5)]}
               </motion.div>
             ))}
           </motion.div>
         )}
       </AnimatePresence>
 
-      {/* Big Win banner */}
+      {/* Big Win overlay */}
       <AnimatePresence>
-        {bigWin && showResult && (
+        {bigWin && revealed && (
           <motion.div
-            initial={{ opacity: 0, scale: 0.7, y: -20 }}
+            initial={{ opacity: 0, scale: 0.6, y: -30 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.8 }}
-            transition={{ type: 'spring', stiffness: 300, damping: 20 }}
-            className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-50 text-center pointer-events-none"
+            transition={{ type: 'spring', stiffness: 280, damping: 18 }}
+            className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-50 pointer-events-none text-center"
           >
             <motion.div
-              animate={{ scale: [1, 1.05, 1] }}
-              transition={{ duration: 0.6, repeat: Infinity }}
-              className="px-8 py-4 rounded-2xl bg-primary/90 backdrop-blur-sm border-2 border-primary shadow-2xl shadow-primary/50"
+              animate={{ scale: [1, 1.04, 1] }}
+              transition={{ duration: 0.65, repeat: Infinity }}
+              className="px-10 py-5 rounded-3xl bg-primary/90 backdrop-blur-sm border-2 border-primary shadow-2xl shadow-primary/50"
             >
-              <div className="text-4xl mb-1">🏆</div>
-              <div className="font-heading text-2xl text-primary-foreground">BIG WIN!</div>
-              <div className="text-primary-foreground/80 font-bold text-lg">+{formatShards(result!.totalWin)}</div>
+              <div className="text-5xl mb-1">🏆</div>
+              <div className="font-heading text-3xl text-primary-foreground">ALL WIN!</div>
+              <div className="text-primary-foreground/80 font-bold text-xl mt-1">
+                x{result!.combinedMultiplier.toFixed(2)} → +{formatShards(result!.totalWin)}
+              </div>
             </motion.div>
           </motion.div>
         )}
@@ -401,69 +371,67 @@ const LinesGame = () => {
           </div>
           <div>
             <h2 className="font-heading text-xl text-foreground">Lines</h2>
-            <p className="text-sm text-muted-foreground">Match 3 symboler på dine linjer</p>
+            <p className="text-sm text-muted-foreground">Sæt din multiplier per linje</p>
           </div>
         </div>
-        <div className="flex items-center gap-2">
-          <div className="relative">
-            <Button
-              variant="ghost"
-              size="sm"
-              className="text-xs text-muted-foreground hover:text-foreground"
-              onClick={() => setShowPaytable(v => !v)}
-            >
-              Udbetalinger
-            </Button>
-            <AnimatePresence>
-              {showPaytable && <Paytable onClose={() => setShowPaytable(false)} />}
-            </AnimatePresence>
+
+        {/* History dots */}
+        {history.length > 0 && (
+          <div className="flex items-center gap-1">
+            {history.slice(0, 10).map((h, i) => (
+              <motion.div
+                key={i}
+                initial={{ scale: 0 }}
+                animate={{ scale: 1 }}
+                className={cn('w-2 h-2 rounded-full', h.net >= 0 ? 'bg-success' : 'bg-destructive')}
+                title={`${h.net >= 0 ? '+' : ''}${formatShards(h.net)}`}
+              />
+            ))}
           </div>
-        </div>
+        )}
       </div>
 
-      <div className="flex flex-col lg:grid lg:grid-cols-[1fr_260px] gap-5">
-        {/* Left: Game Lines */}
-        <div className="space-y-2.5 order-first">
+      <div className="flex flex-col lg:grid lg:grid-cols-[1fr_240px] gap-5">
+
+        {/* LEFT: Line cards */}
+        <div className="space-y-2.5">
           {[...Array(5)].map((_, i) => {
-            const lineResult = result?.lineResults[i];
+            const lr = result?.lineResults[i];
             return (
-              <GameLine
+              <LineCard
                 key={i}
-                lineIndex={i}
-                dice={lineResult ? lineResult.dice : null}
-                isRolling={isRolling}
-                isWin={lineResult?.isWin || false}
-                win={lineResult?.win || 0}
-                multiplier={lineResult?.multiplier || 0}
-                isNew={diceRevealDone}
+                lineIdx={i}
                 isActive={i < lineCount}
+                config={lineConfigs[i]}
+                onChange={(cfg) => handleLineConfigChange(i, cfg)}
+                rollResult={lr ? { roll: lr.roll, isWin: lr.isWin, multiplier: lr.multiplier } : null}
+                isRolling={isRolling}
+                revealed={revealed}
               />
             );
           })}
 
           {/* Result summary */}
           <AnimatePresence>
-            {showResult && result && (
+            {revealed && result && (
               <motion.div
-                initial={{ opacity: 0, y: 10 }}
+                initial={{ opacity: 0, y: 8 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0 }}
                 className={cn(
-                  'rounded-xl p-3 border flex items-center justify-between',
-                  result.totalWin > 0
-                    ? 'bg-success/10 border-success/30'
-                    : 'bg-destructive/10 border-destructive/30'
+                  'rounded-xl p-3.5 border flex items-center justify-between',
+                  result.totalWin > 0 ? 'bg-success/10 border-success/30' : 'bg-destructive/10 border-destructive/30'
                 )}
               >
                 <div>
-                  <span className="text-sm text-muted-foreground">
-                    {result.winningLines > 0
-                      ? `${result.winningLines} gevinst${result.winningLines !== 1 ? 'er' : ''}`
+                  <div className="text-sm font-semibold text-foreground">
+                    {result.winningLinesCount > 0
+                      ? `${result.winningLinesCount}/${lineCount} linjer vandt`
                       : 'Ingen gevinster'}
-                  </span>
-                  {result.winningLines > 0 && (
+                  </div>
+                  {result.winningLinesCount > 0 && (
                     <div className="text-xs text-muted-foreground">
-                      Indsats: {formatShards(result.totalBet)}
+                      Kombineret: x{result.combinedMultiplier.toFixed(2)}
                     </div>
                   )}
                 </div>
@@ -471,10 +439,7 @@ const LinesGame = () => {
                   initial={{ scale: 0.7 }}
                   animate={{ scale: 1 }}
                   transition={{ type: 'spring', stiffness: 400 }}
-                  className={cn(
-                    'font-bold text-lg',
-                    result.netResult >= 0 ? 'text-success' : 'text-destructive'
-                  )}
+                  className={cn('font-bold text-xl', result.netResult >= 0 ? 'text-success' : 'text-destructive')}
                 >
                   {result.netResult >= 0 ? '+' : ''}{formatShards(result.netResult)}
                 </motion.div>
@@ -483,229 +448,155 @@ const LinesGame = () => {
           </AnimatePresence>
         </div>
 
-        {/* Right: Controls */}
-        <div className="space-y-4 order-last lg:order-first">
+        {/* RIGHT: Controls */}
+        <div className="space-y-4 order-first lg:order-last">
+
           {/* Balance */}
           <div className="bg-background/60 rounded-xl p-3 flex items-center justify-between border border-border/40">
-            <span className="text-sm text-muted-foreground">Din saldo</span>
+            <span className="text-sm text-muted-foreground">Saldo</span>
             <motion.span
               key={balance?.balance}
               initial={{ scale: 1.1, color: 'hsl(var(--success))' }}
               animate={{ scale: 1, color: 'hsl(var(--foreground))' }}
-              className="font-bold text-lg"
+              className="font-bold text-sm"
             >
-              {formatShards(balance?.balance || 0)}
+              {formatShards(balance?.balance || 0)} ✨
             </motion.span>
           </div>
 
-          {/* Lines selector */}
+          {/* Line count */}
           <div>
-            <div className="flex items-center justify-between mb-2">
-              <label className="text-sm font-medium text-muted-foreground">Antal linjer</label>
-              <span className="text-xs text-muted-foreground">Maks. 5</span>
-            </div>
-            <div className="flex gap-1.5">
-              {[1, 2, 3, 4, 5].map(n => (
-                <motion.button
-                  key={n}
-                  whileTap={{ scale: 0.9 }}
-                  onClick={() => setLineCount(n)}
-                  disabled={isSpinning}
-                  className={cn(
-                    'flex-1 h-10 rounded-xl text-sm font-bold border transition-all duration-200',
-                    lineCount === n
-                      ? 'bg-primary text-primary-foreground border-primary shadow-lg shadow-primary/30'
-                      : 'bg-muted/40 text-muted-foreground border-border/50 hover:border-primary/40 hover:text-foreground'
-                  )}
-                >
-                  {n}
-                </motion.button>
-              ))}
-            </div>
-            {/* Line indicators */}
-            <div className="mt-2 flex gap-1">
-              {[0,1,2,3,4].map(i => (
-                <div
-                  key={i}
-                  className={cn(
-                    'flex-1 h-1 rounded-full transition-all duration-300',
-                    i < lineCount
-                      ? i === 0 ? 'bg-primary' :
-                        i === 1 ? 'bg-blue-500' :
-                        i === 2 ? 'bg-emerald-500' :
-                        i === 3 ? 'bg-amber-500' : 'bg-rose-500'
-                      : 'bg-muted/30'
-                  )}
-                />
-              ))}
+            <label className="text-sm text-muted-foreground mb-2 block">Antal linjer</label>
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline" size="icon"
+                onClick={() => setLineCount(c => Math.max(1, c - 1))}
+                disabled={isSpinning || lineCount <= 1}
+                className="w-9 h-9"
+              >
+                <Minus className="w-4 h-4" />
+              </Button>
+              <div className="flex-1 flex justify-center gap-1.5">
+                {[1, 2, 3, 4, 5].map(n => (
+                  <button
+                    key={n}
+                    onClick={() => setLineCount(n)}
+                    disabled={isSpinning}
+                    className={cn(
+                      'w-7 h-7 rounded-lg text-sm font-bold transition-all',
+                      n <= lineCount
+                        ? `${LINE_META[n - 1].dot} text-white shadow-md`
+                        : 'bg-muted text-muted-foreground hover:bg-muted/70'
+                    )}
+                  >
+                    {n}
+                  </button>
+                ))}
+              </div>
+              <Button
+                variant="outline" size="icon"
+                onClick={() => setLineCount(c => Math.min(5, c + 1))}
+                disabled={isSpinning || lineCount >= 5}
+                className="w-9 h-9"
+              >
+                <Plus className="w-4 h-4" />
+              </Button>
             </div>
           </div>
 
           {/* Bet per line */}
           <div>
-            <label className="text-sm font-medium text-muted-foreground mb-2 block">Indsats per linje</label>
-            <div className="flex gap-2">
-              <Button
-                variant="outline"
-                size="icon"
-                className="shrink-0"
-                onClick={() => setBetPerLine(prev => Math.max(10, prev - (prev <= 100 ? 10 : prev <= 500 ? 50 : 100)))}
-                disabled={isSpinning || betPerLine <= 10}
-              >
-                <Minus className="w-4 h-4" />
-              </Button>
+            <label className="text-sm text-muted-foreground mb-2 block">Indsats pr. linje</label>
+            <div className="flex gap-2 mb-2">
               <Input
                 type="number"
-                value={betPerLine}
-                onChange={e => setBetPerLine(Math.max(10, parseInt(e.target.value) || 10))}
-                className="bg-background text-center font-bold"
+                value={betAmount}
+                onChange={e => setBetAmount(parseInt(e.target.value) || 0)}
+                onBlur={() => setBetAmount(prev => Math.max(10, prev))}
                 disabled={isSpinning}
+                className="bg-background"
               />
-              <Button
-                variant="outline"
-                size="icon"
-                className="shrink-0"
-                onClick={() => setBetPerLine(prev => Math.min(prev + (prev < 100 ? 10 : prev < 500 ? 50 : 100), Math.floor((balance?.balance || 0) / lineCount)))}
-                disabled={isSpinning}
-              >
-                <Plus className="w-4 h-4" />
-              </Button>
+              <Button variant="outline" size="sm" onClick={() => setBetAmount(b => Math.max(10, Math.floor(b / 2)))} disabled={isSpinning}>½</Button>
+              <Button variant="outline" size="sm" onClick={() => setBetAmount(b => Math.min(b * 2, balance?.balance || 0))} disabled={isSpinning}>2×</Button>
             </div>
-            <div className="flex gap-1.5 mt-2">
+            <div className="flex gap-1.5">
               {quickBets.map(qb => (
-                <Button
-                  key={qb}
-                  variant="ghost"
-                  size="sm"
-                  className="flex-1 text-xs h-8"
-                  onClick={() => setBetPerLine(qb)}
-                  disabled={isSpinning || qb * lineCount > (balance?.balance || 0)}
-                >
+                <Button key={qb} variant="ghost" size="sm" className="flex-1 text-xs h-8" onClick={() => setBetAmount(qb)} disabled={isSpinning || qb > (balance?.balance || 0)}>
                   {qb}
                 </Button>
               ))}
             </div>
           </div>
 
-          {/* Total bet summary */}
-          <div className="bg-background/40 rounded-xl p-3 space-y-1.5 border border-border/30">
+          {/* Stats preview */}
+          <motion.div className="bg-background/60 rounded-xl p-3.5 space-y-2 border border-border/40" layout>
             <div className="flex justify-between text-sm">
-              <span className="text-muted-foreground">Indsats/linje</span>
-              <span className="font-medium">{formatShards(betPerLine)}</span>
+              <span className="text-muted-foreground">Total indsats</span>
+              <span className="font-semibold">{formatShards(totalBet)} ✨</span>
             </div>
             <div className="flex justify-between text-sm">
-              <span className="text-muted-foreground">Linjer</span>
-              <span className="font-medium">×{lineCount}</span>
-            </div>
-            <div className="flex justify-between pt-1.5 border-t border-border/30">
-              <span className="text-sm font-semibold">Total indsats</span>
-              <motion.span key={totalBet} initial={{ scale: 1.15 }} animate={{ scale: 1 }} className="font-bold text-primary">
-                {formatShards(totalBet)}
+              <span className="text-muted-foreground">Max multiplier</span>
+              <motion.span key={previewCombinedMult} initial={{ scale: 1.1 }} animate={{ scale: 1 }} className="font-semibold text-primary">
+                x{(Math.floor(previewCombinedMult * 100) / 100).toFixed(2)}
               </motion.span>
             </div>
-          </div>
-
-          {/* Half / Double */}
-          <div className="flex gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              className="flex-1"
-              onClick={() => setBetPerLine(prev => Math.max(10, Math.floor(prev / 2)))}
-              disabled={isSpinning || betPerLine <= 10}
-            >
-              ½
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              className="flex-1"
-              onClick={() => setBetPerLine(prev => Math.min(prev * 2, Math.floor((balance?.balance || 0) / lineCount)))}
-              disabled={isSpinning}
-            >
-              2×
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              className="flex-1"
-              onClick={() => setBetPerLine(Math.floor((balance?.balance || 0) / lineCount))}
-              disabled={isSpinning}
-            >
-              Max
-            </Button>
-          </div>
+            <div className="flex justify-between text-sm border-t border-border/40 pt-2">
+              <span className="text-muted-foreground">Maks gevinst</span>
+              <motion.span key={previewPotentialWin} initial={{ scale: 1.1 }} animate={{ scale: 1 }} className="font-bold text-lg text-primary">
+                {formatShards(previewPotentialWin)} ✨
+              </motion.span>
+            </div>
+            <p className="text-[10px] text-muted-foreground/60 text-center">Alle linjer skal vinde for maks gevinst</p>
+          </motion.div>
 
           {/* Spin button */}
-          <motion.div
-            whileTap={canSpin ? { scale: 0.97 } : {}}
-            animate={
-              canSpin && !isSpinning
-                ? {
-                    boxShadow: [
-                      '0 0 0px hsl(var(--primary))',
-                      '0 0 30px hsl(var(--primary) / 0.45)',
-                      '0 0 0px hsl(var(--primary))',
-                    ],
-                  }
-                : {}
-            }
-            transition={{ duration: 2, repeat: Infinity }}
-            className="rounded-xl"
-          >
+          <motion.div whileTap={{ scale: 0.98 }}>
             <Button
-              className="w-full h-14 text-base font-bold gap-2 relative overflow-hidden"
+              className={cn(
+                'w-full h-14 text-base font-bold transition-all duration-300 relative overflow-hidden',
+                canSpin
+                  ? 'bg-primary hover:bg-primary/90 shadow-xl shadow-primary/25'
+                  : 'bg-muted'
+              )}
               onClick={handleSpin}
               disabled={!canSpin}
             >
-              {isSpinning ? (
-                <>
-                  <Loader2 className="w-5 h-5 animate-spin" />
-                  Snurrer...
-                </>
-              ) : (
-                <>
-                  <Zap className="w-5 h-5" />
-                  SPIN — {formatShards(totalBet)} Shards
-                </>
-              )}
-              {/* Button sweep shine */}
+              {/* shimmer sweep */}
               {canSpin && !isSpinning && (
                 <motion.div
-                  className="absolute top-0 bottom-0 w-12 bg-gradient-to-r from-transparent via-white/20 to-transparent"
-                  animate={{ left: ['-15%', '115%'] }}
-                  transition={{ duration: 2, repeat: Infinity, repeatDelay: 1 }}
+                  className="absolute inset-0 bg-gradient-to-r from-transparent via-white/15 to-transparent"
+                  animate={{ x: ['-100%', '200%'] }}
+                  transition={{ duration: 2.5, repeat: Infinity, ease: 'linear', repeatDelay: 1 }}
                 />
+              )}
+              {isSpinning ? (
+                <span className="flex items-center gap-2">
+                  <Loader2 className="w-5 h-5 animate-spin" />
+                  Ruller…
+                </span>
+              ) : (
+                <span className="flex items-center gap-2 relative z-10">
+                  <Zap className="w-5 h-5" />
+                  Spin ({formatShards(totalBet)} ✨)
+                </span>
               )}
             </Button>
           </motion.div>
 
-          {/* History mini strip */}
-          {history.length > 0 && (
-            <div>
-              <p className="text-xs text-muted-foreground mb-1.5 flex items-center gap-1">
-                <TrendingUp className="w-3 h-3" /> Historik
-              </p>
-              <div className="flex gap-1 flex-wrap">
-                {history.slice(0, 10).map((h, i) => (
-                  <motion.div
-                    key={i}
-                    initial={{ scale: 0 }}
-                    animate={{ scale: 1 }}
-                    transition={{ type: 'spring', stiffness: 400, damping: 20 }}
-                    className={cn(
-                      'px-1.5 py-0.5 rounded-md text-[11px] font-bold border',
-                      h.net >= 0
-                        ? 'bg-success/10 border-success/30 text-success'
-                        : 'bg-destructive/10 border-destructive/30 text-destructive'
-                    )}
-                  >
-                    {h.net >= 0 ? '+' : ''}{h.net > 0 ? formatShards(h.net) : formatShards(h.net)}
-                  </motion.div>
-                ))}
-              </div>
-            </div>
-          )}
+          {/* Copy-all lines shortcut */}
+          <Button
+            variant="ghost"
+            size="sm"
+            className="w-full text-xs text-muted-foreground gap-1.5"
+            onClick={() => {
+              const first = lineConfigs[0];
+              setLineConfigs(prev => prev.map(() => ({ ...first })));
+            }}
+            disabled={isSpinning}
+          >
+            <RotateCcw className="w-3 h-3" />
+            Kopier linje 1 til alle
+          </Button>
         </div>
       </div>
     </div>
