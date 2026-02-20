@@ -138,6 +138,7 @@ const RouletteGame = () => {
   const [bets, setBets] = useState<Bet[]>([]);
   const [isSpinning, setIsSpinning] = useState(false);
   const [isAnimating, setIsAnimating] = useState(false);
+  const [isWaitingForServer, setIsWaitingForServer] = useState(false);
   const [result, setResult] = useState<number | null>(null);
   const [resultIsRed, setResultIsRed] = useState<boolean | null>(null);
   const [lastWin, setLastWin] = useState<number>(0);
@@ -170,20 +171,33 @@ const RouletteGame = () => {
 
   const handleSpin = async () => {
     if (isBusy || bets.length === 0 || totalBet > (balance?.balance || 0)) return;
-    setIsSpinning(true);
     setResult(null);
     setLastWin(0);
+    setIsAnimating(true);
+
+    // Kick wheel spinning IMMEDIATELY with a placeholder rotation
+    // so the user sees it moving right away regardless of server speed.
+    const PRE_SPIN_ROTATIONS = 360 * 4; // 4 full rotations as a "pending" spin
+    setWheelRotation(prev => prev + PRE_SPIN_ROTATIONS);
+
+    // Minimum time we want the wheel to visibly spin before revealing result
+    const MIN_SPIN_MS = 4800;
 
     try {
-      const data = await playRoulette.mutateAsync({ bets });
-      setIsAnimating(true);
-      setIsSpinning(false);
+      // API call and minimum wait run in parallel
+      const [data] = await Promise.all([
+        playRoulette.mutateAsync({ bets }),
+        new Promise(r => setTimeout(r, MIN_SPIN_MS)),
+      ]);
 
+      // Both done — now apply the corrected final position
       const resultIndex = WHEEL_ORDER.indexOf(data.result);
-      const targetDeg = 360 * 6 + (360 - resultIndex * SLOT_ANGLE);
+      // Add extra rotations on top of current to land on result
+      const targetDeg = 360 * 4 + (360 - resultIndex * SLOT_ANGLE);
       setWheelRotation(prev => prev + targetDeg);
 
-      await new Promise(r => setTimeout(r, 4800));
+      // Wait for this final spin CSS transition
+      await new Promise(r => setTimeout(r, MIN_SPIN_MS));
 
       setResult(data.result);
       setResultIsRed(data.isRed);
@@ -196,10 +210,11 @@ const RouletteGame = () => {
       }
 
       refetchBalance();
-      setIsAnimating(false);
     } catch {
-      setIsSpinning(false);
+      // no-op
+    } finally {
       setIsAnimating(false);
+      setIsSpinning(false);
     }
   };
 

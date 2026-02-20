@@ -307,17 +307,19 @@ const LinesGame = () => {
     setDiceRevealDone(false);
     setShowCelebration(false);
 
-    // Rolling animation for 1.8s + stagger per line
-    const rollDuration = 1800 + lineCount * 120;
+    // Minimum roll animation duration — scales slightly with line count
+    const MIN_ROLL_MS = 1800 + lineCount * 120;
 
     try {
-      const data = await spin.mutateAsync({ betAmount: betPerLine, lines: lineCount });
+      // API call and animation timer run IN PARALLEL — both must finish before reveal
+      const [data] = await Promise.all([
+        spin.mutateAsync({ betAmount: betPerLine, lines: lineCount }),
+        new Promise(r => setTimeout(r, MIN_ROLL_MS)),
+      ]);
 
-      // Wait for rolling animation
-      await new Promise(r => setTimeout(r, rollDuration));
       setIsRolling(false);
 
-      // Brief pause then reveal
+      // Brief pause then reveal result
       await new Promise(r => setTimeout(r, 120));
       setResult(data);
       setDiceRevealDone(true);
