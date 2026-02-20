@@ -57,79 +57,70 @@ const DiceGame = () => {
 
   const handlePlay = async () => {
     if (betAmount < 10 || betAmount > (balance?.balance || 0)) return;
-    
+
     setIsRolling(true);
     setLastResult(null);
-    
-    // Start dramatic rolling animation
+
+    // Minimum visible roll animation duration
+    const MIN_ROLL_MS = 1400;
+
+    // Start spinning animation immediately
     diceControls.start({
       rotate: [0, 360, 720, 1080],
       scale: [1, 1.1, 0.9, 1.05, 1],
       transition: { duration: 1.2, ease: "easeInOut" }
     });
-    
-    // Animate random numbers with increasing speed then slowing down
-    let speed = 30;
+
+    // Animate random numbers while waiting
     const accelerate = () => {
       setDisplayRoll(Math.floor(Math.random() * 100) + 1);
     };
-    
-    rollInterval.current = setInterval(accelerate, speed);
+    rollInterval.current = setInterval(accelerate, 30);
 
     try {
-      const result = await playDice.mutateAsync({ betAmount, targetNumber, isOver });
-      
-      // Slow down animation towards final result
-      setTimeout(() => {
-        if (rollInterval.current) clearInterval(rollInterval.current);
-        
-        // Final approach animation
-        const finalApproach = async () => {
-          const steps = 8;
-          const finalRoll = result.roll;
-          
-          for (let i = 0; i < steps; i++) {
-            await new Promise(r => setTimeout(r, 80 + i * 40));
-            // Gradually approach the final number
-            const progress = (i + 1) / steps;
-            const randomness = 1 - progress;
-            const approachValue = Math.round(
-              finalRoll + (Math.random() - 0.5) * 50 * randomness
-            );
-            setDisplayRoll(Math.max(1, Math.min(100, approachValue)));
-          }
-          
-          // Final reveal
-          await new Promise(r => setTimeout(r, 100));
-          setDisplayRoll(finalRoll);
-          setLastRoll(finalRoll);
-          
-          // Dramatic result animation
-          resultControls.start({
-            scale: [1, 1.3, 1],
-            transition: { duration: 0.4, ease: "easeOut" }
-          });
-          
-          setLastResult({ isWin: result.isWin, winAmount: result.winAmount });
-          setIsRolling(false);
-          
-          // Update history
-          setRollHistory(prev => [
-            { roll: finalRoll, isWin: result.isWin, timestamp: Date.now() },
-            ...prev.slice(0, 9)
-          ]);
-          
-          // Update streak
-          if (result.isWin) {
-            setStreak(prev => prev + 1);
-          } else {
-            setStreak(0);
-          }
-        };
-        
-        finalApproach();
-      }, 800);
-    } catch (e) {
+      // Run API call and minimum animation time IN PARALLEL
+      const [result] = await Promise.all([
+        playDice.mutateAsync({ betAmount, targetNumber, isOver }),
+        new Promise(r => setTimeout(r, MIN_ROLL_MS)),
+      ]);
+
+      // Both done — stop the random ticker and do the final approach
+      if (rollInterval.current) clearInterval(rollInterval.current);
+
+      const finalRoll = result.roll;
+      const steps = 8;
+      for (let i = 0; i < steps; i++) {
+        await new Promise(r => setTimeout(r, 60 + i * 35));
+        const progress = (i + 1) / steps;
+        const randomness = 1 - progress;
+        const approachValue = Math.round(finalRoll + (Math.random() - 0.5) * 50 * randomness);
+        setDisplayRoll(Math.max(1, Math.min(100, approachValue)));
+      }
+
+      // Final snap to result
+      await new Promise(r => setTimeout(r, 80));
+      setDisplayRoll(finalRoll);
+      setLastRoll(finalRoll);
+
+      resultControls.start({
+        scale: [1, 1.3, 1],
+        transition: { duration: 0.4, ease: "easeOut" }
+      });
+
+      setLastResult({ isWin: result.isWin, winAmount: result.winAmount });
+      setIsRolling(false);
+
+      setRollHistory(prev => [
+        { roll: finalRoll, isWin: result.isWin, timestamp: Date.now() },
+        ...prev.slice(0, 9)
+      ]);
+
+      if (result.isWin) {
+        setStreak(prev => prev + 1);
+      } else {
+        setStreak(0);
+      }
+    } catch {
       if (rollInterval.current) clearInterval(rollInterval.current);
       setIsRolling(false);
     }
