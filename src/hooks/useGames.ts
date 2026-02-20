@@ -238,19 +238,9 @@ export const usePlayDice = () => {
       if (!response.data.success) throw new Error(response.data.error);
       return response.data;
     },
-    onSuccess: (data) => {
+    onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['shard-balance'] });
       queryClient.invalidateQueries({ queryKey: ['shard-transactions'] });
-      
-      if (data.isWin) {
-        toast.success(`Vandt ${data.winAmount} Shards!`, {
-          description: `Terning: ${data.roll} (x${data.multiplier})`,
-        });
-      } else {
-        toast.error(`Tabte ${data.betAmount} Shards`, {
-          description: `Terning: ${data.roll}`,
-        });
-      }
     },
     onError: (error: Error) => {
       toast.error(error.message || 'Kunne ikke spille');
@@ -324,20 +314,7 @@ export const usePlayBlackjack = () => {
         queryClient.invalidateQueries({ queryKey: ['shard-balance'] });
         queryClient.invalidateQueries({ queryKey: ['shard-transactions'] });
         queryClient.invalidateQueries({ queryKey: ['active-game-session', 'blackjack'] });
-
-        if (data.status === 'blackjack') {
-          toast.success(`BLACKJACK! +${data.winAmount} Shards!`);
-        } else if (data.status === 'player_win' || data.status === 'dealer_bust') {
-          toast.success(`Vandt ${data.winAmount} Shards!`);
-        } else if (data.status === 'push') {
-          toast.info('Push – indsats returneret');
-        } else if (data.status === 'player_bust' || data.status === 'dealer_win') {
-          toast.error(`Tabte ${data.betAmount} Shards`);
-        }
-      }
-      if (data.status === 'playing' && data.restored) {
-        // balance already deducted
-      } else if (!ended) {
+      } else {
         queryClient.invalidateQueries({ queryKey: ['shard-balance'] });
       }
     },
@@ -381,15 +358,9 @@ export const usePlayRoulette = () => {
       if (!response.data.success) throw new Error(response.data.error);
       return response.data;
     },
-    onSuccess: (data) => {
+    onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['shard-balance'] });
       queryClient.invalidateQueries({ queryKey: ['shard-transactions'] });
-
-      if (data.totalWin > 0) {
-        toast.success(`Vandt ${data.totalWin} Shards!`, { description: `Resultat: ${data.result}` });
-      } else {
-        toast.error(`Tabte ${data.totalBet} Shards`, { description: `Resultat: ${data.result}` });
-      }
     },
     onError: (error: Error) => {
       toast.error(error.message || 'Kunne ikke spille');
@@ -472,12 +443,9 @@ export const usePlayHiLo = () => {
       if (!response.data.success) throw new Error(response.data.error);
       return response.data;
     },
-    onSuccess: (data) => {
-      if (!data.isWin) {
-        queryClient.invalidateQueries({ queryKey: ['shard-balance'] });
-        queryClient.invalidateQueries({ queryKey: ['shard-transactions'] });
-        toast.error('Forkert gæt!');
-      }
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['shard-balance'] });
+      queryClient.invalidateQueries({ queryKey: ['shard-transactions'] });
     },
   });
 
