@@ -7,22 +7,57 @@ const corsHeaders = {
 
 const KINGUIN_API_URL = 'https://gateway.kinguin.net/esa/api/v1'
 
+async function verifyHmac(rawBody: string, hmacHeader: string | null): Promise<boolean> {
+  if (!hmacHeader) return false
+  const secret = Deno.env.get('SHOPIFY_WEBHOOK_SECRET')
+  if (!secret) {
+    console.error('SHOPIFY_WEBHOOK_SECRET not set')
+    return false
+  }
+
+  const encoder = new TextEncoder()
+  const key = await crypto.subtle.importKey(
+    'raw',
+    encoder.encode(secret),
+    { name: 'HMAC', hash: 'SHA-256' },
+    false,
+    ['sign']
+  )
+  const signature = await crypto.subtle.sign('HMAC', key, encoder.encode(rawBody))
+  const computed = btoa(String.fromCharCode(...new Uint8Array(signature)))
+  return computed === hmacHeader
+}
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders })
   }
 
   try {
+    // Read raw body for HMAC verification
+    const rawBody = await req.text()
+
+    // HMAC validation
+    const hmacHeader = req.headers.get('x-shopify-hmac-sha256')
+    const isValid = await verifyHmac(rawBody, hmacHeader)
+    if (!isValid) {
+      console.error('HMAC validation failed')
+      return new Response(JSON.stringify({ error: 'Unauthorized' }), {
+        status: 401,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      })
+    }
+
+    const payload = JSON.parse(rawBody)
+
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
     const kinguinApiKey = Deno.env.get('KINGUIN_API_KEY')!
     const supabase = createClient(supabaseUrl, supabaseKey)
 
     const topic = req.headers.get('x-shopify-topic')
-    const payload = await req.json()
     
     console.log('Shopify webhook received:', topic)
-    console.log('Payload:', JSON.stringify(payload))
 
     // Log the webhook
     await supabase.from('kinguin_webhook_logs').insert({
@@ -83,7 +118,7 @@ async function handleOrderPaid(supabase: any, order: any, kinguinApiKey: string)
   }
   
   // Extract Kinguin product IDs from line items
-  const kinguinProducts: Array<{ kinguinId: number; qty: number; price: number }> = []
+  const kinguinProducts: Array<{ kinguinId: number; qty: number; price: number; name: string }> = []
   
   for (const item of order.line_items || []) {
     // Skip shard bundle products
@@ -96,10 +131,10 @@ async function handleOrderPaid(supabase: any, order: any, kinguinApiKey: string)
     if (sku.startsWith('KINGUIN-')) {
       const kinguinId = parseInt(sku.replace('KINGUIN-', ''))
       
-      // Get original price from our database
+      // Get original price AND name from our database
       const { data: product } = await supabase
         .from('kinguin_products')
-        .select('original_price')
+        .select('original_price, name')
         .eq('kinguin_id', kinguinId)
         .single()
       
@@ -107,7 +142,8 @@ async function handleOrderPaid(supabase: any, order: any, kinguinApiKey: string)
         kinguinProducts.push({
           kinguinId,
           qty: item.quantity,
-          price: product.original_price
+          price: product.original_price,
+          name: product.name
         })
       }
     }
@@ -148,7 +184,7 @@ async function handleOrderPaid(supabase: any, order: any, kinguinApiKey: string)
   const kinguinOrder = await kinguinResponse.json()
   console.log('Kinguin order placed:', kinguinOrder.orderId)
 
-  // Store order in our database
+  // Store order in our database (now with product names)
   await supabase.from('kinguin_orders').insert({
     order_id: kinguinOrder.orderId,
     order_external_id: externalId,
@@ -169,10 +205,10 @@ async function handleShardBundlePurchase(supabase: any, order: any): Promise<boo
 
   // Shard bundle definitions (must match frontend)
   const SHARD_BUNDLES: Record<string, number> = {
-    'SHARDS-5000': 5100,   // 5000 + 2% bonus
-    'SHARDS-10000': 10400, // 10000 + 4% bonus
-    'SHARDS-25000': 26500, // 25000 + 6% bonus
-    'SHARDS-50000': 54000, // 50000 + 8% bonus
+    'SHARDS-5000': 5100,
+    'SHARDS-10000': 10400,
+    'SHARDS-25000': 26500,
+    'SHARDS-50000': 54000,
   }
 
   for (const item of order.line_items || []) {
@@ -191,10 +227,9 @@ async function handleShardBundlePurchase(supabase: any, order: any): Promise<boo
   const email = order.email
   if (!email) {
     console.log('No email in order, cannot award shard bundle')
-    return true // Still mark as shard purchase to prevent double-awarding
+    return true
   }
 
-  // Look up user by email
   const { data: users } = await supabase.auth.admin.listUsers()
   const user = users?.users?.find((u: any) => u.email === email)
   
@@ -203,7 +238,6 @@ async function handleShardBundlePurchase(supabase: any, order: any): Promise<boo
     return true
   }
 
-  // Check if this order was already processed (idempotency)
   const { data: existingTx } = await supabase
     .from('shard_transactions')
     .select('id')
@@ -215,7 +249,6 @@ async function handleShardBundlePurchase(supabase: any, order: any): Promise<boo
     return true
   }
 
-  // Award shards
   const { error } = await supabase
     .from('shard_transactions')
     .insert({
@@ -243,7 +276,6 @@ async function awardPurchaseShards(supabase: any, order: any) {
     return
   }
 
-  // Look up user by email
   const { data: users } = await supabase.auth.admin.listUsers()
   const user = users?.users?.find((u: any) => u.email === email)
   
@@ -252,7 +284,6 @@ async function awardPurchaseShards(supabase: any, order: any) {
     return
   }
 
-  // Check if profile exists (user is in Customer Club)
   const { data: profile } = await supabase
     .from('profiles')
     .select('id')
@@ -264,7 +295,6 @@ async function awardPurchaseShards(supabase: any, order: any) {
     return
   }
 
-  // Get earning rule for purchases
   const { data: rule } = await supabase
     .from('shard_earning_rules')
     .select('percentage')
@@ -272,10 +302,8 @@ async function awardPurchaseShards(supabase: any, order: any) {
     .eq('is_active', true)
     .maybeSingle()
 
-  const percentage = rule?.percentage || 1.0 // Default 1%
+  const percentage = rule?.percentage || 1.0
   const orderTotal = parseFloat(order.total_price) || 0
-  
-  // Calculate shards: orderTotal * percentage% * 1000 (since 1000 shards = 1 DKK)
   const shardsToAward = Math.floor(orderTotal * (percentage / 100) * 1000)
 
   if (shardsToAward <= 0) {
@@ -283,7 +311,6 @@ async function awardPurchaseShards(supabase: any, order: any) {
     return
   }
 
-  // Insert shard transaction (trigger will update balance)
   const { error } = await supabase
     .from('shard_transactions')
     .insert({
@@ -299,7 +326,6 @@ async function awardPurchaseShards(supabase: any, order: any) {
     return
   }
 
-  // Update total purchases on profile
   const { data: currentProfile } = await supabase
     .from('profiles')
     .select('total_purchases')
