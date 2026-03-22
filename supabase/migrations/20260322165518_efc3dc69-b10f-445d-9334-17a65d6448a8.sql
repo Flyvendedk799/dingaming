@@ -1,0 +1,1 @@
+UPDATE store_settings SET value = '{"locked": false}'::jsonb, updated_at = now() WHERE key = 'sync_lock';

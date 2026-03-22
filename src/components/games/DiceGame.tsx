@@ -34,7 +34,7 @@ const DiceGame = () => {
   
   const diceControls = useAnimation();
   const resultControls = useAnimation();
-  const rollInterval = useRef<NodeJS.Timeout | null>(null);
+  const rollInterval = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const winChance = isOver ? (99 - targetNumber) : (targetNumber - 1);
   const multiplier = calculateDiceMultiplier(winChance);
