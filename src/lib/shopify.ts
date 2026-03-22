@@ -389,23 +389,33 @@ export async function getShopifyVariantId(kinguinId: number): Promise<VariantRes
     // If the product exists in Admin (we have an ID) but is invisible in Storefront,
     // it's usually not published to the Online Store channel yet.
     if (!result.variantId && result.productIsNull) {
-      toast.info('Gør produktet klar...', { description: 'Produktet bliver klargjort til butikken. Vent venligst.' });
+      const toastId = toast.loading('Gør produktet klar...', { description: 'Produktet bliver klargjort til butikken. Dette kan tage op til 30 sekunder.' });
 
-      const published = await ensurePublishedToOnlineStore(kinguinId);
-      if (published.ok) {
-        // Storefront propagation can take a moment — be patient
-        for (const ms of [1000, 2000, 3000, 5000]) {
+      // Try publishing — if first attempt doesn't propagate, re-publish and poll again
+      for (let attempt = 0; attempt < 2; attempt++) {
+        const published = await ensurePublishedToOnlineStore(kinguinId);
+        if (!published.ok) {
+          toast.dismiss(toastId);
+          const publishError = (published as { ok: false; error: string }).error;
+          return {
+            ok: false,
+            code: publishError === 'publications_not_found' ? 'PUBLISH_PERMISSION' : 'NOT_PUBLISHED',
+            details: publishError,
+          };
+        }
+
+        // Poll with increasing delays — total ~20s per attempt
+        for (const ms of [2000, 3000, 5000, 8000]) {
           await delay(ms);
           result = await fetchVariant();
           if (result.variantId) break;
         }
-      } else {
-        const publishError = (published as { ok: false; error: string }).error;
-        return {
-          ok: false,
-          code: publishError === 'publications_not_found' ? 'PUBLISH_PERMISSION' : 'NOT_PUBLISHED',
-          details: publishError,
-        };
+        if (result.variantId) break;
+      }
+
+      toast.dismiss(toastId);
+      if (result.variantId) {
+        toast.success('Produktet er klar!');
       }
     }
 
