@@ -190,6 +190,10 @@ const STOREFRONT_VARIANT_BY_PRODUCT_ID_QUERY = `
         edges {
           node {
             id
+            price {
+              amount
+              currencyCode
+            }
           }
         }
       }
