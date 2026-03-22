@@ -15,11 +15,16 @@ function json(body: unknown, init: ResponseInit = {}) {
   })
 }
 
-// Cache the Online Store publication ID in memory across invocations
-let cachedPublicationId: string | null = null
+type Publication = {
+  id: string
+  name: string
+}
 
-async function getOnlineStorePublicationId(accessToken: string): Promise<string | null> {
-  if (cachedPublicationId) return cachedPublicationId
+// Cache publication list in memory across warm invocations
+let cachedPublications: Publication[] | null = null
+
+async function getPublications(accessToken: string): Promise<Publication[]> {
+  if (cachedPublications) return cachedPublications
 
   const url = `https://${SHOPIFY_STORE_DOMAIN}/admin/api/${SHOPIFY_API_VERSION}/graphql.json`
   const response = await fetch(url, {
@@ -44,22 +49,38 @@ async function getOnlineStorePublicationId(accessToken: string): Promise<string 
   })
 
   const data = await response.json().catch(() => null)
-  const publications = data?.data?.publications?.edges || []
-  
-  // Find the Online Store publication
-  for (const edge of publications) {
-    const name = (edge.node.name || '').toLowerCase()
-    if (name === 'online store') {
-      cachedPublicationId = edge.node.id
-      return cachedPublicationId
-    }
-  }
-  
-  console.log('Available publications:', publications.map((e: any) => e.node.name))
-  return null
+  const publications: Publication[] = (data?.data?.publications?.edges || [])
+    .map((edge: any) => ({
+      id: edge?.node?.id,
+      name: edge?.node?.name,
+    }))
+    .filter((p: Publication) => Boolean(p.id) && Boolean(p.name))
+
+  cachedPublications = publications
+  console.log('Available publications:', publications.map((p) => p.name))
+  return publications
 }
 
-async function publishToOnlineStore(accessToken: string, productId: string, publicationId: string) {
+function splitPublicationTargets(publications: Publication[]) {
+  const storefrontTargets = publications.filter((p) => {
+    const name = p.name.toLowerCase()
+    return name.includes('headless') || name.includes('lovable')
+  })
+
+  const onlineStoreTarget = publications.find((p) => p.name.toLowerCase() === 'online store') ?? null
+
+  const requiredTargets = storefrontTargets.length > 0
+    ? storefrontTargets
+    : (onlineStoreTarget ? [onlineStoreTarget] : [])
+
+  const optionalTargets = onlineStoreTarget && !requiredTargets.some((p) => p.id === onlineStoreTarget.id)
+    ? [onlineStoreTarget]
+    : []
+
+  return { requiredTargets, optionalTargets }
+}
+
+async function publishToPublication(accessToken: string, productId: string, publicationId: string) {
   const url = `https://${SHOPIFY_STORE_DOMAIN}/admin/api/${SHOPIFY_API_VERSION}/graphql.json`
   const response = await fetch(url, {
     method: 'POST',
@@ -177,22 +198,45 @@ Deno.serve(async (req) => {
       return json({ success: false, error: 'productId_missing' }, { status: 400 })
     }
 
-    // 1) Try publishing to the Online Store publication directly (correct channel for Storefront API)
-    const publicationId = await getOnlineStorePublicationId(shopifyAccessToken)
-    if (publicationId) {
-      const publishResult = await publishToOnlineStore(shopifyAccessToken, productId, publicationId)
-      if (publishResult.ok) {
-        return json({ success: true, productId, method: 'online_store_publication' })
+    // 1) Publish to storefront-relevant publications first (Headless/Lovable),
+    // then best-effort Online Store publication.
+    const publications = await getPublications(shopifyAccessToken)
+    const { requiredTargets, optionalTargets } = splitPublicationTargets(publications)
+
+    if (requiredTargets.length > 0) {
+      const publishedTo: string[] = []
+      const publishErrors: string[] = []
+
+      for (const publication of requiredTargets) {
+        const publishResult = await publishToPublication(shopifyAccessToken, productId, publication.id)
+        if (publishResult.ok) {
+          publishedTo.push(publication.name)
+        } else {
+          publishErrors.push(`${publication.name}: ${publishResult.error || 'publish_failed'}`)
+        }
       }
-      console.log('publishablePublish failed:', publishResult.error)
-      
-      // If permissions issue, fall back to REST
-      const message = (publishResult.error || '').toLowerCase()
-      if (!message.includes('access denied') && !message.includes('write_publications')) {
-        return json({ success: false, error: publishResult.error || 'publish_failed' }, { status: 400 })
+
+      // Optional additional Online Store publish (best effort, non-blocking)
+      for (const publication of optionalTargets) {
+        const publishResult = await publishToPublication(shopifyAccessToken, productId, publication.id)
+        if (publishResult.ok) {
+          publishedTo.push(publication.name)
+        } else {
+          console.log(`Optional publication failed for ${publication.name}:`, publishResult.error)
+        }
       }
-    } else {
-      console.log('Could not find Online Store publication, falling back to REST')
+
+      if (publishedTo.length > 0) {
+        return json({ success: true, productId, method: 'publication', publishedTo })
+      }
+
+      const details = publishErrors.join(' | ')
+      const low = details.toLowerCase()
+      if (low.includes('access denied') || low.includes('write_publications')) {
+        return json({ success: false, error: 'publication_permission_denied', details }, { status: 403 })
+      }
+
+      return json({ success: false, error: 'publication_publish_failed', details }, { status: 400 })
     }
 
     // 2) Fallback: publish via REST API
