@@ -190,6 +190,10 @@ const STOREFRONT_VARIANT_BY_PRODUCT_ID_QUERY = `
         edges {
           node {
             id
+            price {
+              amount
+              currencyCode
+            }
           }
         }
       }
@@ -349,7 +353,7 @@ function delay(ms: number) {
 
 // Fetch the Shopify variant ID for a product using its Shopify product ID from the database
 export type VariantResolveResult =
-  | { ok: true; variantId: string }
+  | { ok: true; variantId: string; price: { amount: string; currencyCode: string } }
   | {
       ok: false;
       code: 'NOT_SYNCED' | 'NOT_PUBLISHED' | 'PUBLISH_PERMISSION' | 'UNKNOWN';
@@ -377,8 +381,10 @@ export async function getShopifyVariantId(kinguinId: number): Promise<VariantRes
         id: product.shopify_product_id,
       });
 
+      const variantNode = data?.data?.product?.variants?.edges?.[0]?.node;
       return {
-        variantId: data?.data?.product?.variants?.edges?.[0]?.node?.id as string | undefined,
+        variantId: variantNode?.id as string | undefined,
+        price: variantNode?.price as { amount: string; currencyCode: string } | undefined,
         productIsNull: data?.data?.product === null,
       };
     };
@@ -423,8 +429,8 @@ export async function getShopifyVariantId(kinguinId: number): Promise<VariantRes
       }
     }
 
-    if (!result.variantId) return { ok: false, code: 'NOT_PUBLISHED' };
-    return { ok: true, variantId: result.variantId };
+    if (!result.variantId || !result.price) return { ok: false, code: 'NOT_PUBLISHED' };
+    return { ok: true, variantId: result.variantId, price: result.price };
   } catch (error) {
     console.error('Error fetching Shopify variant ID:', error);
     return { ok: false, code: 'UNKNOWN', details: error instanceof Error ? error.message : String(error) };
