@@ -13,6 +13,7 @@ interface OrderProduct {
   kinguinId: number;
   qty: number;
   price: number;
+  name?: string;
 }
 
 interface OrderKey {
