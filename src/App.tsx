@@ -63,6 +63,7 @@ const App = () => (
             <Route path="/club/games" element={<Navigate to="/club/casino" replace />} />
             <Route path="/club/cases" element={<CasesPage />} />
             <Route path="/checkout" element={<CheckoutPage />} />
+            <Route path="/orders" element={<OrdersPage />} />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />
           </Routes>
