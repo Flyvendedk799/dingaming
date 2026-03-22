@@ -356,8 +356,6 @@ export type VariantResolveResult =
       details?: string;
     };
 
-const publishAttempted = new Set<number>();
-
 export async function getShopifyVariantId(kinguinId: number): Promise<VariantResolveResult> {
   try {
     // First, fetch the shopify_product_id from our database
@@ -391,29 +389,23 @@ export async function getShopifyVariantId(kinguinId: number): Promise<VariantRes
     // If the product exists in Admin (we have an ID) but is invisible in Storefront,
     // it's usually not published to the Online Store channel yet.
     if (!result.variantId && result.productIsNull) {
-      // Avoid hammering publish endpoint on repeated clicks
-      if (!publishAttempted.has(kinguinId)) {
-        publishAttempted.add(kinguinId);
+      toast.info('Gør produktet klar...', { description: 'Produktet bliver klargjort til butikken. Vent venligst.' });
 
-        const published = await ensurePublishedToOnlineStore(kinguinId);
-        if (published.ok) {
-          // Storefront propagation can take a moment
-          for (const ms of [800, 1500, 2500]) {
-            await delay(ms);
-            result = await fetchVariant();
-            if (result.variantId) break;
-          }
-        } else {
-          const publishError = (published as { ok: false; error: string }).error;
-          // Typical cause: Shopify Admin token missing read/write publications
-          return {
-            ok: false,
-            code: publishError === 'publications_not_found' ? 'PUBLISH_PERMISSION' : 'NOT_PUBLISHED',
-            details: publishError,
-          };
+      const published = await ensurePublishedToOnlineStore(kinguinId);
+      if (published.ok) {
+        // Storefront propagation can take a moment — be patient
+        for (const ms of [1000, 2000, 3000, 5000]) {
+          await delay(ms);
+          result = await fetchVariant();
+          if (result.variantId) break;
         }
       } else {
-        return { ok: false, code: 'NOT_PUBLISHED' };
+        const publishError = (published as { ok: false; error: string }).error;
+        return {
+          ok: false,
+          code: publishError === 'publications_not_found' ? 'PUBLISH_PERMISSION' : 'NOT_PUBLISHED',
+          details: publishError,
+        };
       }
     }
 
