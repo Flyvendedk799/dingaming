@@ -389,27 +389,24 @@ export async function getShopifyVariantId(kinguinId: number): Promise<VariantRes
     // If the product exists in Admin (we have an ID) but is invisible in Storefront,
     // it's usually not published to the Online Store channel yet.
     if (!result.variantId && result.productIsNull) {
-      const toastId = toast.loading('Gør produktet klar...', { description: 'Produktet bliver klargjort til butikken. Dette kan tage op til 30 sekunder.' });
+      const toastId = toast.loading('Gør produktet klar...', { description: 'Produktet bliver tilføjet til butikken...' });
 
-      // Try publishing — if first attempt doesn't propagate, re-publish and poll again
-      for (let attempt = 0; attempt < 2; attempt++) {
-        const published = await ensurePublishedToOnlineStore(kinguinId);
-        if (!published.ok) {
-          toast.dismiss(toastId);
-          const publishError = (published as { ok: false; error: string }).error;
-          return {
-            ok: false,
-            code: publishError === 'publications_not_found' ? 'PUBLISH_PERMISSION' : 'NOT_PUBLISHED',
-            details: publishError,
-          };
-        }
+      // Publish to the Online Store channel
+      const published = await ensurePublishedToOnlineStore(kinguinId);
+      if (!published.ok) {
+        toast.dismiss(toastId);
+        const publishError = (published as { ok: false; error: string }).error;
+        return {
+          ok: false,
+          code: publishError === 'publications_not_found' ? 'PUBLISH_PERMISSION' : 'NOT_PUBLISHED',
+          details: publishError,
+        };
+      }
 
-        // Poll with increasing delays — total ~20s per attempt
-        for (const ms of [2000, 3000, 5000, 8000]) {
-          await delay(ms);
-          result = await fetchVariant();
-          if (result.variantId) break;
-        }
+      // Poll for Storefront API propagation — typically takes 2-10 seconds
+      for (const ms of [1500, 2000, 3000, 4000, 5000]) {
+        await delay(ms);
+        result = await fetchVariant();
         if (result.variantId) break;
       }
 
