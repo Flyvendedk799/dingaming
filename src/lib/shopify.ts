@@ -381,8 +381,10 @@ export async function getShopifyVariantId(kinguinId: number): Promise<VariantRes
         id: product.shopify_product_id,
       });
 
+      const variantNode = data?.data?.product?.variants?.edges?.[0]?.node;
       return {
-        variantId: data?.data?.product?.variants?.edges?.[0]?.node?.id as string | undefined,
+        variantId: variantNode?.id as string | undefined,
+        price: variantNode?.price as { amount: string; currencyCode: string } | undefined,
         productIsNull: data?.data?.product === null,
       };
     };
