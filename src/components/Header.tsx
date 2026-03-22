@@ -202,6 +202,12 @@ const Header = () => {
                           Mine Rewards
                         </Link>
                       </DropdownMenuItem>
+                      <DropdownMenuItem asChild>
+                        <Link to="/orders" className="cursor-pointer">
+                          <Package className="w-4 h-4 mr-2" />
+                          Mine Ordrer
+                        </Link>
+                      </DropdownMenuItem>
                       <DropdownMenuSeparator />
                       <DropdownMenuItem 
                         onClick={() => signOut()}
