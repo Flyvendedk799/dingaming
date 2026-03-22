@@ -396,9 +396,16 @@ export async function getShopifyVariantId(kinguinId: number): Promise<VariantRes
       if (!published.ok) {
         toast.dismiss(toastId);
         const publishError = (published as { ok: false; error: string }).error;
+        const lowerError = publishError.toLowerCase();
         return {
           ok: false,
-          code: publishError === 'publications_not_found' ? 'PUBLISH_PERMISSION' : 'NOT_PUBLISHED',
+          code:
+            publishError === 'publications_not_found' ||
+            lowerError.includes('publication_permission_denied') ||
+            lowerError.includes('write_publications') ||
+            lowerError.includes('access denied')
+              ? 'PUBLISH_PERMISSION'
+              : 'NOT_PUBLISHED',
           details: publishError,
         };
       }
