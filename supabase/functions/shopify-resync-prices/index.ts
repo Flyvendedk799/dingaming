@@ -103,6 +103,7 @@ Deno.serve(async (req) => {
                   synchronous: true,
                   input: {
                     id: product.shopify_product_id,
+                    productOptions: [{ name: 'Title', values: [{ name: 'Default Title' }] }],
                     variants: [{
                       optionValues: [{ optionName: 'Title', name: 'Default Title' }],
                       price: priceInDkk.toFixed(2),
