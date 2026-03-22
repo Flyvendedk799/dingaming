@@ -429,8 +429,8 @@ export async function getShopifyVariantId(kinguinId: number): Promise<VariantRes
       }
     }
 
-    if (!result.variantId) return { ok: false, code: 'NOT_PUBLISHED' };
-    return { ok: true, variantId: result.variantId };
+    if (!result.variantId || !result.price) return { ok: false, code: 'NOT_PUBLISHED' };
+    return { ok: true, variantId: result.variantId, price: result.price };
   } catch (error) {
     console.error('Error fetching Shopify variant ID:', error);
     return { ok: false, code: 'UNKNOWN', details: error instanceof Error ? error.message : String(error) };
