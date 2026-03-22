@@ -64,7 +64,7 @@ Deno.serve(async (req) => {
       .select('kinguin_id, sell_price, margin_percent, shopify_product_id')
       .not('shopify_product_id', 'is', null)
       .order('kinguin_id', { ascending: true })
-      .limit(limit)
+      .range(offset, offset + limit - 1)
 
     if (fetchError) throw fetchError
     if (!products || products.length === 0) {
