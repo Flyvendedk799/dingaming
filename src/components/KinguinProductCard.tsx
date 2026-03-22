@@ -47,16 +47,11 @@ const KinguinProductCard = ({ product, index, onQuickView }: KinguinProductCardP
       return;
     }
     
-    const priceInDkk = getPrice(product.sell_price, product.margin_percent);
-    
     addItem({
       variantId: variantRes.variantId,
       title: product.name,
       quantity: 1,
-      price: {
-        amount: priceInDkk.toFixed(2),
-        currencyCode: 'DKK'
-      },
+      price: variantRes.price,
       image: product.cover_image || undefined,
       sku: `KINGUIN-${product.kinguin_id}`
     });

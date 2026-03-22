@@ -143,10 +143,7 @@ const ProductPage = () => {
       variantId: variantRes.variantId,
       title: product.name,
       quantity: 1,
-      price: {
-        amount: priceDKK.toString(),
-        currencyCode: 'DKK'
-      },
+      price: variantRes.price,
       image: product.cover_image || undefined,
       sku: `KINGUIN-${product.kinguin_id}`
     });

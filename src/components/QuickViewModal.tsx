@@ -67,10 +67,7 @@ export const QuickViewModal = ({ product, onClose }: QuickViewModalProps) => {
       variantId: variantRes.variantId,
       title: product.name,
       quantity: 1,
-      price: {
-        amount: priceDKK.toFixed(2),
-        currencyCode: 'DKK'
-      },
+      price: variantRes.price,
       image: product.cover_image || undefined,
       sku: `KINGUIN-${product.kinguin_id}`
     });
