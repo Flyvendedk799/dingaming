@@ -13,6 +13,7 @@ interface OrderProduct {
   kinguinId: number;
   qty: number;
   price: number;
+  name?: string;
 }
 
 interface OrderKey {
@@ -174,10 +175,12 @@ const OrdersPage = () => {
                   </div>
 
                   {/* Products */}
-                  <div className="mb-4">
-                    <p className="text-sm text-muted-foreground mb-2">
-                      {(order.products as unknown as OrderProduct[]).length} produkt(er)
-                    </p>
+                  <div className="mb-4 space-y-1">
+                    {(order.products as unknown as OrderProduct[]).map((p, i) => (
+                      <p key={i} className="text-sm text-foreground">
+                        {p.name || `Produkt #${p.kinguinId}`} <span className="text-muted-foreground">× {p.qty}</span>
+                      </p>
+                    ))}
                   </div>
 
                   {/* Keys */}
