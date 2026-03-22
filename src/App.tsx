@@ -19,6 +19,7 @@ import RewardsPage from "./pages/RewardsPage";
 import GamesPage from "./pages/GamesPage";
 import CasesPage from "./pages/CasesPage";
 import CheckoutPage from "./pages/CheckoutPage";
+import OrdersPage from "./pages/OrdersPage";
 import CasinoLobbyPage from "./pages/CasinoLobbyPage";
 import MinesRoomPage from "./pages/MinesRoomPage";
 import DiceRoomPage from "./pages/DiceRoomPage";
@@ -62,6 +63,7 @@ const App = () => (
             <Route path="/club/games" element={<Navigate to="/club/casino" replace />} />
             <Route path="/club/cases" element={<CasesPage />} />
             <Route path="/checkout" element={<CheckoutPage />} />
+            <Route path="/orders" element={<OrdersPage />} />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />
           </Routes>

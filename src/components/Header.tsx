@@ -1,4 +1,4 @@
-import { User, Menu, X, Zap, ChevronDown, Heart, Search, Sparkles, LogIn } from "lucide-react";
+import { User, Menu, X, Zap, ChevronDown, Heart, Search, Sparkles, LogIn, Package } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
@@ -200,6 +200,12 @@ const Header = () => {
                         <Link to="/club/rewards" className="cursor-pointer">
                           <Heart className="w-4 h-4 mr-2" />
                           Mine Rewards
+                        </Link>
+                      </DropdownMenuItem>
+                      <DropdownMenuItem asChild>
+                        <Link to="/orders" className="cursor-pointer">
+                          <Package className="w-4 h-4 mr-2" />
+                          Mine Ordrer
                         </Link>
                       </DropdownMenuItem>
                       <DropdownMenuSeparator />
