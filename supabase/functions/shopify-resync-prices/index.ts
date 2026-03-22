@@ -37,6 +37,8 @@ Deno.serve(async (req) => {
     const url = new URL(req.url)
     const limitRaw = parseInt(url.searchParams.get('limit') || '200')
     const limit = Math.min(Math.max(limitRaw, 1), 1000)
+    const offsetRaw = parseInt(url.searchParams.get('offset') || '0')
+    const offset = Math.max(offsetRaw, 0)
 
     // Get current settings
     const { data: settingsData } = await supabase
