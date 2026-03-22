@@ -353,7 +353,7 @@ function delay(ms: number) {
 
 // Fetch the Shopify variant ID for a product using its Shopify product ID from the database
 export type VariantResolveResult =
-  | { ok: true; variantId: string }
+  | { ok: true; variantId: string; price: { amount: string; currencyCode: string } }
   | {
       ok: false;
       code: 'NOT_SYNCED' | 'NOT_PUBLISHED' | 'PUBLISH_PERMISSION' | 'UNKNOWN';
