@@ -51,6 +51,19 @@ Deno.serve(async (req) => {
 
 async function handleOrderPaid(supabase: any, order: any, kinguinApiKey: string) {
   console.log('Processing paid order:', order.id)
+
+  // === Idempotency check ===
+  const externalId = `shopify_${order.id}`
+  const { data: existingOrder } = await supabase
+    .from('kinguin_orders')
+    .select('id')
+    .eq('order_external_id', externalId)
+    .maybeSingle()
+
+  if (existingOrder) {
+    console.log('Order already processed (idempotency):', externalId)
+    return
+  }
   
   // First, check if this is a Shard bundle purchase
   const shardsPurchased = await handleShardBundlePurchase(supabase, order)
@@ -58,6 +71,15 @@ async function handleOrderPaid(supabase: any, order: any, kinguinApiKey: string)
   // Award shards to customer for regular purchases (not shard bundle purchases)
   if (!shardsPurchased) {
     await awardPurchaseShards(supabase, order)
+  }
+
+  // === Resolve user_id from email ===
+  let userId: string | null = null
+  const email = order.email
+  if (email) {
+    const { data: users } = await supabase.auth.admin.listUsers()
+    const user = users?.users?.find((u: any) => u.email === email)
+    if (user) userId = user.id
   }
   
   // Extract Kinguin product IDs from line items
@@ -105,7 +127,7 @@ async function handleOrderPaid(supabase: any, order: any, kinguinApiKey: string)
       qty: p.qty,
       price: p.price
     })),
-    orderExternalId: `shopify_${order.id}`
+    orderExternalId: externalId
   }
 
   const kinguinResponse = await fetch(`${KINGUIN_API_URL}/order`, {
@@ -129,10 +151,11 @@ async function handleOrderPaid(supabase: any, order: any, kinguinApiKey: string)
   // Store order in our database
   await supabase.from('kinguin_orders').insert({
     order_id: kinguinOrder.orderId,
-    order_external_id: `shopify_${order.id}`,
+    order_external_id: externalId,
     status: kinguinOrder.status || 'processing',
     total_price: order.total_price,
-    user_email: order.email,
+    user_email: email,
+    user_id: userId,
     products: kinguinProducts
   })
 
