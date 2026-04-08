@@ -54,6 +54,7 @@ export async function fetchKinguinProducts(limit = 20, searchQuery?: string): Pr
         .from('kinguin_products')
         .select(PRODUCT_LIST_COLUMNS)
         .eq('is_available', true)
+        .not('shopify_product_id', 'is', null)
         .order('updated_at', { ascending: false })
         .limit(limit);
 
