@@ -54,7 +54,6 @@ export async function fetchKinguinProducts(limit = 20, searchQuery?: string): Pr
         .from('kinguin_products')
         .select(PRODUCT_LIST_COLUMNS)
         .eq('is_available', true)
-        .not('shopify_product_id', 'is', null)
         .order('updated_at', { ascending: false })
         .limit(limit);
 
@@ -99,169 +98,152 @@ export async function fetchKinguinProductById(kinguinId: number): Promise<Kingui
   return data as KinguinProduct;
 }
 
-export async function syncProducts(
-  syncToShopify = true,
-  startPage = 1,
-  onProgress?: (page: number, totalSynced: number) => void
-): Promise<{ success: boolean; synced: number; shopifySynced: number }> {
-  let totalSynced = 0;
-  let totalShopifySynced = 0;
-  let page = startPage;
-  const limit = 100;
-  
-  // Sync ALL pages until Kinguin returns fewer products than requested
-  while (true) {
-    const response = await fetch(
-      `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/kinguin-sync-products?page=${page}&limit=${limit}&syncToShopify=${syncToShopify}`,
-      {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
-          'Content-Type': 'application/json'
-        }
-      }
-    );
-
-    if (!response.ok) {
-      console.error(`Sync error on page ${page}:`, await response.text());
-      break;
-    }
-
-    const result = await response.json();
-    const syncedThisPage = result.synced || 0;
-    totalSynced += syncedThisPage;
-    totalShopifySynced += result.shopifySynced || 0;
-    
-    console.log(`Page ${page}: synced ${syncedThisPage} products (total: ${totalSynced})`);
-    
-    // Report progress
-    onProgress?.(page, totalSynced);
-    
-    // Stop if we got fewer products than requested (no more pages)
-    if (syncedThisPage < limit) {
-      break;
-    }
-    
-    page++;
-  }
-
-  return { success: true, synced: totalSynced, shopifySynced: totalShopifySynced };
-}
-
-export async function syncDbToShopify(
-  startOffset = 0,
-  onProgress?: (nextOffset: number, totalSynced: number) => void
-): Promise<{ success: boolean; synced: number }> {
-  const OFFSET_KEY = 'kinguin_shopify_sync_offset';
-  const IN_PROGRESS_KEY = 'kinguin_shopify_sync_in_progress';
-
-  const persistSet = (key: string, value: string) => {
-    if (typeof window === 'undefined') return;
-    window.localStorage.setItem(key, value);
-  };
-
-  const persistRemove = (key: string) => {
-    if (typeof window === 'undefined') return;
-    window.localStorage.removeItem(key);
-  };
-
-  let totalSynced = 0;
-  let offset = startOffset;
-  const limit = 50; // Smaller batches for Shopify API rate limits
-
-  persistSet(IN_PROGRESS_KEY, 'true');
-  persistSet(OFFSET_KEY, String(offset));
-
-  while (true) {
-    // Persist before each request so refreshes can resume safely
-    persistSet(OFFSET_KEY, String(offset));
-
-    const response = await fetch(
-      `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/sync-db-to-shopify?offset=${offset}&limit=${limit}`,
-      {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
-          'Content-Type': 'application/json'
-        }
-      }
-    );
-
-    if (!response.ok) {
-      console.error(`Sync error at offset ${offset}:`, await response.text());
-      // Leave persisted offset + in-progress flag so we can resume later
-      break;
-    }
-
-    const result = await response.json();
-    const syncedThisBatch = result.synced || 0;
-    totalSynced += syncedThisBatch;
-
-    const nextOffset: number = result.nextOffset ?? offset + limit;
-
-    console.log(`Offset ${offset}: synced ${syncedThisBatch} to Shopify (total: ${totalSynced})`);
-
-    // Report the NEXT offset (where we will resume from)
-    onProgress?.(nextOffset, totalSynced);
-    persistSet(OFFSET_KEY, String(nextOffset));
-
-    if (result.done) {
-      persistRemove(IN_PROGRESS_KEY);
-      persistRemove(OFFSET_KEY);
-      break;
-    }
-
-    offset = nextOffset;
-  }
-
-  return { success: true, synced: totalSynced };
-}
-
-export interface CartItem {
-  kinguinId: number;
-  name: string;
-  price: number; // Original Kinguin price
-  sellPrice: number; // Price with margin
-  qty: number;
-  coverImage?: string;
-}
-
-export async function placeOrder(items: CartItem[], email: string): Promise<{ orderId: string; status: string }> {
-  const { data, error } = await supabase.functions.invoke('kinguin-place-order', {
-    body: {
-      products: items.map(item => ({
-        kinguinId: item.kinguinId,
-        price: item.price,
-        qty: item.qty
-      })),
-      email
-    }
-  });
-
-  if (error) {
-    console.error('Error placing order:', error);
-    throw error;
-  }
-
-  return data;
-}
-
-export async function getOrder(orderId: string) {
-  const { data, error } = await supabase.functions.invoke('kinguin-get-order', {
-    body: {},
-  });
-
-  if (error) {
-    console.error('Error getting order:', error);
-    throw error;
-  }
-
-  return data;
-}
-
 export function formatPrice(price: number): string {
   return new Intl.NumberFormat('da-DK', {
     style: 'currency',
     currency: 'EUR'
   }).format(price);
+}
+
+// ---------------------------------------------------------------------------
+// Native checkout (replaces the previous Shopify-hosted checkout).
+// ---------------------------------------------------------------------------
+
+export interface CheckoutItemInput {
+  kinguinId: number;
+  quantity: number;
+}
+
+export interface CreatedOrder {
+  orderId: string;
+  orderNumber: string;
+  subtotal: number;
+  discount: number;
+  total: number;
+  email: string;
+}
+
+export interface DiscountValidation {
+  valid: boolean;
+  reason?: string;
+  code?: string;
+  type?: 'percent' | 'fixed';
+  value?: number;
+  savings: number;
+}
+
+/** Validate a discount code for a given subtotal (UX preview; server re-validates). */
+export async function validateDiscount(code: string, subtotal: number): Promise<DiscountValidation> {
+  const { data, error } = await supabase.functions.invoke('validate-discount', {
+    body: { code, subtotal },
+  });
+  if (error) {
+    console.error('validateDiscount error:', error);
+    return { valid: false, savings: 0, reason: 'error' };
+  }
+  return data as DiscountValidation;
+}
+
+/**
+ * Create a pending order. The server re-prices every line from the catalog,
+ * so client-side prices are never trusted.
+ */
+export async function createOrder(input: {
+  items: CheckoutItemInput[];
+  email: string;
+  customerName?: string;
+  discountCode?: string;
+}): Promise<CreatedOrder> {
+  const { data, error } = await supabase.functions.invoke('create-order', { body: input });
+  if (error) {
+    // Surface the structured error body when present.
+    const message = (data as { error?: string })?.error || error.message || 'Could not create order';
+    throw new Error(message);
+  }
+  if ((data as { error?: string })?.error) {
+    throw new Error((data as { error: string }).error);
+  }
+  return data as CreatedOrder;
+}
+
+/**
+ * Start payment for an order. With Stripe configured this returns a
+ * client_secret to confirm on the client; in local/dev mode the order is paid
+ * and fulfilled immediately.
+ */
+export async function processPayment(orderId: string): Promise<{
+  mode: 'stripe' | 'dev' | 'already_paid';
+  orderId: string;
+  status?: string;
+  clientSecret?: string;
+  publishableKey?: string | null;
+  error?: string;
+}> {
+  const { data, error } = await supabase.functions.invoke('process-payment', {
+    body: { orderId },
+  });
+  if (error) {
+    throw new Error((data as { error?: string })?.error || error.message || 'Payment failed');
+  }
+  return data;
+}
+
+export interface OrderItemRow {
+  id: string;
+  kinguin_id: number;
+  name: string;
+  cover_image: string | null;
+  platform: string | null;
+  unit_price: number;
+  quantity: number;
+  line_total: number;
+  game_key: string | null;
+}
+
+export interface OrderRow {
+  id: string;
+  order_number: string;
+  email: string;
+  status: string;
+  payment_status: string;
+  subtotal: number;
+  discount: number;
+  discount_code: string | null;
+  tax: number;
+  total: number;
+  currency: string;
+  keys: Array<{ productName: string; key: string }> | null;
+  created_at: string;
+  order_items: OrderItemRow[];
+}
+
+// The `orders` / `order_items` tables were added after the committed generated
+// types, so we access them through an untyped client and return our own typed
+// shapes above. Regenerate types with `supabase gen types` to remove the cast.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const ordersTable = () => (supabase as any).from('orders');
+
+/** Fetch a single order with its items. RLS restricts this to the owner/admin. */
+export async function fetchOrderById(orderId: string): Promise<OrderRow | null> {
+  const { data, error } = await ordersTable()
+    .select('*, order_items(*)')
+    .eq('id', orderId)
+    .maybeSingle();
+  if (error) {
+    console.error('fetchOrderById error:', error);
+    return null;
+  }
+  return data as OrderRow | null;
+}
+
+/** Fetch the authenticated user's orders with items, newest first. */
+export async function fetchMyOrders(): Promise<OrderRow[]> {
+  const { data, error } = await ordersTable()
+    .select('*, order_items(*)')
+    .order('created_at', { ascending: false });
+  if (error) {
+    console.error('fetchMyOrders error:', error);
+    return [];
+  }
+  return (data || []) as OrderRow[];
 }

@@ -1,13 +1,4 @@
-project_id = "fqwyfpnxyvlrofswosfm"
-
-[functions.kinguin-auto-sync]
-verify_jwt = false
-
-[functions.kinguin-backfill]
-verify_jwt = false
-
-[functions.sync-db-to-shopify]
-verify_jwt = false
+project_id = "dingaming"
 
 [api]
 enabled = true
@@ -21,6 +12,10 @@ port = 54322
 shadow_port = 54320
 major_version = 15
 
+[db.seed]
+enabled = true
+sql_paths = ["./seed.sql"]
+
 [studio]
 enabled = true
 port = 54323
@@ -28,41 +23,63 @@ api_url = "http://localhost"
 
 [auth]
 enabled = true
-site_url = "http://localhost:3000"
-additional_redirect_urls = ["https://localhost:3000"]
+site_url = "http://localhost:8080"
+additional_redirect_urls = [
+  "http://localhost:8080",
+  "http://localhost:8080/reset-password",
+  "http://127.0.0.1:8080",
+]
 jwt_expiry = 3600
 enable_signup = true
 
 [auth.email]
 enable_signup = true
 double_confirm_changes = true
+# Local dev: skip email confirmation so signups can log in immediately.
+# Enable this (and configure SMTP) for production.
 enable_confirmations = false
 
-[functions.kinguin-webhook]
+# --- Catalog sync (Kinguin -> local DB). Public so they can be scheduled. ---
+[functions.kinguin-auto-sync]
+verify_jwt = false
+
+[functions.kinguin-backfill]
 verify_jwt = false
 
 [functions.kinguin-sync-products]
 verify_jwt = false
 
-[functions.shopify-background-sync]
+[functions.kinguin-webhook]
 verify_jwt = false
 
-[functions.shopify-bulk-sync]
+# --- Native checkout + Stripe-ready payment seam ---
+[functions.create-order]
 verify_jwt = false
 
+[functions.process-payment]
+verify_jwt = false
+
+[functions.stripe-webhook]
+verify_jwt = false
+
+[functions.validate-discount]
+verify_jwt = false
+
+# --- Order fulfillment via Kinguin ---
 [functions.kinguin-place-order]
 verify_jwt = true
 
 [functions.kinguin-get-order]
 verify_jwt = true
 
-[functions.shopify-order-webhook]
-verify_jwt = false
-
+# --- Customer club / rewards / casino ---
 [functions.claim-daily-shards]
 verify_jwt = false
 
 [functions.redeem-reward]
+verify_jwt = false
+
+[functions.buy-shards]
 verify_jwt = false
 
 [functions.play-mines]
@@ -71,14 +88,20 @@ verify_jwt = false
 [functions.play-dice]
 verify_jwt = false
 
-[functions.open-case]
+[functions.play-roulette]
+verify_jwt = false
+
+[functions.play-hilo]
+verify_jwt = false
+
+[functions.play-lines]
 verify_jwt = false
 
 [functions.play-blackjack]
 verify_jwt = false
 
-[functions.sell-case-item]
+[functions.open-case]
 verify_jwt = false
 
-[functions.play-roulette]
+[functions.sell-case-item]
 verify_jwt = false

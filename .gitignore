@@ -12,6 +12,15 @@ dist
 dist-ssr
 *.local
 
+# Local env overrides (the committed .env targets the local Supabase stack)
+.env.local
+.env.*.local
+
+# Supabase
+supabase/.env
+supabase/.branches
+supabase/.temp
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json

@@ -208,7 +208,9 @@ const MobileHome = ({ onSelectGame }: MobileHomeProps) => {
                   <MobileGameTile 
                     title={product.name}
                     image={product.cover_image || ''}
+                    kinguinId={product.kinguin_id}
                     price={product.sell_price}
+                    marginPercent={product.margin_percent}
                     originalPrice={product.original_price}
                     platform={product.platform || 'Steam'}
                     discount={Math.round((1 - product.sell_price / product.original_price) * 100)}
@@ -238,7 +240,9 @@ const MobileHome = ({ onSelectGame }: MobileHomeProps) => {
                   <MobileGameTile 
                     title={product.name}
                     image={product.cover_image || ''}
+                    kinguinId={product.kinguin_id}
                     price={product.sell_price}
+                    marginPercent={product.margin_percent}
                     originalPrice={product.original_price}
                     platform={product.platform || 'Steam'}
                     discount={Math.round((1 - product.sell_price / product.original_price) * 100)}

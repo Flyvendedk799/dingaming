@@ -1,8 +1,9 @@
 import { useState, useEffect, useMemo } from "react";
-import { fetchProducts, ShopifyProduct } from "@/lib/shopify";
+import { supabase } from "@/integrations/supabase/client";
+import { KinguinProduct } from "@/lib/kinguin";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
-import ShopifyProductCard from "@/components/ShopifyProductCard";
+import KinguinProductCard from "@/components/KinguinProductCard";
 import NewsletterBanner from "@/components/NewsletterBanner";
 import FlipClock from "@/components/FlipClock";
 import MeshGradient from "@/components/MeshGradient";
@@ -11,7 +12,7 @@ import { motion } from "framer-motion";
 import { Flame, Clock, Percent, Sparkles, Zap } from "lucide-react";
 
 const DealsPage = () => {
-  const [products, setProducts] = useState<ShopifyProduct[]>([]);
+  const [products, setProducts] = useState<KinguinProduct[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   // Calculate end of day for countdown
@@ -25,8 +26,15 @@ const DealsPage = () => {
   useEffect(() => {
     const loadProducts = async () => {
       setIsLoading(true);
-      const allProducts = await fetchProducts(50);
-      setProducts(allProducts);
+      // Real deals: products flagged on sale by an admin.
+      const { data } = await supabase
+        .from("kinguin_products")
+        .select("*")
+        .eq("is_available", true)
+        .eq("is_on_sale", true)
+        .order("updated_at", { ascending: false })
+        .limit(48);
+      setProducts((data || []) as KinguinProduct[]);
       setIsLoading(false);
     };
     loadProducts();
@@ -151,14 +159,7 @@ const DealsPage = () => {
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
               {products.map((product, index) => (
-                <motion.div
-                  key={product.node.id}
-                  initial={{ opacity: 0, y: 30 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: Math.min(index * 0.04, 0.3), duration: 0.4 }}
-                >
-                  <ShopifyProductCard product={product} />
-                </motion.div>
+                <KinguinProductCard key={product.id} product={product} index={index} />
               ))}
             </div>
           </motion.div>

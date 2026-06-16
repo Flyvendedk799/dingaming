@@ -1,13 +1,13 @@
 import { useState, useEffect } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
-import { 
-  ArrowLeft, 
-  ShoppingCart, 
-  Tag, 
-  Loader2, 
-  Shield, 
-  Zap, 
+import {
+  ArrowLeft,
+  ShoppingCart,
+  Tag,
+  Loader2,
+  Shield,
+  Zap,
   Clock,
   CheckCircle2,
   XCircle,
@@ -18,87 +18,87 @@ import {
   Lock,
   Sparkles,
   Gift,
-  ExternalLink
+  Mail,
+  User as UserIcon,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { useCartStore } from "@/stores/cartStore";
-import { applyDiscountCode, type DiscountResult } from "@/lib/shopify";
-import { formatPrice } from "@/lib/shopify";
+import { useAuth } from "@/contexts/AuthContext";
+import { createOrder, processPayment, validateDiscount } from "@/lib/kinguin";
+import { formatDKK } from "@/lib/pricing";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import { toast } from "sonner";
 
+const isValidEmail = (email: string) => /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email);
+
 const CheckoutPage = () => {
   const navigate = useNavigate();
-  const { 
-    items, 
-    isLoading, 
-    updateQuantity, 
-    removeItem, 
-    createCheckout,
+  const { user } = useAuth();
+  const {
+    items,
+    isLoading,
+    updateQuantity,
+    removeItem,
     getTotalPrice,
     getTotalItems,
-    clearCart
+    clearCart,
   } = useCartStore();
-  
+
+  const [email, setEmail] = useState("");
+  const [customerName, setCustomerName] = useState("");
   const [discountCode, setDiscountCode] = useState("");
   const [isApplyingDiscount, setIsApplyingDiscount] = useState(false);
-  const [appliedDiscount, setAppliedDiscount] = useState<{
-    code: string;
-    applicable: boolean;
-    savings: number;
-  } | null>(null);
-  const [isCreatingCheckout, setIsCreatingCheckout] = useState(false);
-  
+  const [appliedDiscount, setAppliedDiscount] = useState<{ code: string; savings: number } | null>(
+    null
+  );
+  const [discountError, setDiscountError] = useState(false);
+  const [isPlacingOrder, setIsPlacingOrder] = useState(false);
+
   const totalItems = getTotalItems();
   const subtotal = getTotalPrice();
-  const discount = appliedDiscount?.applicable ? appliedDiscount.savings : 0;
-  const total = subtotal - discount;
-  const currency = items[0]?.price.currencyCode || 'DKK';
+  const discount = appliedDiscount?.savings ?? 0;
+  const total = Math.max(0, subtotal - discount);
+  const vatPortion = total - total / 1.25;
 
-  // Redirect if cart is empty
+  // Pre-fill from the logged-in user.
   useEffect(() => {
-    if (!isLoading && items.length === 0) {
-      navigate('/');
+    if (user?.email) setEmail((prev) => prev || user.email!);
+    const name = (user?.user_metadata as { display_name?: string } | undefined)?.display_name;
+    if (name) setCustomerName((prev) => prev || name);
+  }, [user]);
+
+  // Redirect if cart is empty (but not while we're completing an order).
+  useEffect(() => {
+    if (!isLoading && items.length === 0 && !isPlacingOrder) {
+      navigate("/");
     }
-  }, [items, isLoading, navigate]);
+  }, [items, isLoading, navigate, isPlacingOrder]);
 
   const handleApplyDiscount = async () => {
-    if (!discountCode.trim()) return;
-    
+    const code = discountCode.trim().toUpperCase();
+    if (!code) return;
+
     setIsApplyingDiscount(true);
-    
+    setDiscountError(false);
     try {
-      const result = await applyDiscountCode(
-        items.map(item => ({ variantId: item.variantId, quantity: item.quantity })),
-        discountCode.trim().toUpperCase()
-      );
-      
-      if (result.applicable) {
-        setAppliedDiscount({
-          code: discountCode.trim().toUpperCase(),
-          applicable: true,
-          savings: result.savings
-        });
+      const result = await validateDiscount(code, subtotal);
+      if (result.valid && result.savings > 0) {
+        setAppliedDiscount({ code, savings: result.savings });
         toast.success("Rabatkode anvendt!", {
-          description: `Du sparer ${formatPrice(result.savings.toString(), currency)}`
+          description: `Du sparer ${formatDKK(result.savings)}`,
         });
       } else {
-        setAppliedDiscount({
-          code: discountCode.trim().toUpperCase(),
-          applicable: false,
-          savings: 0
-        });
+        setAppliedDiscount(null);
+        setDiscountError(true);
         toast.error("Ugyldig rabatkode", {
-          description: "Denne kode er ikke gyldig eller udløbet."
+          description: "Denne kode er ikke gyldig, udløbet eller opfylder ikke kravene.",
         });
       }
-    } catch (error) {
-      console.error('Error applying discount:', error);
-      toast.error("Kunne ikke anvende rabatkode");
+    } catch {
+      toast.error("Kunne ikke validere rabatkode");
     } finally {
       setIsApplyingDiscount(false);
     }
@@ -107,45 +107,67 @@ const CheckoutPage = () => {
   const handleRemoveDiscount = () => {
     setAppliedDiscount(null);
     setDiscountCode("");
+    setDiscountError(false);
   };
 
-  const handleCheckout = async () => {
-    setIsCreatingCheckout(true);
-    
-    try {
-      const checkoutUrl = await createCheckout();
-      if (checkoutUrl) {
-        // Apply discount to the checkout URL if applicable
-        let finalUrl = checkoutUrl;
-        if (appliedDiscount?.applicable && appliedDiscount.code) {
-          const url = new URL(checkoutUrl);
-          url.searchParams.set('discount', appliedDiscount.code);
-          finalUrl = url.toString();
-        }
-        window.open(finalUrl, '_blank');
-      }
-    } catch (error) {
-      console.error('Checkout failed:', error);
-      toast.error("Checkout fejlede", {
-        description: "Prøv venligst igen."
+  const handlePlaceOrder = async () => {
+    if (!isValidEmail(email)) {
+      toast.error("Indtast en gyldig email", {
+        description: "Vi sender dine spilnøgler hertil.",
       });
-    } finally {
-      setIsCreatingCheckout(false);
+      return;
+    }
+
+    setIsPlacingOrder(true);
+    try {
+      const created = await createOrder({
+        items: items.map((i) => ({ kinguinId: i.kinguinId, quantity: i.quantity })),
+        email: email.trim(),
+        customerName: customerName.trim() || undefined,
+        discountCode: appliedDiscount?.code,
+      });
+
+      const payment = await processPayment(created.orderId);
+
+      if (payment.mode === "stripe") {
+        // Stripe is configured: the client_secret would be confirmed with
+        // Stripe.js / Elements here. That UI is wired up once Stripe keys are
+        // connected; until then we surface the state clearly.
+        toast.info("Betaling klar", {
+          description: "Stripe er konfigureret – fuldfør betalingen i betalingsvinduet.",
+        });
+        navigate("/thank-you", {
+          state: {
+            order: { ...created, status: "pending_payment", clientSecret: payment.clientSecret },
+          },
+        });
+        return;
+      }
+
+      // Dev / already-paid path: order is paid and fulfilled.
+      clearCart();
+      navigate("/thank-you", {
+        state: { order: { ...created, status: payment.status ?? "completed" } },
+      });
+    } catch (error) {
+      console.error("Order failed:", error);
+      const message = error instanceof Error ? error.message : "Prøv venligst igen.";
+      toast.error("Bestilling fejlede", { description: message });
+      setIsPlacingOrder(false);
     }
   };
 
-  if (items.length === 0) {
+  if (items.length === 0 && !isPlacingOrder) {
     return null;
   }
 
   return (
     <div className="min-h-screen flex flex-col bg-background">
       <Header />
-      
+
       <main className="flex-1 py-8">
         <div className="container mx-auto px-4">
-          {/* Back link */}
-          <Link 
+          <Link
             to="/"
             className="inline-flex items-center gap-2 text-muted-foreground hover:text-foreground mb-8 transition-colors"
           >
@@ -154,16 +176,16 @@ const CheckoutPage = () => {
           </Link>
 
           <div className="grid lg:grid-cols-3 gap-8">
-            {/* Left: Cart Items */}
+            {/* Left: items + contact details */}
             <div className="lg:col-span-2 space-y-6">
-              <div className="flex items-center gap-3 mb-6">
+              <div className="flex items-center gap-3 mb-2">
                 <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center">
                   <ShoppingCart className="w-6 h-6 text-primary" />
                 </div>
                 <div>
-                  <h1 className="font-heading text-2xl text-foreground">Gennemse din ordre</h1>
+                  <h1 className="font-heading text-2xl text-foreground">Kasse</h1>
                   <p className="text-muted-foreground">
-                    {totalItems} vare{totalItems !== 1 ? 'r' : ''} i din kurv
+                    {totalItems} vare{totalItems !== 1 ? "r" : ""} i din kurv
                   </p>
                 </div>
               </div>
@@ -183,27 +205,21 @@ const CheckoutPage = () => {
                     >
                       <div className="w-20 h-24 bg-muted rounded-xl overflow-hidden flex-shrink-0">
                         {item.image && (
-                          <img
-                            src={item.image}
-                            alt={item.title}
-                            className="w-full h-full object-cover"
-                          />
+                          <img src={item.image} alt={item.title} className="w-full h-full object-cover" />
                         )}
                       </div>
-                      
+
                       <div className="flex-1 min-w-0 flex flex-col">
-                        <h3 className="font-semibold text-foreground line-clamp-2 mb-1">
-                          {item.title}
-                        </h3>
+                        <h3 className="font-semibold text-foreground line-clamp-2 mb-1">{item.title}</h3>
                         <div className="flex items-center gap-2 text-xs text-muted-foreground mb-auto">
                           <Zap className="w-3 h-3 text-success" />
                           Instant levering
                         </div>
                         <p className="font-bold text-lg text-primary mt-2">
-                          {formatPrice(item.price.amount, item.price.currencyCode)}
+                          {formatDKK(parseFloat(item.price.amount))}
                         </p>
                       </div>
-                      
+
                       <div className="flex flex-col items-end gap-3 flex-shrink-0">
                         <Button
                           variant="ghost"
@@ -211,9 +227,9 @@ const CheckoutPage = () => {
                           className="h-8 w-8 text-muted-foreground hover:text-destructive hover:bg-destructive/10"
                           onClick={() => removeItem(item.variantId)}
                         >
-                          <Trash2 className="h-4 h-4" />
+                          <Trash2 className="h-4 w-4" />
                         </Button>
-                        
+
                         <div className="flex items-center gap-1 bg-muted/50 rounded-lg p-1">
                           <Button
                             variant="ghost"
@@ -239,24 +255,48 @@ const CheckoutPage = () => {
                 </AnimatePresence>
               </div>
 
-              {/* Trust badges */}
-              <div className="grid grid-cols-3 gap-4 pt-4">
-                <div className="flex flex-col items-center gap-2 p-4 rounded-xl bg-muted/30">
-                  <Shield className="w-6 h-6 text-primary" />
-                  <span className="text-xs text-center text-muted-foreground">Sikker betaling</span>
+              {/* Contact details */}
+              <div className="bg-card rounded-2xl border border-border/50 p-6 space-y-4">
+                <h2 className="font-heading text-lg">Leveringsoplysninger</h2>
+                <p className="text-sm text-muted-foreground -mt-2">
+                  Dine spilnøgler leveres øjeblikkeligt og kan ses under "Mine ordrer".
+                </p>
+                <div className="space-y-3">
+                  <label className="block">
+                    <span className="flex items-center gap-2 text-sm font-medium mb-1.5">
+                      <Mail className="w-4 h-4 text-primary" /> Email *
+                    </span>
+                    <Input
+                      type="email"
+                      placeholder="din@email.dk"
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      required
+                    />
+                  </label>
+                  <label className="block">
+                    <span className="flex items-center gap-2 text-sm font-medium mb-1.5">
+                      <UserIcon className="w-4 h-4 text-primary" /> Navn (valgfrit)
+                    </span>
+                    <Input
+                      placeholder="Dit navn"
+                      value={customerName}
+                      onChange={(e) => setCustomerName(e.target.value)}
+                    />
+                  </label>
                 </div>
-                <div className="flex flex-col items-center gap-2 p-4 rounded-xl bg-muted/30">
-                  <Zap className="w-6 h-6 text-success" />
-                  <span className="text-xs text-center text-muted-foreground">30 sek levering</span>
-                </div>
-                <div className="flex flex-col items-center gap-2 p-4 rounded-xl bg-muted/30">
-                  <Clock className="w-6 h-6 text-accent" />
-                  <span className="text-xs text-center text-muted-foreground">24/7 support</span>
-                </div>
+                {!user && (
+                  <p className="text-xs text-muted-foreground">
+                    <Link to="/login" className="text-primary hover:underline">
+                      Log ind
+                    </Link>{" "}
+                    for at optjene shards og gemme dine ordrer.
+                  </p>
+                )}
               </div>
             </div>
 
-            {/* Right: Order Summary */}
+            {/* Right: order summary */}
             <div className="lg:col-span-1">
               <div className="sticky top-24 space-y-6">
                 <motion.div
@@ -273,8 +313,8 @@ const CheckoutPage = () => {
                       <Gift className="w-4 h-4 text-primary" />
                       Rabatkode
                     </label>
-                    
-                    {appliedDiscount?.applicable ? (
+
+                    {appliedDiscount ? (
                       <motion.div
                         initial={{ opacity: 0, scale: 0.95 }}
                         animate={{ opacity: 1, scale: 1 }}
@@ -299,10 +339,10 @@ const CheckoutPage = () => {
                           placeholder="Indtast kode"
                           value={discountCode}
                           onChange={(e) => setDiscountCode(e.target.value)}
-                          onKeyDown={(e) => e.key === 'Enter' && handleApplyDiscount()}
+                          onKeyDown={(e) => e.key === "Enter" && handleApplyDiscount()}
                           className="flex-1"
                         />
-                        <Button 
+                        <Button
                           onClick={handleApplyDiscount}
                           disabled={!discountCode.trim() || isApplyingDiscount}
                           variant="outline"
@@ -316,7 +356,7 @@ const CheckoutPage = () => {
                       </div>
                     )}
 
-                    {appliedDiscount && !appliedDiscount.applicable && (
+                    {discountError && (
                       <motion.p
                         initial={{ opacity: 0 }}
                         animate={{ opacity: 1 }}
@@ -334,26 +374,26 @@ const CheckoutPage = () => {
                   <div className="space-y-3">
                     <div className="flex justify-between text-sm">
                       <span className="text-muted-foreground">Subtotal</span>
-                      <span>{formatPrice(subtotal.toString(), currency)}</span>
+                      <span>{formatDKK(subtotal)}</span>
                     </div>
-                    
-                    {appliedDiscount?.applicable && (
+
+                    {appliedDiscount && (
                       <motion.div
                         initial={{ opacity: 0, height: 0 }}
-                        animate={{ opacity: 1, height: 'auto' }}
+                        animate={{ opacity: 1, height: "auto" }}
                         className="flex justify-between text-sm"
                       >
                         <span className="text-success flex items-center gap-1">
                           <Sparkles className="w-3.5 h-3.5" />
                           Rabat
                         </span>
-                        <span className="text-success">-{formatPrice(discount.toString(), currency)}</span>
+                        <span className="text-success">-{formatDKK(discount)}</span>
                       </motion.div>
                     )}
-                    
+
                     <div className="flex justify-between text-sm">
-                      <span className="text-muted-foreground">Moms (inkluderet)</span>
-                      <span>{formatPrice((total * 0.2).toString(), currency)}</span>
+                      <span className="text-muted-foreground">Heraf moms (25%)</span>
+                      <span>{formatDKK(vatPortion)}</span>
                     </div>
 
                     <Separator />
@@ -366,31 +406,29 @@ const CheckoutPage = () => {
                         animate={{ scale: 1 }}
                         className="font-bold text-2xl text-primary"
                       >
-                        {formatPrice(total.toString(), currency)}
+                        {formatDKK(total)}
                       </motion.span>
                     </div>
                   </div>
 
                   <Separator className="my-6" />
 
-                  {/* Checkout button */}
                   <motion.div whileTap={{ scale: 0.98 }}>
                     <Button
-                      onClick={handleCheckout}
-                      disabled={isCreatingCheckout || items.length === 0}
+                      onClick={handlePlaceOrder}
+                      disabled={isPlacingOrder || items.length === 0 || !isValidEmail(email)}
                       className="w-full h-14 text-lg font-semibold"
                       size="lg"
                     >
-                      {isCreatingCheckout ? (
+                      {isPlacingOrder ? (
                         <>
                           <Loader2 className="w-5 h-5 mr-2 animate-spin" />
-                          Forbereder betaling...
+                          Behandler ordre...
                         </>
                       ) : (
                         <>
                           <CreditCard className="w-5 h-5 mr-2" />
-                          Gå til betaling
-                          <ExternalLink className="w-4 h-4 ml-2" />
+                          Gennemfør køb
                         </>
                       )}
                     </Button>
@@ -398,26 +436,24 @@ const CheckoutPage = () => {
 
                   <p className="flex items-center justify-center gap-1.5 text-xs text-muted-foreground mt-4">
                     <Lock className="w-3.5 h-3.5" />
-                    Sikker betaling via Shopify
+                    Sikker betaling · Stripe (kommer snart)
                   </p>
                 </motion.div>
 
-                {/* Savings callout */}
-                {appliedDiscount?.applicable && (
-                  <motion.div
-                    initial={{ opacity: 0, y: 10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    className="p-4 rounded-xl bg-gradient-to-r from-success/10 to-primary/10 border border-success/20"
-                  >
-                    <div className="flex items-center gap-2 mb-1">
-                      <Sparkles className="w-5 h-5 text-success" />
-                      <span className="font-semibold text-success">Godt klaret!</span>
-                    </div>
-                    <p className="text-sm text-muted-foreground">
-                      Du sparer {formatPrice(discount.toString(), currency)} på denne ordre med kode <strong>{appliedDiscount.code}</strong>
-                    </p>
-                  </motion.div>
-                )}
+                <div className="grid grid-cols-3 gap-3">
+                  <div className="flex flex-col items-center gap-1.5 p-3 rounded-xl bg-muted/30">
+                    <Shield className="w-5 h-5 text-primary" />
+                    <span className="text-[10px] text-center text-muted-foreground">Sikker betaling</span>
+                  </div>
+                  <div className="flex flex-col items-center gap-1.5 p-3 rounded-xl bg-muted/30">
+                    <Zap className="w-5 h-5 text-success" />
+                    <span className="text-[10px] text-center text-muted-foreground">Instant levering</span>
+                  </div>
+                  <div className="flex flex-col items-center gap-1.5 p-3 rounded-xl bg-muted/30">
+                    <Clock className="w-5 h-5 text-accent" />
+                    <span className="text-[10px] text-center text-muted-foreground">24/7 support</span>
+                  </div>
+                </div>
               </div>
             </div>
           </div>

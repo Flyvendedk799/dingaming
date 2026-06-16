@@ -4,6 +4,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider } from "@/contexts/AuthContext";
+import ProtectedRoute from "@/components/ProtectedRoute";
 import Index from "./pages/Index";
 import ProductPage from "./pages/ProductPage";
 import SearchPage from "./pages/SearchPage";
@@ -14,6 +15,8 @@ import AdminPage from "./pages/AdminPage";
 import LoginPage from "./pages/LoginPage";
 import SignupPage from "./pages/SignupPage";
 import ForgotPasswordPage from "./pages/ForgotPasswordPage";
+import ResetPasswordPage from "./pages/ResetPasswordPage";
+import AccountPage from "./pages/AccountPage";
 import ClubPage from "./pages/ClubPage";
 import RewardsPage from "./pages/RewardsPage";
 import GamesPage from "./pages/GamesPage";
@@ -50,21 +53,23 @@ const App = () => (
             <Route path="/login" element={<LoginPage />} />
             <Route path="/signup" element={<SignupPage />} />
             <Route path="/forgot-password" element={<ForgotPasswordPage />} />
-            <Route path="/club" element={<ClubPage />} />
-            <Route path="/club/rewards" element={<RewardsPage />} />
+            <Route path="/reset-password" element={<ResetPasswordPage />} />
+            <Route path="/account" element={<ProtectedRoute><AccountPage /></ProtectedRoute>} />
+            <Route path="/club" element={<ProtectedRoute><ClubPage /></ProtectedRoute>} />
+            <Route path="/club/rewards" element={<ProtectedRoute><RewardsPage /></ProtectedRoute>} />
             {/* New Casino Routes */}
-            <Route path="/club/casino" element={<CasinoLobbyPage />} />
-            <Route path="/club/casino/mines" element={<MinesRoomPage />} />
-            <Route path="/club/casino/dice" element={<DiceRoomPage />} />
-            <Route path="/club/casino/blackjack" element={<BlackjackRoomPage />} />
-            <Route path="/club/casino/roulette" element={<RouletteRoomPage />} />
-            <Route path="/club/casino/hilo" element={<HiLoRoomPage />} />
-            <Route path="/club/casino/lines" element={<LinesRoomPage />} />
+            <Route path="/club/casino" element={<ProtectedRoute><CasinoLobbyPage /></ProtectedRoute>} />
+            <Route path="/club/casino/mines" element={<ProtectedRoute><MinesRoomPage /></ProtectedRoute>} />
+            <Route path="/club/casino/dice" element={<ProtectedRoute><DiceRoomPage /></ProtectedRoute>} />
+            <Route path="/club/casino/blackjack" element={<ProtectedRoute><BlackjackRoomPage /></ProtectedRoute>} />
+            <Route path="/club/casino/roulette" element={<ProtectedRoute><RouletteRoomPage /></ProtectedRoute>} />
+            <Route path="/club/casino/hilo" element={<ProtectedRoute><HiLoRoomPage /></ProtectedRoute>} />
+            <Route path="/club/casino/lines" element={<ProtectedRoute><LinesRoomPage /></ProtectedRoute>} />
             {/* Redirect old games page to new casino lobby */}
             <Route path="/club/games" element={<Navigate to="/club/casino" replace />} />
-            <Route path="/club/cases" element={<CasesPage />} />
+            <Route path="/club/cases" element={<ProtectedRoute><CasesPage /></ProtectedRoute>} />
             <Route path="/checkout" element={<CheckoutPage />} />
-            <Route path="/orders" element={<OrdersPage />} />
+            <Route path="/orders" element={<ProtectedRoute><OrdersPage /></ProtectedRoute>} />
             <Route path="/thank-you" element={<ThankYouPage />} />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />

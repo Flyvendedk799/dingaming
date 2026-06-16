@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { Zap, Mail, Lock, Eye, EyeOff, ArrowRight, Sparkles } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -15,6 +15,8 @@ const LoginPage = () => {
   const [isLoading, setIsLoading] = useState(false);
   const { signIn } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
+  const from = (location.state as { from?: string } | null)?.from;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -24,13 +26,13 @@ const LoginPage = () => {
 
     if (error) {
       toast.error('Login fejlede', {
-        description: error.message === 'Invalid login credentials' 
+        description: error.message === 'Invalid login credentials'
           ? 'Forkert email eller adgangskode'
           : error.message,
       });
     } else {
       toast.success('Velkommen tilbage!');
-      navigate('/club');
+      navigate(from || '/club');
     }
 
     setIsLoading(false);
