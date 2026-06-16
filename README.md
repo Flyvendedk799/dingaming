@@ -1,73 +1,122 @@
-# Welcome to your Lovable project
+# DinGaming
 
-## Project info
+A digital game-key webshop with a built-in customer club (loyalty shards,
+daily streaks, rewards), casino mini-games, and loot-box style shard cases.
+Games are sourced from the Kinguin catalogue and orders are fulfilled with real
+game keys. Payments run through a Stripe-ready checkout seam.
 
-**URL**: https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID
+> This project was originally scaffolded on Lovable and has been migrated to run
+> entirely locally: a local Supabase stack (Postgres + Auth + Edge Functions)
+> and a Vite dev server. There is no dependency on Lovable or any hosted
+> service to develop.
 
-## How can I edit this code?
+## Tech stack
 
-There are several ways of editing your application.
+- **Frontend:** Vite + React 18 + TypeScript, Tailwind + shadcn/ui, Zustand,
+  TanStack Query, React Router, Framer Motion
+- **Backend:** Supabase (PostgreSQL 15, Auth, Row Level Security, Deno Edge
+  Functions)
+- **Integrations:** Kinguin (game catalogue + key fulfillment), Stripe
+  (payments — seam in place, keys connected later)
 
-**Use Lovable**
+## Prerequisites
 
-Simply visit the [Lovable Project](https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID) and start prompting.
+- [Node.js](https://nodejs.org) 18+ and npm (or [Bun](https://bun.sh))
+- [Docker](https://www.docker.com) (for the local Supabase stack)
+- [Supabase CLI](https://supabase.com/docs/guides/cli) — `npm i -g supabase`
+  or run via `npx supabase`
 
-Changes made via Lovable will be committed automatically to this repo.
-
-**Use your preferred IDE**
-
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
-
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
-
-Follow these steps:
+## Quick start
 
 ```sh
-# Step 1: Clone the repository using the project's Git URL.
-git clone <YOUR_GIT_URL>
+# 1. Install dependencies
+npm install            # or: bun install
 
-# Step 2: Navigate to the project directory.
-cd <YOUR_PROJECT_NAME>
+# 2. Start the local Supabase stack (Postgres, Auth, Studio, Edge Functions).
+#    Applies all migrations and seeds demo data automatically.
+npm run db:start       # wraps `supabase start`
 
-# Step 3: Install the necessary dependencies.
-npm i
+# 3. (optional) Reset the DB and re-run migrations + seed at any time
+npm run db:reset
 
-# Step 4: Start the development server with auto-reloading and an instant preview.
-npm run dev
+# 4. Start the app
+npm run dev            # http://localhost:8080
 ```
 
-**Edit a file directly in GitHub**
+The committed `.env` already points at the local stack using the deterministic
+local demo key, so the app works out of the box. Supabase Studio is available
+at http://localhost:54323 and the auth mailbox at http://localhost:54324.
 
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
+### Demo accounts & data
 
-**Use GitHub Codespaces**
+The seed (`supabase/seed.sql`) creates:
 
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
+- **12 sample games**, 2 shard cases, reward-shop vouchers, and two promo codes
+  (`WELCOME10`, `GAMER50`).
+- A **demo admin**: `admin@dingaming.dk` / `admin1234` (50,000 shards,
+  admin role — visit `/admin`).
 
-## What technologies are used for this project?
+You can also sign up for a fresh account at `/signup` (email confirmation is
+disabled locally, so you're logged in immediately).
 
-This project is built with:
+## How it works
 
-- Vite
-- TypeScript
-- React
-- shadcn-ui
-- Tailwind CSS
+### Storefront & checkout
+Products live in the local `kinguin_products` table. Browse/search/deals read
+straight from there. Checkout is **native and in-app** (`/checkout`):
 
-## How can I deploy this project?
+1. `create-order` re-prices every line from the catalogue (client prices are
+   never trusted), validates discounts, and creates a pending order.
+2. `process-payment` is the Stripe seam. With `STRIPE_SECRET_KEY` set it creates
+   a PaymentIntent; **without** it (default for local dev) it simulates a
+   successful payment so the whole flow is testable.
+3. On payment, fulfillment places the Kinguin order (if `KINGUIN_API_KEY` is
+   configured) or generates demo keys, awards loyalty shards, and burns any
+   single-use discount code. Keys appear on `/thank-you` and `/orders`.
 
-Simply open [Lovable](https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID) and click on Share -> Publish.
+See [docs/LOCAL_DEV.md](docs/LOCAL_DEV.md) for the payment/Stripe seam and how to
+connect real Kinguin/Stripe keys.
 
-## Can I connect a custom domain to my Lovable project?
+### Customer club
+Shards are earned from purchases (1% cashback) and daily logins, spent in the
+casino games and shard cases, and redeemed for discount vouchers in the reward
+shop. All balances are server-authoritative via `shard_transactions`.
 
-Yes, you can!
+## Scripts
 
-To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
+| Script | Description |
+| --- | --- |
+| `npm run dev` | Start the Vite dev server (port 8080) |
+| `npm run build` | Production build |
+| `npm run preview` | Preview the production build |
+| `npm run lint` | ESLint |
+| `npm run typecheck` | TypeScript type-check (no emit) |
+| `npm run db:start` / `db:stop` | Start / stop the local Supabase stack |
+| `npm run db:reset` | Reset DB, re-run migrations + seed |
+| `npm run db:status` | Show local Supabase connection details |
 
-Read more here: [Setting up a custom domain](https://docs.lovable.dev/features/custom-domain#custom-domain)
+## Project layout
+
+```
+src/
+  components/      UI + feature components (storefront, club, casino, admin)
+  pages/           Routed pages
+  lib/             kinguin.ts (catalogue + checkout API), pricing.ts
+  stores/          Zustand cart store
+  contexts/        AuthContext
+  integrations/    Supabase client + generated types
+supabase/
+  migrations/      Database schema (ordered SQL)
+  seed.sql         Local demo data
+  functions/       Deno edge functions (checkout, fulfillment, club, casino)
+  config.toml      Local stack configuration
+```
+
+## Deploying to a hosted Supabase project
+
+The app is portable. To deploy:
+
+1. Create a Supabase project and run `supabase db push` to apply migrations.
+2. Set frontend env (`.env`) to your project URL + anon key (see `.env.example`).
+3. Deploy functions: `supabase functions deploy` and set secrets
+   (`KINGUIN_API_KEY`, `STRIPE_SECRET_KEY`, etc. — see `supabase/.env.example`).

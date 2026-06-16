@@ -3,13 +3,18 @@ import { motion } from "framer-motion";
 import { ChevronLeft, Heart, Share, Star, Zap, Shield, ShoppingCart, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useCartStore } from "@/stores/cartStore";
+import { usePricing } from "@/lib/pricing";
 import { toast } from "sonner";
 
 interface MobileGameCardProps {
+  kinguinId: number;
   title: string;
   image: string;
+  /** EUR sell price; converted to DKK for display + cart. */
   price: number;
+  /** EUR original price. */
   originalPrice?: number;
+  marginPercent?: number | null;
   platform: string;
   discount?: number;
   rating?: number;
@@ -18,10 +23,12 @@ interface MobileGameCardProps {
 }
 
 const MobileGameCard = ({
+  kinguinId,
   title,
   image,
   price,
   originalPrice,
+  marginPercent,
   platform,
   discount,
   rating = 4.5,
@@ -29,6 +36,9 @@ const MobileGameCard = ({
   onClose,
 }: MobileGameCardProps) => {
   const addItem = useCartStore(state => state.addItem);
+  const { getPrice, formatDKK } = usePricing();
+  const priceDkk = getPrice(price, marginPercent);
+  const originalDkk = originalPrice ? getPrice(originalPrice, marginPercent) : 0;
   const [isAdding, setIsAdding] = useState(false);
   const [isWishlisted, setIsWishlisted] = useState(false);
 
@@ -120,14 +130,14 @@ const MobileGameCard = ({
         {/* Price */}
         <div className="mb-6">
           <div className="flex items-baseline gap-3">
-            <span className="text-4xl font-bold text-success">{Math.round(price)} kr</span>
+            <span className="text-4xl font-bold text-success">{formatDKK(priceDkk)}</span>
             {originalPrice && originalPrice > price && (
-              <span className="text-lg text-muted-foreground line-through">{Math.round(originalPrice)} kr</span>
+              <span className="text-lg text-muted-foreground line-through">{formatDKK(originalDkk)}</span>
             )}
           </div>
           {originalPrice && originalPrice > price && (
             <span className="text-sm font-semibold text-destructive">
-              Spar {Math.round(originalPrice - price)} kr
+              Spar {formatDKK(originalDkk - priceDkk)}
             </span>
           )}
         </div>
@@ -153,15 +163,18 @@ const MobileGameCard = ({
             onClick={() => {
               setIsAdding(true);
               addItem({
-                variantId: `${title}-${platform}`,
+                variantId: `kinguin-${kinguinId}`,
+                kinguinId,
                 title,
                 quantity: 1,
                 price: {
-                  amount: price.toString(),
+                  amount: String(priceDkk),
                   currencyCode: 'DKK',
                 },
+                originalAmount:
+                  originalPrice && originalPrice > price ? String(originalDkk) : undefined,
                 image,
-                sku: platform,
+                sku: `KINGUIN-${kinguinId}`,
               });
               toast.success('Tilføjet til kurv', {
                 description: title,

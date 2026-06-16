@@ -3,7 +3,8 @@ import { motion } from 'framer-motion';
 import { Sparkles, Zap, Crown, Gem, Loader2, ShoppingCart } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { useCartStore } from '@/stores/cartStore';
+import { useQueryClient } from '@tanstack/react-query';
+import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 
 interface ShardBundle {
@@ -62,34 +63,32 @@ const SHARD_BUNDLES: ShardBundle[] = [
 
 export const BuyShardsSection = () => {
   const [loadingBundle, setLoadingBundle] = useState<string | null>(null);
-  const addItem = useCartStore(state => state.addItem);
-  const isLoading = useCartStore(state => state.isLoading);
+  const queryClient = useQueryClient();
 
   const handleBuyBundle = async (bundle: ShardBundle) => {
     setLoadingBundle(bundle.id);
-    
+
     try {
-      // Add shard bundle to cart using the simpler CartItem interface
-      // Note: Products must be created in Shopify first with matching SKUs
-      addItem({
-        variantId: bundle.id,
-        title: `${bundle.name} - ${bundle.totalShards.toLocaleString('da-DK')} Shards`,
-        price: {
-          amount: bundle.basePrice.toFixed(2),
-          currencyCode: 'DKK',
-        },
-        quantity: 1,
-        sku: bundle.id,
+      const { data, error } = await supabase.functions.invoke('buy-shards', {
+        body: { bundleId: bundle.id },
       });
 
-      toast.success(`${bundle.totalShards.toLocaleString('da-DK')} Shards tilføjet til kurv!`, {
-        description: 'Gå til checkout for at gennemføre købet.',
+      if (error || data?.error) {
+        const message = data?.error ?? 'Prøv igen senere.';
+        toast.error('Køb mislykkedes', { description: message });
+        return;
+      }
+
+      // Refresh the user's shard balance / transactions in the club views.
+      queryClient.invalidateQueries({ queryKey: ['shard-balance'] });
+      queryClient.invalidateQueries({ queryKey: ['shard-transactions'] });
+
+      toast.success(`${bundle.totalShards.toLocaleString('da-DK')} Shards tilføjet!`, {
+        description: 'Dine shards er klar til brug.',
       });
-    } catch (error) {
-      console.error('Failed to add shard bundle:', error);
-      toast.error('Kunne ikke tilføje til kurv', {
-        description: 'Prøv igen senere.',
-      });
+    } catch (err) {
+      console.error('Failed to buy shard bundle:', err);
+      toast.error('Køb mislykkedes', { description: 'Prøv igen senere.' });
     } finally {
       setLoadingBundle(null);
     }
@@ -121,7 +120,7 @@ export const BuyShardsSection = () => {
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         {SHARD_BUNDLES.map((bundle, index) => {
           const IconComponent = bundle.icon;
-          const isBundleLoading = loadingBundle === bundle.id || isLoading;
+          const isBundleLoading = loadingBundle === bundle.id;
           
           return (
             <motion.div

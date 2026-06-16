@@ -1,14 +1,20 @@
 import { Star, ShoppingCart, Sparkles } from "lucide-react";
 import { useCartStore } from "@/stores/cartStore";
+import { usePricing } from "@/lib/pricing";
 import { toast } from "sonner";
 import { forwardRef, useRef, useState, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 
 interface MobileGameTileProps {
+  /** Kinguin product id, required for checkout. */
+  kinguinId: number;
   title: string;
   image: string;
+  /** EUR sell price; converted to DKK for display + cart. */
   price: number;
+  /** EUR original price. */
   originalPrice?: number;
+  marginPercent?: number | null;
   platform: string;
   discount?: number;
   rating?: number;
@@ -16,16 +22,21 @@ interface MobileGameTileProps {
 }
 
 const MobileGameTile = forwardRef<HTMLDivElement, MobileGameTileProps>(({
+  kinguinId,
   title,
   image,
   price,
   originalPrice,
+  marginPercent,
   platform,
   discount,
   rating = 4.5,
   onClick,
 }, ref) => {
   const addItem = useCartStore(state => state.addItem);
+  const { getPrice, formatDKK } = usePricing();
+  const priceDkk = getPrice(price, marginPercent);
+  const originalDkk = originalPrice ? getPrice(originalPrice, marginPercent) : 0;
   const pointerStartRef = useRef<{ x: number; y: number; time: number; pointerId: number } | null>(null);
   const [isPressed, setIsPressed] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
@@ -57,21 +68,23 @@ const MobileGameTile = forwardRef<HTMLDivElement, MobileGameTileProps>(({
     
     setShowSuccess(true);
     addItem({
-      variantId: `${title}-${platform}`,
+      variantId: `kinguin-${kinguinId}`,
+      kinguinId,
       title,
       quantity: 1,
       price: {
-        amount: price.toString(),
+        amount: String(priceDkk),
         currencyCode: 'DKK',
       },
+      originalAmount: originalPrice && originalPrice > price ? String(originalDkk) : undefined,
       image,
-      sku: platform,
+      sku: `KINGUIN-${kinguinId}`,
     });
     toast.success('Tilføjet til kurv', {
       description: title,
     });
     setTimeout(() => setShowSuccess(false), 1500);
-  }, [addItem, title, platform, price, image]);
+  }, [addItem, kinguinId, title, priceDkk, originalDkk, originalPrice, price, image]);
 
   // Pointer events for reliable tap detection across all devices
   const handlePointerDown = useCallback((e: React.PointerEvent) => {
@@ -259,12 +272,12 @@ const MobileGameTile = forwardRef<HTMLDivElement, MobileGameTileProps>(({
             className="text-lg font-bold text-success"
             initial={{ scale: 0.9 }}
             animate={{ scale: 1 }}
-            key={price}
+            key={priceDkk}
           >
-            {Math.round(price)} kr
+            {formatDKK(priceDkk)}
           </motion.span>
           {originalPrice && originalPrice > price && (
-            <span className="text-xs text-muted-foreground line-through">{Math.round(originalPrice)} kr</span>
+            <span className="text-xs text-muted-foreground line-through">{formatDKK(originalDkk)}</span>
           )}
         </div>
       </div>

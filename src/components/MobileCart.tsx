@@ -1,4 +1,5 @@
 import { motion } from "framer-motion";
+import { useNavigate } from "react-router-dom";
 import { ArrowLeft, ShoppingCart, Trash2, Minus, Plus, ShoppingBag, Zap } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useCartStore } from "@/stores/cartStore";
@@ -8,7 +9,8 @@ interface MobileCartProps {
 }
 
 const MobileCart = ({ onBack }: MobileCartProps) => {
-  const { items, removeItem, updateQuantity, clearCart, getTotalPrice, getTotalItems } = useCartStore();
+  const navigate = useNavigate();
+  const { items, updateQuantity, clearCart, getTotalPrice, getTotalItems } = useCartStore();
 
   const formatPrice = (price: number) => {
     return new Intl.NumberFormat('da-DK', {
@@ -156,7 +158,10 @@ const MobileCart = ({ onBack }: MobileCartProps) => {
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.3 }}
             >
-              <Button className="w-full h-12 bg-success hover:bg-success/90 text-success-foreground font-semibold">
+              <Button
+                onClick={() => navigate("/checkout")}
+                className="w-full h-12 bg-success hover:bg-success/90 text-success-foreground font-semibold"
+              >
                 <ShoppingCart className="w-5 h-5 mr-2" />
                 Gå til kassen
               </Button>

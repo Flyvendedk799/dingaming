@@ -17,7 +17,6 @@ import {
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { KinguinProduct } from "@/lib/kinguin";
-import { getShopifyVariantId } from "@/lib/shopify";
 import { usePricing } from "@/lib/pricing";
 import { useCartStore } from "@/stores/cartStore";
 import { toast } from "sonner";
@@ -44,38 +43,36 @@ export const QuickViewModal = ({ product, onClose }: QuickViewModalProps) => {
   ].filter(Boolean) as string[];
 
   const priceDKK = getPrice(product.sell_price, product.margin_percent);
-  const originalPriceDKK = getPrice(product.original_price * 1.3, product.margin_percent);
+  const originalPriceDKK = getPrice(product.original_price, product.margin_percent);
   const discountPercent = product.original_price > product.sell_price 
     ? Math.round((1 - product.sell_price / product.original_price) * 100)
     : 0;
   const regionLabel = product.region_name || (product.region_id === 3 ? 'Worldwide' : 'Europe');
 
-  const handleAddToCart = async () => {
-    setIsAdding(true);
-    
-    const variantRes = await getShopifyVariantId(product.kinguin_id);
-    
-    if (!variantRes.ok) {
-      toast.error("Kunne ikke tilføje til kurv", {
-        description: "Produktet er ikke tilgængeligt endnu.",
-      });
-      setIsAdding(false);
+  const handleAddToCart = () => {
+    if (!product.is_available) {
+      toast.error("Udsolgt", { description: "Dette produkt er ikke tilgængeligt." });
       return;
     }
-    
+
+    setIsAdding(true);
+
     addItem({
-      variantId: variantRes.variantId,
+      variantId: `kinguin-${product.kinguin_id}`,
+      kinguinId: product.kinguin_id,
       title: product.name,
       quantity: 1,
-      price: variantRes.price,
+      price: { amount: String(priceDKK), currencyCode: "DKK" },
+      originalAmount:
+        product.original_price > product.sell_price ? String(originalPriceDKK) : undefined,
       image: product.cover_image || undefined,
-      sku: `KINGUIN-${product.kinguin_id}`
+      sku: `KINGUIN-${product.kinguin_id}`,
     });
 
     setIsAdding(false);
     setJustAdded(true);
     toast.success(`${product.name} tilføjet til kurv`);
-    
+
     setTimeout(() => setJustAdded(false), 2000);
   };
 

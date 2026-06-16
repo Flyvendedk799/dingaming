@@ -2,7 +2,6 @@ import { useEffect, useState } from "react";
 import { useParams, Link } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { fetchKinguinProductById, KinguinProduct } from "@/lib/kinguin";
-import { getShopifyVariantId } from "@/lib/shopify";
 import { usePricing } from "@/lib/pricing";
 import { useCartStore } from "@/stores/cartStore";
 import { useRecentlyViewed } from "@/hooks/useRecentlyViewed";
@@ -117,42 +116,34 @@ const ProductPage = () => {
     ...(product.screenshots || [])
   ].filter(Boolean) as string[];
 
-  const handleAddToCart = async () => {
-    setIsAdding(true);
-    
-    const variantRes = await getShopifyVariantId(product.kinguin_id);
-    
-    if (!variantRes.ok) {
-      const { code } = variantRes as Extract<typeof variantRes, { ok: false }>;
-      const description =
-        code === 'NOT_SYNCED'
-          ? 'Produktet er ikke synkroniseret til butikken endnu.'
-          : code === 'PUBLISH_PERMISSION'
-            ? 'Butikken kan ikke publicere produkter til Online Store endnu (mangler read/write publications).'
-            : 'Produktet er ikke tilgængeligt i butikken endnu.';
-
-      toast.error("Kunne ikke tilføje til kurv", {
-        description,
-        position: "top-center"
+  const handleAddToCart = () => {
+    if (!product.is_available) {
+      toast.error("Udsolgt", {
+        description: "Dette produkt er ikke tilgængeligt lige nu.",
+        position: "top-center",
       });
-      setIsAdding(false);
       return;
     }
-    
+
+    setIsAdding(true);
+
     addItem({
-      variantId: variantRes.variantId,
+      variantId: `kinguin-${product.kinguin_id}`,
+      kinguinId: product.kinguin_id,
       title: product.name,
       quantity: 1,
-      price: variantRes.price,
+      price: { amount: String(priceDKK), currencyCode: "DKK" },
+      originalAmount:
+        product.original_price > product.sell_price ? String(originalPriceDKK) : undefined,
       image: product.cover_image || undefined,
-      sku: `KINGUIN-${product.kinguin_id}`
+      sku: `KINGUIN-${product.kinguin_id}`,
     });
-    
+
     toast.success("Tilføjet til kurv", {
       description: product.name,
-      position: "top-center"
+      position: "top-center",
     });
-    
+
     setTimeout(() => setIsAdding(false), 1500);
   };
 
@@ -437,9 +428,9 @@ const ProductPage = () => {
                     <span className="text-3xl xl:text-4xl font-bold text-primary">
                       {formatDKK(priceDKK)}
                     </span>
-                    {product.original_price !== product.sell_price && (
+                    {product.original_price > product.sell_price && (
                       <span className="text-lg text-muted-foreground line-through">
-                        {formatDKK(originalPriceDKK * 1.1)}
+                        {formatDKK(originalPriceDKK)}
                       </span>
                     )}
                   </div>

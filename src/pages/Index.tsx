@@ -107,10 +107,12 @@ const Index = () => {
             {selectedGame && (
               <MobileGameCard
                 key={selectedGame.id}
+                kinguinId={selectedGame.kinguin_id}
                 title={selectedGame.name}
                 image={selectedGame.cover_image || ''}
                 price={selectedGame.sell_price}
                 originalPrice={selectedGame.original_price}
+                marginPercent={selectedGame.margin_percent}
                 platform={selectedGame.platform || 'Steam'}
                 discount={Math.round((1 - selectedGame.sell_price / selectedGame.original_price) * 100)}
                 rating={4.7}

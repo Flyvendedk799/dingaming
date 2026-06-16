@@ -31,7 +31,6 @@ const SearchPage = () => {
         .from('kinguin_products')
         .select('*')
         .eq('is_available', true)
-        .not('shopify_product_id', 'is', null)
         .order('updated_at', { ascending: false })
         .limit(100);
 

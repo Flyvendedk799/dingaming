@@ -26,7 +26,7 @@ import {
   ChevronRight
 } from "lucide-react";
 import { useCartStore } from "@/stores/cartStore";
-import { formatPrice } from "@/lib/shopify";
+import { formatDKK } from "@/lib/pricing";
 import { Link } from "react-router-dom";
 
 export const CartDrawer = () => {
@@ -39,12 +39,13 @@ export const CartDrawer = () => {
     updateQuantity, 
     removeItem,
     getTotalPrice,
-    getTotalItems
+    getTotalItems,
+    getTotalSavings
   } = useCartStore();
-  
+
   const totalItems = getTotalItems();
   const totalPrice = getTotalPrice();
-  const currency = items[0]?.price.currencyCode || 'DKK';
+  const estimatedSavings = getTotalSavings();
 
   const handleRemove = async (variantId: string) => {
     setRemovingId(variantId);
@@ -57,9 +58,6 @@ export const CartDrawer = () => {
     setIsOpen(false);
     navigate('/checkout');
   };
-
-  // Calculate savings (mock - would be real with original prices)
-  const estimatedSavings = totalPrice * 0.25; // Assume ~25% savings
 
   return (
     <Sheet open={isOpen} onOpenChange={setIsOpen}>
@@ -165,7 +163,7 @@ export const CartDrawer = () => {
                           30 sek levering
                         </div>
                         <p className="font-bold text-primary mt-2">
-                          {formatPrice(item.price.amount, item.price.currencyCode)}
+                          {formatDKK(parseFloat(item.price.amount))}
                         </p>
                       </div>
                       
@@ -215,7 +213,7 @@ export const CartDrawer = () => {
                   >
                     <Sparkles className="w-4 h-4 text-success" />
                     <span className="text-sm text-success font-medium">
-                      Du sparer ca. {formatPrice(estimatedSavings.toFixed(2), currency)} på denne ordre!
+                      Du sparer {formatDKK(estimatedSavings)} på denne ordre!
                     </span>
                   </motion.div>
                 )}
@@ -244,7 +242,7 @@ export const CartDrawer = () => {
                     animate={{ scale: 1 }}
                     className="text-2xl font-bold text-primary"
                   >
-                    {formatPrice(totalPrice.toString(), currency)}
+                    {formatDKK(totalPrice)}
                   </motion.span>
                 </div>
                 
