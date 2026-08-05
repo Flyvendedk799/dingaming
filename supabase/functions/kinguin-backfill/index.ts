@@ -160,14 +160,26 @@ Deno.serve(async (req) => {
         } else {
           emptyPages = 0
 
-          // Upsert products
-          const productsToUpsert = allProducts.map((product: any) => ({
+          // Upsert products. Third and last copy of this mapping — screenshots
+          // live under `images.screenshots`, and writing the wrong field here
+          // would blank media across the whole catalogue, since this function
+          // walks every page.
+          const productsToUpsert = allProducts.map((product: any) => {
+            const shots = Array.isArray(product.images?.screenshots) ? product.images.screenshots : []
+            return {
             kinguin_id: product.kinguinId,
             product_id: product.productId,
             name: product.name,
             description: product.description,
             cover_image: product.coverImage || product.images?.cover?.url,
-            screenshots: product.screenshots?.map((s: any) => s.url) || [],
+            screenshots: shots.map((s: any) => s?.url).filter(Boolean),
+            screenshot_thumbs: shots.map((s: any) => s?.thumbnail || s?.url || '').filter(Boolean),
+            videos: (Array.isArray(product.videos) ? product.videos : [])
+              .filter((v: any) => v?.video_id)
+              .map((v: any) => ({
+                id: v.video_id,
+                url: v.video_url || `https://www.youtube.com/watch?v=${v.video_id}`,
+              })),
             original_price: parseFloat(product.price || 0),
             sell_price: parseFloat(product.price || 0),
             platform: product.platform,
@@ -178,7 +190,8 @@ Deno.serve(async (req) => {
             is_available: (product.qty || 0) > 0,
             qty: product.qty || 0,
             updated_at: new Date().toISOString()
-          }))
+            }
+          })
 
           const { error } = await supabase
             .from('kinguin_products')
