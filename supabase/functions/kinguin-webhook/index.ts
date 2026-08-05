@@ -76,12 +76,22 @@ Deno.serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
     )
 
-    await supabase.from('kinguin_webhook_logs').insert({
-      event_type: eventName,
-      payload,
-    })
+    const isProductUpdate = eventName === 'product.update' || (eventName === 'unknown' && payload.kinguinId)
 
-    if (eventName === 'product.update' || (eventName === 'unknown' && payload.kinguinId)) {
+    // Kinguin sends product.update at roughly 250 events per MINUTE across its
+    // whole catalogue — ~370k a day, of which about two thirds are for
+    // products we do not stock. Logging every one buried the handful of order
+    // events that actually matter and grew the table by ~70 MB a day, so only
+    // order events are recorded. Product updates are visible in their effect:
+    // the price and stock on the product row.
+    if (!isProductUpdate) {
+      await supabase.from('kinguin_webhook_logs').insert({
+        event_type: eventName,
+        payload,
+      })
+    }
+
+    if (isProductUpdate) {
       await handleProductUpdate(supabase, payload)
     } else if (eventName.startsWith('order.') || payload.orderId) {
       await handleOrderStatusChange(supabase, payload, eventName)
