@@ -89,7 +89,8 @@ const MobileGameTile = forwardRef<HTMLDivElement, MobileGameTileProps>(
         }`}
         style={{ touchAction: "manipulation" }}
       >
-        <div className="relative aspect-[3/4] overflow-hidden">
+        {/* 8:7 to match the ratio Kinguin actually serves — see KinguinProductCard. */}
+        <div className="relative aspect-[8/7] overflow-hidden">
           <img
             src={image || "/placeholder.svg"}
             alt={title}

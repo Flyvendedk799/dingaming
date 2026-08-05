@@ -78,7 +78,12 @@ const KinguinProductCard = ({ product, onQuickView }: KinguinProductCardProps) =
       to={`/product/${product.kinguin_id}`}
       className="game-card group flex h-full flex-col"
     >
-      <div className="relative aspect-[3/4] overflow-hidden bg-muted">
+      {/* The design sheet specified 3:4, assuming poster art. Every cover
+          Kinguin actually serves is 8:7 (800x700, 1530x1339 — sampled, they are
+          normalised), so a 3:4 frame cropped a third of the width off every
+          image. Matching the source ratio means nothing is cut and the grid is
+          still perfectly uniform. */}
+      <div className="relative aspect-[8/7] overflow-hidden bg-muted">
         <img
           src={product.cover_image || "/placeholder.svg"}
           alt={product.name}

@@ -47,7 +47,7 @@ export const RecentlyViewed = ({ excludeId, maxItems = 6 }: RecentlyViewedProps)
                 to={`/product/${product.kinguin_id}`}
                 className="group flex-shrink-0 w-36 flex flex-col"
               >
-                <div className="relative aspect-[3/4] rounded-xl overflow-hidden bg-muted mb-2">
+                <div className="relative mb-2 aspect-[8/7] overflow-hidden rounded-xl bg-muted">
                   <img
                     src={product.cover_image || '/placeholder.svg'}
                     alt={product.name}
