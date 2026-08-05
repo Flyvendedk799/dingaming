@@ -1,7 +1,9 @@
 import { useLocation } from "react-router-dom";
 import { useEffect } from "react";
+import { useSeo } from "@/lib/seo";
 
 const NotFound = () => {
+  useSeo({ title: "Siden findes ikke", noindex: true });
   const location = useLocation();
 
   useEffect(() => {

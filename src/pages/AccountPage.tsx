@@ -9,8 +9,10 @@ import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { User as UserIcon, Mail, Lock, LogOut, Loader2 } from "lucide-react";
 import { toast } from "sonner";
+import { useSeo } from "@/lib/seo";
 
 const AccountPage = () => {
+  useSeo({ title: "Min konto", path: "/account", noindex: true });
   const { user, signOut, updatePassword } = useAuth();
   const navigate = useNavigate();
 

@@ -7,8 +7,11 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
+import { useSeo } from "@/lib/seo";
+import Logo from "@/components/Logo";
 
 const LoginPage = () => {
+  useSeo({ title: "Log ind", path: "/login", noindex: true });
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -52,13 +55,8 @@ const LoginPage = () => {
       >
         {/* Logo */}
         <Link to="/" className="flex items-center justify-center gap-2 mb-8">
-          <div className="w-12 h-12 rounded-xl bg-primary flex items-center justify-center">
-            <Zap className="w-6 h-6 text-primary-foreground" />
-          </div>
-          <div>
-            <span className="font-heading text-2xl text-foreground">Din</span>
-            <span className="font-heading text-2xl text-primary">Gaming</span>
-          </div>
+          <Logo size={40} />
+
         </Link>
 
         {/* Card */}

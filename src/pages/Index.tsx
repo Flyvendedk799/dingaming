@@ -13,6 +13,7 @@ import MobileClub from "@/components/MobileClub";
 import MobileCart from "@/components/MobileCart";
 import MobileGameCard from "@/components/MobileGameCard";
 
+import { useSeo } from "@/lib/seo";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useCartStore } from "@/stores/cartStore";
 import { useAuth } from "@/contexts/AuthContext";
@@ -28,6 +29,12 @@ import { KinguinProduct } from "@/lib/kinguin";
  * and the grid are already painted when it lifts.
  */
 const Index = () => {
+  useSeo({
+    description:
+      "Køb digitale spilnøgler til Steam, PlayStation, Xbox og Nintendo. Officielle nøgler, priser inkl. moms, nøgle på e-mail inden for 60 sekunder.",
+    path: "/",
+  });
+
   const [showIntro, setShowIntro] = useState(shouldShowIntro);
   const dismissIntro = useCallback(() => setShowIntro(false), []);
   const [activeTab, setActiveTab] = useState("home");

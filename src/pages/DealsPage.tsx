@@ -9,8 +9,10 @@ import KinguinProductCard from "@/components/KinguinProductCard";
 import NewsletterBanner from "@/components/NewsletterBanner";
 import { ProductGridSkeleton } from "@/components/ui/ProductCardSkeleton";
 import { motion } from "framer-motion";
+import { useSeo } from "@/lib/seo";
 
 const DealsPage = () => {
+  useSeo({ title: "Tilbud", description: "Spil med nedsat pris. Officielle digitale nøgler, priser inkl. moms.", path: "/deals" });
   const [products, setProducts] = useState<KinguinProduct[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 

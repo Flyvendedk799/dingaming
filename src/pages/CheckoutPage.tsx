@@ -31,10 +31,12 @@ import { formatDKK } from "@/lib/pricing";
 import Header, { DELIVERY_PROMISE } from "@/components/Header";
 import Footer from "@/components/Footer";
 import { toast } from "sonner";
+import { useSeo } from "@/lib/seo";
 
 const isValidEmail = (email: string) => /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email);
 
 const CheckoutPage = () => {
+  useSeo({ title: "Kasse", path: "/checkout", noindex: true });
   const navigate = useNavigate();
   const { user } = useAuth();
   const {

@@ -1,14 +1,21 @@
-User-agent: Googlebot
-Allow: /
-
-User-agent: Bingbot
-Allow: /
-
-User-agent: Twitterbot
-Allow: /
-
-User-agent: facebookexternalhit
-Allow: /
-
+# WGaming
 User-agent: *
 Allow: /
+
+# Nothing here belongs in an index, and most of it needs a session anyway.
+Disallow: /admin
+Disallow: /checkout
+Disallow: /thank-you
+Disallow: /orders
+Disallow: /account
+Disallow: /login
+Disallow: /signup
+Disallow: /reset-password
+Disallow: /forgot-password
+Disallow: /club/casino
+
+# Search result pages are thin and infinitely combinable; the category page
+# and the sitemap are the intended crawl paths into the catalogue.
+Disallow: /search?
+
+Sitemap: https://wgaming.dk/sitemap.xml

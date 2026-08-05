@@ -15,8 +15,10 @@ import LiveActivityFeed from '@/components/club/LiveActivityFeed';
 import AchievementBadges from '@/components/club/AchievementBadges';
 import EnhancedBalanceCard from '@/components/club/EnhancedBalanceCard';
 import BuyShardsSection from '@/components/club/BuyShardsSection';
+import { useSeo } from "@/lib/seo";
 
 const ClubPage = () => {
+  useSeo({ title: "Klub", description: "Optjen shards på alle køb og byt dem til rabat.", path: "/club" });
   const { user, isLoading: authLoading, signOut } = useAuth();
   const navigate = useNavigate();
   const { data: balance, isLoading: balanceLoading } = useShardBalance();

@@ -25,6 +25,7 @@ import {
   Zap
 } from "lucide-react";
 import { toast } from "sonner";
+import { useSeo } from "@/lib/seo";
 
 const faqs = [
   {
@@ -54,6 +55,7 @@ const faqs = [
 ];
 
 const SupportPage = () => {
+  useSeo({ title: "Support", description: "Kontakt WGaming. Aktiveringsguide, refundering, handelsbetingelser og privatlivspolitik.", path: "/support" });
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [message, setMessage] = useState("");

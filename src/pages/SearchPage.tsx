@@ -10,8 +10,10 @@ import { Search, Loader2, X, Filter } from "lucide-react";
 import { motion } from "framer-motion";
 import { supabase } from "@/integrations/supabase/client";
 import WMark from "@/components/WMark";
+import { useSeo } from "@/lib/seo";
 
 const SearchPage = () => {
+  useSeo({ title: "Søg", description: "Søg i hele kataloget af digitale spilnøgler til Steam, PlayStation, Xbox og Nintendo.", path: "/search", noindex: true });
   const [searchParams, setSearchParams] = useSearchParams();
   const initialQuery = searchParams.get("q") || "";
   const platformFilter = searchParams.get("platform") || "";

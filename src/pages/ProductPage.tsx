@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { ArrowLeft, Check, ChevronLeft, ChevronRight, Gamepad2, X } from "lucide-react";
 import WLoader from "@/components/WLoader";
 import { toast } from "sonner";
+import { breadcrumbLd, productLd, useSeo, SITE_URL } from "@/lib/seo";
 import Header, { DELIVERY_PROMISE } from "@/components/Header";
 import Footer from "@/components/Footer";
 import RecentlyViewed from "@/components/RecentlyViewed";
@@ -80,6 +81,40 @@ const ProductPage = () => {
     return true;
   }, [product, addItem, priceDKK, originalDKK]);
 
+  // Hooks cannot sit behind the early returns below, so this runs on every
+  // render and simply has nothing to say until the product has loaded.
+  const seoPath = product ? `/product/${product.kinguin_id}` : undefined;
+  const seoPlatform = product?.platform?.trim() || "Steam";
+  useSeo({
+    title: product ? `${product.name} — ${seoPlatform} nøgle` : undefined,
+    description: product
+      ? `Køb ${product.name} til ${seoPlatform}. Officiel digital nøgle, pris inkl. moms, på e-mail inden for 60 sekunder.`
+      : undefined,
+    path: seoPath,
+    image: product?.cover_image ?? undefined,
+    type: "product",
+    jsonLd:
+      product && seoPath
+        ? [
+            productLd({
+              name: product.name,
+              description: product.description,
+              image: product.cover_image,
+              sku: product.kinguin_id,
+              platform: seoPlatform,
+              priceDkk: priceDKK,
+              inStock: Boolean(product.is_available),
+              url: `${SITE_URL}${seoPath}`,
+            }),
+            breadcrumbLd([
+              { name: "Spil", path: "/search" },
+              { name: seoPlatform, path: `/search?platform=${encodeURIComponent(seoPlatform)}` },
+              { name: product.name, path: seoPath },
+            ]),
+          ]
+        : undefined,
+  });
+
   if (isLoading) {
     return <WLoader fullscreen label="Indlæser produkt" />;
   }
@@ -108,7 +143,7 @@ const ProductPage = () => {
 
   const discount = calcDiscount(product);
   const region = regionLabel(product);
-  const platform = product.platform?.trim() || "Steam";
+  const platform = seoPlatform;
   const vatPortion = priceDKK * (VAT_RATE / (1 + VAT_RATE));
   const shardsEarned = Math.max(0, Math.round(priceDKK));
   const images = [product.cover_image, ...(product.screenshots || [])].filter(Boolean) as string[];

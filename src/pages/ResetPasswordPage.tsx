@@ -8,6 +8,7 @@ import { Label } from "@/components/ui/label";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import Logo from "@/components/Logo";
 
 /**
  * Lands here from the password-recovery email link. Supabase establishes a
@@ -72,13 +73,8 @@ const ResetPasswordPage = () => {
         transition={{ duration: 0.5 }}
       >
         <Link to="/" className="flex items-center justify-center gap-2 mb-8">
-          <div className="w-12 h-12 rounded-xl bg-primary flex items-center justify-center">
-            <Zap className="w-6 h-6 text-primary-foreground" />
-          </div>
-          <div>
-            <span className="font-heading text-2xl text-foreground">Din</span>
-            <span className="font-heading text-2xl text-primary">Gaming</span>
-          </div>
+          <Logo size={40} />
+
         </Link>
 
         <div className="bg-card border border-border rounded-2xl p-8 shadow-2xl">

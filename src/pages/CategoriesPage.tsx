@@ -10,6 +10,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { X } from "lucide-react";
 import WLoader from "@/components/WLoader";
+import { breadcrumbLd, useSeo } from "@/lib/seo";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import KinguinProductCard from "@/components/KinguinProductCard";
@@ -146,6 +147,27 @@ const CategoriesPage = () => {
   const total = data?.total ?? 0;
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
   const heading = filters.genre || filters.platform || "Alle spil";
+
+  // Only the clean first page of a facet is worth indexing — paginated and
+  // multi-filter permutations are near-duplicates of each other.
+  const isCanonicalListing =
+    page === 1 && !filters.minPrice && !filters.maxPrice && !filters.region && !filters.onSale;
+
+  useSeo({
+    title: heading === "Alle spil" ? "Alle spil" : `${heading} spil`,
+    description:
+      heading === "Alle spil"
+        ? "Browse hele kataloget af digitale spilnøgler. Filtrér på platform, pris og region. Priser inkl. moms."
+        : `${heading} — digitale spilnøgler med officiel levering. Filtrér på platform, pris og region. Priser inkl. moms.`,
+    path: filters.platform ? `/categories?platform=${encodeURIComponent(filters.platform)}` : "/categories",
+    noindex: !isCanonicalListing,
+    jsonLd: [
+      breadcrumbLd([
+        { name: "Kategorier", path: "/categories" },
+        ...(heading !== "Alle spil" ? [{ name: heading, path: "/categories" }] : []),
+      ]),
+    ],
+  });
 
   const activeChips = [
     filters.platform && { key: "platform", label: filters.platform },

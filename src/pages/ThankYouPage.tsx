@@ -9,6 +9,7 @@ import { useCartStore } from "@/stores/cartStore";
 import { fetchOrderById, type OrderRow } from "@/lib/kinguin";
 import { formatDKK } from "@/lib/pricing";
 import { toast } from "sonner";
+import { useSeo } from "@/lib/seo";
 
 interface LocationOrder {
   orderId: string;
@@ -18,6 +19,7 @@ interface LocationOrder {
 }
 
 const ThankYouPage = () => {
+  useSeo({ title: "Tak for din ordre", path: "/thank-you", noindex: true });
   const navigate = useNavigate();
   const location = useLocation();
   const { user } = useAuth();

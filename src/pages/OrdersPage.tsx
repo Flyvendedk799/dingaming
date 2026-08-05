@@ -9,6 +9,7 @@ import { Package, Key, Clock, CheckCircle, AlertCircle, Copy, Eye, EyeOff } from
 import { toast } from "sonner";
 import { fetchMyOrders, type OrderRow } from "@/lib/kinguin";
 import { formatDKK } from "@/lib/pricing";
+import { useSeo } from "@/lib/seo";
 
 const statusConfig: Record<string, { label: string; color: string; icon: typeof Clock }> = {
   pending: { label: "Afventer betaling", color: "bg-muted text-muted-foreground border-border", icon: Clock },
@@ -20,6 +21,7 @@ const statusConfig: Record<string, { label: string; color: string; icon: typeof 
 };
 
 const OrdersPage = () => {
+  useSeo({ title: "Mine ordrer", path: "/orders", noindex: true });
   const { user, isLoading: authLoading } = useAuth();
   const navigate = useNavigate();
   const [orders, setOrders] = useState<OrderRow[]>([]);
