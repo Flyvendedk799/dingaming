@@ -3,7 +3,6 @@ import BrandIntro, { shouldShowIntro } from "@/components/BrandIntro";
 import Header from "@/components/Header";
 import Hero from "@/components/Hero";
 import KinguinProductGrid from "@/components/KinguinProductGrid";
-import Platforms from "@/components/Platforms";
 import Footer from "@/components/Footer";
 import MobileNav from "@/components/MobileNav";
 import MobileHome from "@/components/MobileHome";
@@ -96,9 +95,11 @@ const Index = () => {
         <>
           <Header />
           <main>
+            {/* The standalone platform shelf moved into the hero, where it
+                fills the column beside the featured product instead of
+                repeating the same four links further down the page. */}
             <Hero />
             <KinguinProductGrid />
-            <Platforms />
           </main>
           <Footer />
         </>

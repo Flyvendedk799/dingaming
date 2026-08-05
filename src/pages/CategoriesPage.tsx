@@ -22,13 +22,15 @@ const PAGE_SIZE = 48;
  * "PlayStation 5", "Xbox Series X|S"), so a usable filter has to match the
  * family rather than the exact string.
  */
-const PLATFORM_FAMILIES = [
-  { label: "Steam", match: "Steam" },
-  { label: "PlayStation", match: "PlayStation" },
-  { label: "Xbox", match: "Xbox" },
-  { label: "Nintendo", match: "Nintendo" },
-  { label: "GOG", match: "GOG" },
-  { label: "EA App", match: "EA App" },
+const PLATFORM_FAMILIES: Array<{ label: string; matches: string[] }> = [
+  // "PC" is what a customer calls it; the catalogue spreads the same thing
+  // across five storefronts.
+  { label: "PC", matches: ["Steam", "Epic", "GOG", "EA App", "Ubisoft"] },
+  { label: "PlayStation", matches: ["PlayStation"] },
+  { label: "Xbox", matches: ["Xbox"] },
+  { label: "Nintendo", matches: ["Nintendo"] },
+  { label: "Steam", matches: ["Steam"] },
+  { label: "GOG", matches: ["GOG"] },
 ];
 
 const SORTS = {
@@ -46,10 +48,10 @@ const LIST_COLUMNS =
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const applyFilters = (query: any, f: Filters) => {
-  let q = query.eq("is_available", true);
+  let q = query.eq("is_available", true).eq("is_game", true);
   if (f.platform) {
     const family = PLATFORM_FAMILIES.find((p) => p.label === f.platform);
-    if (family) q = q.ilike("platform", `%${family.match}%`);
+    if (family) q = q.or(family.matches.map((m) => `platform.ilike.*${m}*`).join(","));
   }
   if (f.genre) q = q.contains("genres", [f.genre]);
   if (f.maxPrice !== null) q = q.lte("sell_price", f.maxPrice);
@@ -129,14 +131,23 @@ const CategoriesPage = () => {
     queryFn: async () => {
       const entries = await Promise.all(
         PLATFORM_FAMILIES.map(async (family) => {
-          let q = supabase
+          // The annotation has to sit on the FIRST link of the chain: the
+          // builder's generics compound per filter and tsc bails out at
+          // "type instantiation is excessively deep" if it type-checks the
+          // whole expression before the assignment.
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const base: any = supabase
             .from("kinguin_products")
-            .select("kinguin_id", { count: "exact", head: true })
+            .select("kinguin_id", { count: "exact", head: true });
+
+          let q = base
             .eq("is_available", true)
-            .ilike("platform", `%${family.match}%`);
+            .eq("is_game", true)
+            .or(family.matches.map((m) => `platform.ilike.*${m}*`).join(","));
           if (filters.genre) q = q.contains("genres", [filters.genre]);
+
           const { count } = await q;
-          return [family.label, count ?? 0] as const;
+          return [family.label, (count as number) ?? 0] as const;
         }),
       );
       return Object.fromEntries(entries) as Record<string, number>;
