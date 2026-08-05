@@ -22,6 +22,10 @@ port = 54323
 api_url = "http://localhost"
 
 [auth]
+# A local stack otherwise runs on Supabase's public demo JWT secret, so anyone
+# who can reach the API can mint a service_role token and bypass RLS entirely.
+# Deployments must supply a real secret in the environment.
+jwt_secret = "env(SUPABASE_AUTH_JWT_SECRET)"
 enabled = true
 site_url = "http://localhost:8080"
 additional_redirect_urls = [
