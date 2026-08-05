@@ -50,7 +50,7 @@ Deno.serve(async (req) => {
       if (order && order.payment_status !== 'paid') {
         await supabase
           .from('orders')
-          .update({ payment_status: 'paid', status: 'paid', payment_ref: intent.id })
+          .update({ payment_status: 'paid', status: 'paid', payment_ref: intent.id, payment_provider: 'stripe' })
           .eq('id', order.id)
         await fulfillOrder(supabase, order.id)
       }

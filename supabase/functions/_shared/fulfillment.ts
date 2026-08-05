@@ -17,6 +17,7 @@ interface OrderRow {
   total: number
   discount_code: string | null
   status: string
+  payment_provider: string | null
 }
 
 interface OrderItemRow {
@@ -29,7 +30,7 @@ interface OrderItemRow {
 export async function fulfillOrder(supabase: any, orderId: string): Promise<{ ok: boolean; error?: string }> {
   const { data: order, error: orderErr } = await supabase
     .from('orders')
-    .select('id, user_id, email, total, discount_code, status')
+    .select('id, user_id, email, total, discount_code, status, payment_provider')
     .eq('id', orderId)
     .maybeSingle()
 
@@ -54,11 +55,18 @@ export async function fulfillOrder(supabase: any, orderId: string): Promise<{ ok
   const orderItems = (items || []) as OrderItemRow[]
   const kinguinApiKey = Deno.env.get('KINGUIN_API_KEY')
 
+  // Real Kinguin fulfillment spends real merchant balance, so it requires BOTH
+  // an API key and a real payment. Simulated dev payments always get demo keys —
+  // otherwise a misconfigured production deploy (Kinguin key set, Stripe not)
+  // would hand out real game keys for free.
+  const paidForReal = typedOrder.payment_provider === 'stripe'
+  const useRealFulfillment = Boolean(kinguinApiKey) && paidForReal
+
   let kinguinOrderId: string | null = null
   const keys: Array<{ productName: string; key: string; kinguinId: number }> = []
 
   try {
-    if (kinguinApiKey) {
+    if (useRealFulfillment) {
       // Real fulfillment via Kinguin.
       const orderPayload = {
         products: orderItems.map((it) => ({ kinguinId: it.kinguin_id, qty: it.quantity })),
@@ -163,7 +171,7 @@ export async function fulfillOrder(supabase: any, orderId: string): Promise<{ ok
   }
 
   // A real Kinguin order may still be "processing" until keys are delivered.
-  const finalStatus = kinguinApiKey && keys.length === 0 ? 'fulfilling' : 'completed'
+  const finalStatus = useRealFulfillment && keys.length === 0 ? 'fulfilling' : 'completed'
 
   await supabase
     .from('orders')
