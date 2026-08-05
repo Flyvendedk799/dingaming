@@ -1,6 +1,15 @@
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
-import { Gamepad, Gamepad2, Headphones, Joystick, Monitor, ShieldCheck, Zap } from "lucide-react";
+import {
+  ChevronRight,
+  Gamepad,
+  Gamepad2,
+  Headphones,
+  Joystick,
+  Monitor,
+  ShieldCheck,
+  Zap,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 import { fetchKinguinProducts } from "@/lib/kinguin";
@@ -100,21 +109,35 @@ const Hero = () => {
           content and the shorter one simply ended early. */}
       <div className="container mx-auto grid items-stretch gap-10 px-4 py-10 lg:grid-cols-[minmax(0,1fr)_minmax(420px,480px)] lg:gap-12 lg:py-12">
         <div className="flex flex-col">
-          <h1 className="text-display text-[34px] sm:text-[44px] lg:text-[54px]">
+          {/* Breaks are explicit rather than left to the wrap: the column is
+              840px at 1440 but 464px at 1024, so a natural wrap dropped
+              "sekunder." onto a line by itself. text-wrap:balance does not
+              rescue it — the forced break splits the block first. Every line
+              below fits the narrowest column, so the shape holds throughout. */}
+          <h1 className="text-display text-[34px] sm:text-[42px] lg:text-[48px]">
             Køb spillet.
             <br />
-            Få nøglen inden for 60 sekunder.
+            Få nøglen inden
+            <br />
+            for 60 sekunder.
           </h1>
-          <p className="mt-4 max-w-[500px] text-[17px] leading-relaxed text-muted-foreground">
+          {/* Narrow enough that the wrap falls between the two sentences at
+              every column width, rather than mid-phrase on "Priser inkl. moms". */}
+          <p className="mt-4 max-w-[420px] text-base leading-relaxed text-muted-foreground">
             Officielle nøgler til Steam, PlayStation, Xbox og Nintendo. Priser inkl. moms — ingen
             gebyrer ved betaling.
           </p>
 
           <div className="mt-6 flex flex-wrap items-center gap-3">
-            <Button asChild variant="outline" size="lg">
+            <Button asChild variant="outline" size="lg" className="h-12 px-7 text-[15px]">
               <Link to="/search">Se alle spil</Link>
             </Button>
-            <Button asChild variant="ghost" size="lg" className="text-muted-foreground">
+            <Button
+              asChild
+              variant="ghost"
+              size="lg"
+              className="h-12 px-6 text-[15px] text-muted-foreground"
+            >
               <Link to="/deals">Tilbud</Link>
             </Button>
           </div>
@@ -125,25 +148,28 @@ const Hero = () => {
               and the max caps them before they turn into slabs. Whatever the
               cap leaves over goes to the trust row's mt-auto, which pins it
               level with the bottom of the card. */}
-          <div className="mt-7 grid grow grid-cols-2 gap-3 sm:grid-cols-4 lg:max-h-[168px]">
+          <div className="mt-7 grid grow grid-cols-1 gap-3 sm:grid-cols-2 lg:max-h-[240px]">
             {PLATFORMS.map(({ label, family, icon: Icon }) => (
               <Link
                 key={label}
                 to={`/categories?platform=${encodeURIComponent(family)}`}
-                className="game-card flex min-h-[104px] flex-col items-center justify-center gap-2.5 px-3 py-5 text-center"
+                className="game-card group flex min-h-[76px] items-center gap-4 px-5 py-4"
               >
-                <Icon className="h-7 w-7 text-primary" strokeWidth={1.6} />
-                <span className="text-sm font-semibold leading-none">{label}</span>
-                <span className="num text-xs text-muted-foreground">
-                  {counts?.[family] !== undefined
-                    ? `${counts[family].toLocaleString("da-DK")} spil`
-                    : "—"}
+                <Icon className="h-8 w-8 flex-none text-primary" strokeWidth={1.5} />
+                <span className="min-w-0 flex-1">
+                  <span className="block text-[15px] font-semibold leading-tight">{label}</span>
+                  <span className="num mt-0.5 block text-[13px] text-muted-foreground">
+                    {counts?.[family] !== undefined
+                      ? `${counts[family].toLocaleString("da-DK")} spil`
+                      : "—"}
+                  </span>
                 </span>
+                <ChevronRight className="h-4 w-4 flex-none text-muted-foreground transition-transform duration-fast group-hover:translate-x-0.5 group-hover:text-primary" />
               </Link>
             ))}
           </div>
 
-          <div className="mt-auto grid gap-4 pt-8 sm:grid-cols-3">
+          <div className="mt-auto grid gap-4 pt-6 sm:grid-cols-3">
             {TRUST.map(({ icon: Icon, title, body }) => (
               <div key={title} className="flex items-start gap-2.5">
                 <Icon className="mt-0.5 h-[18px] w-[18px] flex-none text-primary" />
