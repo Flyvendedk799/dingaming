@@ -4,7 +4,9 @@ import { fetchKinguinProducts, KinguinProduct } from "@/lib/kinguin";
 import KinguinProductCard from "./KinguinProductCard";
 import QuickViewModal from "./QuickViewModal";
 import { Button } from "@/components/ui/button";
-import { ArrowRight, Flame, Loader2, Package, RefreshCw } from "lucide-react";
+import { ArrowRight, Package, RefreshCw } from "lucide-react";
+import { Link } from "react-router-dom";
+import WMark from "@/components/WMark";
 
 const KinguinProductGrid = () => {
   const [quickViewProduct, setQuickViewProduct] = useState<KinguinProduct | null>(null);
@@ -23,7 +25,7 @@ const KinguinProductGrid = () => {
       <section id="spil" className="py-20 bg-background">
         <div className="container mx-auto px-4">
           <div className="flex items-center justify-center py-20">
-            <Loader2 className="w-8 h-8 animate-spin text-primary" />
+            <WMark size={40} motion="loop" label="Indlæser" />
           </div>
         </div>
       </section>
@@ -34,22 +36,9 @@ const KinguinProductGrid = () => {
     return (
       <section id="spil" className="py-20 bg-background">
         <div className="container mx-auto px-4">
-          <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-6 mb-10">
-            <div>
-              <div className="flex items-center gap-2 mb-3">
-                <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-accent/10 border border-accent/20">
-                  <Flame className="w-4 h-4 text-accent" />
-                  <span className="text-sm font-medium text-accent">Populære lige nu</span>
-                </div>
-              </div>
-              <h2 className="font-heading text-3xl sm:text-4xl text-foreground mb-2">
-                Vores Spil
-              </h2>
-              <p className="text-muted-foreground">
-                Game keys til alle platforme
-              </p>
-            </div>
-          </div>
+          <h2 className="mb-8 text-3xl font-bold tracking-tight sm:text-[34px]">
+            Populære lige nu
+          </h2>
 
           <div className="flex flex-col items-center justify-center py-20 text-center">
             <Package className="w-16 h-16 text-muted-foreground mb-4" />
@@ -74,22 +63,16 @@ const KinguinProductGrid = () => {
   return (
     <section id="spil" className="py-20 bg-background">
       <div className="container mx-auto px-4">
-        {/* Header */}
-        <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-6 mb-10">
-          <div>
-            <div className="flex items-center gap-2 mb-3">
-              <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-accent/10 border border-accent/20">
-                <Flame className="w-4 h-4 text-accent" />
-                <span className="text-sm font-medium text-accent">Populære lige nu</span>
-              </div>
-            </div>
-            <h2 className="font-heading text-3xl sm:text-4xl text-foreground mb-2">
-              Vores Spil
-            </h2>
-            <p className="text-muted-foreground">
-              Game keys til alle platforme • 30% rabat
-            </p>
-          </div>
+        {/* "30% rabat" used to sit here. That number is the store's margin,
+            not a saving, so it read as a discount nobody was getting. */}
+        <div className="mb-8 flex items-baseline justify-between gap-6">
+          <h2 className="text-3xl font-bold tracking-tight sm:text-[34px]">Populære lige nu</h2>
+          <Link
+            to="/search"
+            className="shrink-0 text-[15px] font-semibold text-primary transition-colors duration-fast hover:text-primary/80"
+          >
+            Se hele kataloget →
+          </Link>
         </div>
 
         {/* Products Grid */}

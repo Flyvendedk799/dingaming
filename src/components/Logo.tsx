@@ -1,3 +1,5 @@
+import WMark from "@/components/WMark";
+
 interface LogoProps {
   /** Rendered size of the mark in px. */
   size?: number;
@@ -15,22 +17,7 @@ interface LogoProps {
  */
 const Logo = ({ size = 32, markOnly = false, className = "" }: LogoProps) => (
   <span className={`flex items-center gap-2.5 ${className}`}>
-    <svg
-      width={size}
-      height={size}
-      viewBox="0 0 88 88"
-      className="block flex-none"
-      aria-hidden="true"
-    >
-      <rect width="88" height="88" rx="20" fill="hsl(var(--primary))" />
-      <path
-        d="M17 27 L31 61 L44 38 L57 61 L71 27"
-        fill="none"
-        stroke="hsl(var(--primary-foreground))"
-        strokeWidth="11"
-        strokeLinejoin="miter"
-      />
-    </svg>
+    <WMark size={size} />
     {!markOnly && (
       <span
         className="font-extrabold leading-none text-foreground"

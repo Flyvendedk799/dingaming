@@ -228,6 +228,41 @@
     border-color: hsl(40 15% 26%);
   }
 
+  /* The mark's stroke is ~126 units long. Dashing it by that length and
+     running the offset from +126 to −126 draws the W and then unwinds it from
+     the same end, which reads as a loop without ever jumping. */
+  .w-stroke-loop {
+    stroke-dasharray: 127;
+    animation: w-draw 1.5s var(--ease) infinite;
+  }
+
+  .w-stroke-once {
+    stroke-dasharray: 127;
+    stroke-dashoffset: 127;
+    animation: w-draw-once var(--t-reward) var(--ease) forwards;
+  }
+
+  @keyframes w-draw {
+    0% {
+      stroke-dashoffset: 127;
+    }
+    45% {
+      stroke-dashoffset: 0;
+    }
+    55% {
+      stroke-dashoffset: 0;
+    }
+    100% {
+      stroke-dashoffset: -127;
+    }
+  }
+
+  @keyframes w-draw-once {
+    to {
+      stroke-dashoffset: 0;
+    }
+  }
+
   .skeleton-shimmer {
     background: linear-gradient(
       90deg,

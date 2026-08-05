@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useCallback, useState } from "react";
+import BrandIntro, { shouldShowIntro } from "@/components/BrandIntro";
 import Header from "@/components/Header";
 import Hero from "@/components/Hero";
 import KinguinProductGrid from "@/components/KinguinProductGrid";
@@ -21,13 +22,14 @@ import { KinguinProduct } from "@/lib/kinguin";
 /**
  * Front page.
  *
- * The full-screen intro animation is gone: it cost thirty seconds of a
- * visitor's trust before they had seen a single price. The hero is compressed
- * so the real product grid sits above the fold, and the fabricated social
- * proof (invented sales counts, review scores and testimonials) has been
- * removed rather than restyled.
+ * The six-second canvas intro is gone, replaced by a sub-second brand moment
+ * that runs once per session (see BrandIntro). The page underneath renders
+ * immediately either way — the overlay never gates the content, so the hero
+ * and the grid are already painted when it lifts.
  */
 const Index = () => {
+  const [showIntro, setShowIntro] = useState(shouldShowIntro);
+  const dismissIntro = useCallback(() => setShowIntro(false), []);
   const [activeTab, setActiveTab] = useState("home");
   const [selectedGame, setSelectedGame] = useState<KinguinProduct | null>(null);
   const isMobile = useIsMobile();
@@ -56,6 +58,7 @@ const Index = () => {
 
   return (
     <div className="min-h-screen bg-background">
+      {showIntro && <BrandIntro onDone={dismissIntro} />}
       {isMobile ? (
         <>
           {renderMobileContent()}

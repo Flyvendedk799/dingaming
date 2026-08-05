@@ -8,6 +8,7 @@ import { usePlayBlackjack, useActiveGameSession } from '@/hooks/useGames';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 import SlowConnectionBanner from '@/components/casino/SlowConnectionBanner';
+import WMark from "@/components/WMark";
 
 interface Card {
   suit: string;
@@ -355,7 +356,7 @@ const BlackjackGame = () => {
   if (loadingSession) {
     return (
       <div className="bg-card border border-border rounded-2xl p-6 flex items-center justify-center h-64">
-        <Loader2 className="w-8 h-8 animate-spin text-primary" />
+        <WMark size={40} motion="loop" label="Indlæser" />
       </div>
     );
   }

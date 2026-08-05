@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Search, Loader2, X, Filter } from "lucide-react";
 import { motion } from "framer-motion";
 import { supabase } from "@/integrations/supabase/client";
+import WMark from "@/components/WMark";
 
 const SearchPage = () => {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -191,7 +192,7 @@ const SearchPage = () => {
         {/* Results */}
         {isLoading ? (
           <div className="flex justify-center py-20">
-            <Loader2 className="w-8 h-8 animate-spin text-primary" />
+            <WMark size={40} motion="loop" label="Indlæser" />
           </div>
         ) : hasSearched ? (
           <motion.div

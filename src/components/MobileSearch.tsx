@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { fetchKinguinProducts, KinguinProduct } from "@/lib/kinguin";
 import MobileGameTile from "./MobileGameTile";
 import { platformAndRegion } from "@/lib/product";
+import WMark from "@/components/WMark";
 
 interface MobileSearchProps {
   onSelectGame: (product: KinguinProduct) => void;
@@ -129,7 +130,7 @@ const MobileSearch = ({ onSelectGame, onBack }: MobileSearchProps) => {
       <div className="px-4 py-4">
         {isLoading ? (
           <div className="flex items-center justify-center py-20">
-            <Loader2 className="w-8 h-8 animate-spin text-primary" />
+            <WMark size={40} motion="loop" label="Indlæser" />
           </div>
         ) : (
           <>

@@ -14,6 +14,7 @@ import { useSellCaseItem } from '@/hooks/useGames';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
 import CaseOpeningAnimation from '@/components/games/CaseOpeningAnimation';
+import WMark from "@/components/WMark";
 
 const CasesPage = () => {
   const { user, isLoading: authLoading } = useAuth();
@@ -82,7 +83,7 @@ const CasesPage = () => {
   if (authLoading || casesLoading) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
-        <Loader2 className="w-8 h-8 animate-spin text-primary" />
+        <WMark size={40} motion="loop" label="Indlæser" />
       </div>
     );
   }

@@ -6,7 +6,8 @@ import { discountPercent as calcDiscount, regionLabel } from "@/lib/product";
 import { useCartStore } from "@/stores/cartStore";
 import { useRecentlyViewed } from "@/hooks/useRecentlyViewed";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, Check, ChevronLeft, ChevronRight, Gamepad2, Loader2, X } from "lucide-react";
+import { ArrowLeft, Check, ChevronLeft, ChevronRight, Gamepad2, X } from "lucide-react";
+import WLoader from "@/components/WLoader";
 import { toast } from "sonner";
 import Header, { DELIVERY_PROMISE } from "@/components/Header";
 import Footer from "@/components/Footer";
@@ -80,14 +81,7 @@ const ProductPage = () => {
   }, [product, addItem, priceDKK, originalDKK]);
 
   if (isLoading) {
-    return (
-      <div className="flex min-h-screen items-center justify-center bg-background">
-        <div className="flex flex-col items-center gap-4">
-          <Loader2 className="h-10 w-10 animate-spin text-primary" />
-          <span className="text-muted-foreground">Indlæser produkt …</span>
-        </div>
-      </div>
-    );
+    return <WLoader fullscreen label="Indlæser produkt" />;
   }
 
   if (!product) {

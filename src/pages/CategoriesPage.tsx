@@ -8,7 +8,8 @@ import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Loader2, X } from "lucide-react";
+import { X } from "lucide-react";
+import WLoader from "@/components/WLoader";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import KinguinProductCard from "@/components/KinguinProductCard";
@@ -310,9 +311,7 @@ const CategoriesPage = () => {
           )}
 
           {isLoading ? (
-            <div className="flex items-center justify-center py-24">
-              <Loader2 className="h-8 w-8 animate-spin text-primary" />
-            </div>
+            <WLoader />
           ) : data && data.products.length > 0 ? (
             <>
               <div className="grid grid-cols-2 gap-5 sm:grid-cols-3 xl:grid-cols-4">
