@@ -94,14 +94,18 @@ const Hero = () => {
 
   return (
     <section className="border-b border-border">
-      <div className="container mx-auto grid items-start gap-10 px-4 py-10 lg:grid-cols-[minmax(0,1fr)_minmax(440px,520px)] lg:gap-14 lg:py-12">
+      {/* items-stretch, not items-start: the two columns share a grid row, so
+          stretching makes them exactly equal height and gives the left column
+          slack to distribute. With items-start each column sized to its own
+          content and the shorter one simply ended early. */}
+      <div className="container mx-auto grid items-stretch gap-10 px-4 py-10 lg:grid-cols-[minmax(0,1fr)_minmax(420px,480px)] lg:gap-12 lg:py-12">
         <div className="flex flex-col">
-          <h1 className="text-display text-[32px] sm:text-[42px] lg:text-[50px]">
+          <h1 className="text-display text-[34px] sm:text-[44px] lg:text-[54px]">
             Køb spillet.
             <br />
             Få nøglen inden for 60 sekunder.
           </h1>
-          <p className="mt-4 max-w-[460px] text-base leading-relaxed text-muted-foreground">
+          <p className="mt-4 max-w-[500px] text-[17px] leading-relaxed text-muted-foreground">
             Officielle nøgler til Steam, PlayStation, Xbox og Nintendo. Priser inkl. moms — ingen
             gebyrer ved betaling.
           </p>
@@ -115,15 +119,20 @@ const Hero = () => {
             </Button>
           </div>
 
-          {/* Four ways into the catalogue, straight from the fold. */}
-          <div className="mt-7 grid grid-cols-2 gap-3 sm:grid-cols-4">
+          {/* Four ways into the catalogue, straight from the fold. `grow`
+              absorbs the column's leftover height into the tiles — they are
+              the clickable part, so height is presence rather than padding —
+              and the max caps them before they turn into slabs. Whatever the
+              cap leaves over goes to the trust row's mt-auto, which pins it
+              level with the bottom of the card. */}
+          <div className="mt-7 grid grow grid-cols-2 gap-3 sm:grid-cols-4 lg:max-h-[168px]">
             {PLATFORMS.map(({ label, family, icon: Icon }) => (
               <Link
                 key={label}
                 to={`/categories?platform=${encodeURIComponent(family)}`}
-                className="game-card flex flex-col items-center gap-2 px-3 py-4 text-center"
+                className="game-card flex min-h-[104px] flex-col items-center justify-center gap-2.5 px-3 py-5 text-center"
               >
-                <Icon className="h-6 w-6 text-primary" strokeWidth={1.75} />
+                <Icon className="h-7 w-7 text-primary" strokeWidth={1.6} />
                 <span className="text-sm font-semibold leading-none">{label}</span>
                 <span className="num text-xs text-muted-foreground">
                   {counts?.[family] !== undefined
@@ -148,7 +157,7 @@ const Hero = () => {
         </div>
 
         {product && (
-          <article className="overflow-hidden rounded-xl border border-border bg-card">
+          <article className="flex flex-col overflow-hidden rounded-xl border border-border bg-card">
             <Link to={`/product/${product.kinguin_id}`} className="group block">
               {/* Source art is 8:7; 4:3 widens it into a hero shape while
                   trimming only ~7% from top and bottom, centred. */}
@@ -175,13 +184,13 @@ const Hero = () => {
                 )}
               </div>
 
-              <div className="px-6 pt-5">
+              <div className="px-5 pt-5">
                 <p className="label-eyebrow text-muted-foreground">{platformAndRegion(product)}</p>
-                <h2 className="mt-2 line-clamp-2 text-[24px] font-bold leading-tight tracking-tight transition-colors duration-fast group-hover:text-primary">
+                <h2 className="mt-2 line-clamp-2 text-[22px] font-bold leading-tight tracking-tight transition-colors duration-fast group-hover:text-primary">
                   {product.name}
                 </h2>
-                <div className="mt-3.5 flex flex-wrap items-baseline gap-3">
-                  <span className="num text-[38px] font-bold leading-none text-primary">
+                <div className="mt-3 flex flex-wrap items-baseline gap-3">
+                  <span className="num text-[34px] font-bold leading-none text-primary">
                     {formatDKK(price)}
                   </span>
                   {discount > 0 && (
@@ -194,7 +203,9 @@ const Hero = () => {
               </div>
             </Link>
 
-            <div className="p-6 pt-5">
+            {/* mt-auto so the buy button sits on the card's bottom edge if the
+                left column is ever the taller of the two. */}
+            <div className="mt-auto p-5 pt-4">
               <Button asChild size="lg" className="w-full text-[17px]">
                 <Link to={`/product/${product.kinguin_id}`}>Se spillet</Link>
               </Button>
