@@ -149,7 +149,7 @@ const SearchPage = () => {
               {genreFilter && (
                 <button
                   onClick={() => clearFilter('genre')}
-                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-accent/10 border border-accent/20 text-sm text-accent hover:bg-accent/20 transition-colors"
+                  className="inline-flex items-center gap-1.5 rounded-full border border-border bg-muted px-3 py-1.5 text-sm transition-colors duration-fast hover:border-muted-foreground/40"
                 >
                   {genreFilter}
                   <X className="w-3.5 h-3.5" />

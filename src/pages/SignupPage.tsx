@@ -88,8 +88,6 @@ const SignupPage = () => {
     <div className="min-h-screen bg-background flex items-center justify-center p-4 py-12">
       {/* Background effects */}
       <div className="fixed inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-primary/5 rounded-full blur-3xl ambient-orb" />
-        <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-success/5 rounded-full blur-3xl ambient-orb-delayed" />
       </div>
 
       <motion.div
@@ -114,7 +112,7 @@ const SignupPage = () => {
           <div className="text-center mb-8">
             <h1 className="font-heading text-2xl text-foreground mb-2">Opret konto</h1>
             <p className="text-muted-foreground">
-              Bliv medlem af Customer Club i dag
+              Bliv medlem af klubben i dag
             </p>
           </div>
 

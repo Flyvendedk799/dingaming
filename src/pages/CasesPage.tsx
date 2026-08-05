@@ -163,7 +163,7 @@ const CasesPage = () => {
                         className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
                       />
                     ) : (
-                      <div className="w-full h-full bg-gradient-to-br from-primary/20 to-accent/20 flex items-center justify-center">
+                      <div className="w-full h-full bg-gradient-to-br from-primary/20 to-club/20 flex items-center justify-center">
                         <Package className="w-16 h-16 text-primary/50" />
                       </div>
                     )}

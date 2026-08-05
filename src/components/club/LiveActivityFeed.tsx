@@ -70,8 +70,8 @@ const getActivityIcon = (type: ActivityItem['type']) => {
 const getActivityColor = (type: ActivityItem['type']) => {
   switch (type) {
     case 'purchase': return 'text-primary bg-primary/20';
-    case 'case_win': return 'text-accent bg-accent/20';
-    case 'game_win': return 'text-success bg-success/20';
+    case 'case_win': return 'text-club bg-club/20';
+    case 'game_win': return 'text-club bg-club/20';
     case 'reward': return 'text-violet-400 bg-violet-400/20';
     case 'achievement': return 'text-amber-400 bg-amber-400/20';
     default: return 'text-muted-foreground bg-muted';
@@ -117,7 +117,7 @@ const LiveActivityFeed = ({ maxItems = 5, className = "" }: LiveActivityFeedProp
       <div className="flex items-center justify-between px-5 py-4 border-b border-border/50">
         <div className="flex items-center gap-2">
           <motion.div
-            className="w-2 h-2 rounded-full bg-success"
+            className="w-2 h-2 rounded-full bg-club"
             animate={{ opacity: [1, 0.5, 1], scale: [1, 1.2, 1] }}
             transition={{ duration: 2, repeat: Infinity }}
           />
@@ -127,7 +127,7 @@ const LiveActivityFeed = ({ maxItems = 5, className = "" }: LiveActivityFeedProp
           onClick={() => setIsLive(!isLive)}
           className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium transition-colors ${
             isLive 
-              ? 'bg-success/10 text-success hover:bg-success/20' 
+              ? 'bg-club/10 text-club hover:bg-club/20' 
               : 'bg-muted text-muted-foreground hover:bg-muted/80'
           }`}
         >
@@ -165,7 +165,7 @@ const LiveActivityFeed = ({ maxItems = 5, className = "" }: LiveActivityFeedProp
                   {activity.value && (
                     <p className={`text-xs font-semibold ${
                       activity.type === 'case_win' || activity.type === 'game_win' 
-                        ? 'text-success' 
+                        ? 'text-club' 
                         : 'text-muted-foreground'
                     }`}>
                       {activity.value}

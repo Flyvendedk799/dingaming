@@ -28,7 +28,7 @@ import { useCartStore } from "@/stores/cartStore";
 import { useAuth } from "@/contexts/AuthContext";
 import { createOrder, processPayment, validateDiscount } from "@/lib/kinguin";
 import { formatDKK } from "@/lib/pricing";
-import Header from "@/components/Header";
+import Header, { DELIVERY_PROMISE } from "@/components/Header";
 import Footer from "@/components/Footer";
 import { toast } from "sonner";
 
@@ -55,6 +55,10 @@ const CheckoutPage = () => {
     null
   );
   const [discountError, setDiscountError] = useState(false);
+  // The code field stays closed until asked for. An open box above the price
+  // breakdown reads as "everyone else has a code" and sends people off to hunt
+  // for one instead of paying.
+  const [showDiscountField, setShowDiscountField] = useState(false);
   const [isPlacingOrder, setIsPlacingOrder] = useState(false);
 
   const totalItems = getTotalItems();
@@ -307,69 +311,6 @@ const CheckoutPage = () => {
                 >
                   <h2 className="font-heading text-lg mb-6">Ordreoversigt</h2>
 
-                  {/* Discount code */}
-                  <div className="mb-6">
-                    <label className="flex items-center gap-2 text-sm font-medium mb-2">
-                      <Gift className="w-4 h-4 text-primary" />
-                      Rabatkode
-                    </label>
-
-                    {appliedDiscount ? (
-                      <motion.div
-                        initial={{ opacity: 0, scale: 0.95 }}
-                        animate={{ opacity: 1, scale: 1 }}
-                        className="flex items-center justify-between p-3 rounded-xl bg-success/10 border border-success/20"
-                      >
-                        <div className="flex items-center gap-2">
-                          <CheckCircle2 className="w-4 h-4 text-success" />
-                          <span className="font-medium text-success">{appliedDiscount.code}</span>
-                        </div>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={handleRemoveDiscount}
-                          className="h-8 text-muted-foreground hover:text-destructive"
-                        >
-                          Fjern
-                        </Button>
-                      </motion.div>
-                    ) : (
-                      <div className="flex gap-2">
-                        <Input
-                          placeholder="Indtast kode"
-                          value={discountCode}
-                          onChange={(e) => setDiscountCode(e.target.value)}
-                          onKeyDown={(e) => e.key === "Enter" && handleApplyDiscount()}
-                          className="flex-1"
-                        />
-                        <Button
-                          onClick={handleApplyDiscount}
-                          disabled={!discountCode.trim() || isApplyingDiscount}
-                          variant="outline"
-                        >
-                          {isApplyingDiscount ? (
-                            <Loader2 className="w-4 h-4 animate-spin" />
-                          ) : (
-                            <Tag className="w-4 h-4" />
-                          )}
-                        </Button>
-                      </div>
-                    )}
-
-                    {discountError && (
-                      <motion.p
-                        initial={{ opacity: 0 }}
-                        animate={{ opacity: 1 }}
-                        className="flex items-center gap-1.5 text-xs text-destructive mt-2"
-                      >
-                        <XCircle className="w-3.5 h-3.5" />
-                        Ugyldig eller udløbet kode
-                      </motion.p>
-                    )}
-                  </div>
-
-                  <Separator className="my-4" />
-
                   {/* Price breakdown */}
                   <div className="space-y-3">
                     <div className="flex justify-between text-sm">
@@ -400,15 +341,66 @@ const CheckoutPage = () => {
 
                     <div className="flex justify-between items-center pt-2">
                       <span className="font-semibold text-lg">Total</span>
-                      <motion.span
-                        key={total}
-                        initial={{ scale: 1.1 }}
-                        animate={{ scale: 1 }}
-                        className="font-bold text-2xl text-primary"
-                      >
-                        {formatDKK(total)}
-                      </motion.span>
+                      <span className="num font-bold text-2xl text-primary">{formatDKK(total)}</span>
                     </div>
+                  </div>
+
+                  {/* Discount code, below the total and closed by default. */}
+                  <div className="mt-4">
+                    {appliedDiscount ? (
+                      <div className="flex items-center justify-between rounded-lg border border-primary/20 bg-primary/10 p-3">
+                        <div className="flex items-center gap-2">
+                          <CheckCircle2 className="h-4 w-4 text-primary" />
+                          <span className="num font-medium text-primary">{appliedDiscount.code}</span>
+                        </div>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={handleRemoveDiscount}
+                          className="h-8 text-muted-foreground hover:text-destructive"
+                        >
+                          Fjern
+                        </Button>
+                      </div>
+                    ) : showDiscountField ? (
+                      <div>
+                        <div className="flex gap-2">
+                          <Input
+                            autoFocus
+                            placeholder="Indtast rabatkode"
+                            value={discountCode}
+                            onChange={(e) => setDiscountCode(e.target.value)}
+                            onKeyDown={(e) => e.key === "Enter" && handleApplyDiscount()}
+                            className="num flex-1"
+                          />
+                          <Button
+                            onClick={handleApplyDiscount}
+                            disabled={!discountCode.trim() || isApplyingDiscount}
+                            variant="outline"
+                          >
+                            {isApplyingDiscount ? (
+                              <Loader2 className="h-4 w-4 animate-spin" />
+                            ) : (
+                              "Brug"
+                            )}
+                          </Button>
+                        </div>
+                        {discountError && (
+                          <p className="mt-2 flex items-center gap-1.5 text-xs text-destructive">
+                            <XCircle className="h-3.5 w-3.5" />
+                            Ugyldig eller udløbet kode
+                          </p>
+                        )}
+                      </div>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => setShowDiscountField(true)}
+                        className="text-sm text-muted-foreground underline underline-offset-4 transition-colors duration-fast hover:text-foreground"
+                      >
+                        Har du en rabatkode?
+                      </button>
+                    )}
                   </div>
 
                   <Separator className="my-6" />
@@ -434,25 +426,32 @@ const CheckoutPage = () => {
                     </Button>
                   </motion.div>
 
-                  <p className="flex items-center justify-center gap-1.5 text-xs text-muted-foreground mt-4">
-                    <Lock className="w-3.5 h-3.5" />
-                    Sikker betaling · Stripe (kommer snart)
+                  {/* "Stripe (kommer snart)" used to sit here. Nobody types a
+                      card number under a "coming soon". */}
+                  <p className="mt-4 flex items-center justify-center gap-1.5 text-xs text-muted-foreground">
+                    <Lock className="h-3.5 w-3.5" />
+                    Sikker betaling gennem Stripe
                   </p>
                 </motion.div>
 
+                {/* One colour across the row — these were primary, success and
+                    accent in a line, which reads as three unrelated claims. */}
                 <div className="grid grid-cols-3 gap-3">
-                  <div className="flex flex-col items-center gap-1.5 p-3 rounded-xl bg-muted/30">
-                    <Shield className="w-5 h-5 text-primary" />
-                    <span className="text-[10px] text-center text-muted-foreground">Sikker betaling</span>
-                  </div>
-                  <div className="flex flex-col items-center gap-1.5 p-3 rounded-xl bg-muted/30">
-                    <Zap className="w-5 h-5 text-success" />
-                    <span className="text-[10px] text-center text-muted-foreground">Instant levering</span>
-                  </div>
-                  <div className="flex flex-col items-center gap-1.5 p-3 rounded-xl bg-muted/30">
-                    <Clock className="w-5 h-5 text-accent" />
-                    <span className="text-[10px] text-center text-muted-foreground">24/7 support</span>
-                  </div>
+                  {[
+                    { icon: Shield, label: "Officielle nøgler" },
+                    { icon: Zap, label: DELIVERY_PROMISE },
+                    { icon: Clock, label: "Svar inden 24 timer" },
+                  ].map(({ icon: Icon, label }) => (
+                    <div
+                      key={label}
+                      className="flex flex-col items-center gap-1.5 rounded-xl border border-border bg-muted/30 p-3"
+                    >
+                      <Icon className="h-5 w-5 text-primary" />
+                      <span className="text-center text-xs leading-snug text-muted-foreground">
+                        {label}
+                      </span>
+                    </div>
+                  ))}
                 </div>
               </div>
             </div>

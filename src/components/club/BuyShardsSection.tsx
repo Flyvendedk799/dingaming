@@ -108,7 +108,7 @@ export const BuyShardsSection = () => {
       <div className="flex items-center justify-between mb-6">
         <div>
           <h2 className="font-heading text-xl text-foreground flex items-center gap-2">
-            <Gem className="w-5 h-5 text-accent" />
+            <Gem className="w-5 h-5 text-club" />
             Køb Shards
           </h2>
           <p className="text-muted-foreground text-sm mt-1">
@@ -127,7 +127,7 @@ export const BuyShardsSection = () => {
               key={bundle.id}
               className={`relative bg-background border rounded-xl p-4 transition-all hover:border-primary/50 hover:shadow-lg ${
                 bundle.popular ? 'border-primary ring-1 ring-primary/20' : 'border-border'
-              } ${bundle.bestValue ? 'border-accent ring-1 ring-accent/20' : ''}`}
+              } ${bundle.bestValue ? 'border-club ring-1 ring-accent/20' : ''}`}
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.1 * index }}
@@ -138,7 +138,7 @@ export const BuyShardsSection = () => {
                 </Badge>
               )}
               {bundle.bestValue && (
-                <Badge className="absolute -top-2 right-3 bg-accent text-accent-foreground text-xs">
+                <Badge className="absolute -top-2 right-3 bg-club text-club-foreground text-xs">
                   Bedste Værdi
                 </Badge>
               )}
@@ -146,12 +146,12 @@ export const BuyShardsSection = () => {
               <div className="flex items-start justify-between mb-3">
                 <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${
                   bundle.popular ? 'bg-primary/10 text-primary' : 
-                  bundle.bestValue ? 'bg-accent/10 text-accent' : 
+                  bundle.bestValue ? 'bg-club/10 text-club' : 
                   'bg-muted text-muted-foreground'
                 }`}>
                   <IconComponent className="w-5 h-5" />
                 </div>
-                <span className="text-xs font-medium text-success bg-success/10 px-2 py-1 rounded-full">
+                <span className="text-xs font-medium text-club bg-club/10 px-2 py-1 rounded-full">
                   +{bundle.bonusPercent}% bonus
                 </span>
               </div>

@@ -165,16 +165,13 @@ export const QuickViewModal = ({ product, onClose }: QuickViewModalProps) => {
                 </div>
               )}
 
-              {/* Badges */}
-              <div className="absolute top-4 left-4 flex flex-col gap-2">
+              {/* One badge over a cover, and it is the discount. The pulsing
+                  "Kun {qty} tilbage" is gone: a supplier's stock number is not
+                  scarcity on a digital key. */}
+              <div className="absolute top-4 left-4">
                 {discountPercent > 0 && (
-                  <Badge variant="destructive" className="text-sm font-bold">
-                    -{discountPercent}%
-                  </Badge>
-                )}
-                {product.qty && product.qty <= 5 && (
-                  <Badge className="bg-accent text-accent-foreground animate-pulse">
-                    Kun {product.qty} tilbage
+                  <Badge variant="destructive" className="num text-sm font-bold">
+                    −{discountPercent}&nbsp;%
                   </Badge>
                 )}
               </div>

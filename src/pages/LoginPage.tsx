@@ -42,8 +42,6 @@ const LoginPage = () => {
     <div className="min-h-screen bg-background flex items-center justify-center p-4">
       {/* Background effects */}
       <div className="fixed inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-primary/5 rounded-full blur-3xl ambient-orb" />
-        <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-success/5 rounded-full blur-3xl ambient-orb-delayed" />
       </div>
 
       <motion.div
@@ -68,7 +66,7 @@ const LoginPage = () => {
           <div className="text-center mb-8">
             <h1 className="font-heading text-2xl text-foreground mb-2">Log ind</h1>
             <p className="text-muted-foreground">
-              Velkommen tilbage til Customer Club
+              Velkommen tilbage til klubben
             </p>
           </div>
 
@@ -150,16 +148,16 @@ const LoginPage = () => {
             </div>
           </div>
 
-          {/* Club benefits teaser */}
-          <div className="p-4 bg-success/5 border border-success/20 rounded-xl mb-6">
-            <div className="flex items-center gap-2 mb-2">
-              <Sparkles className="w-5 h-5 text-success" />
-              <span className="font-semibold text-foreground">Customer Club Fordele</span>
+          {/* Club benefits teaser — amber, because this is club territory. */}
+          <div className="mb-6 rounded-xl border border-club/20 bg-club/[0.06] p-4">
+            <div className="mb-2 flex items-center gap-2">
+              <Sparkles className="h-5 w-5 text-club" />
+              <span className="font-semibold text-foreground">Fordele i klubben</span>
             </div>
-            <ul className="text-sm text-muted-foreground space-y-1">
-              <li>• Optjen Shards på alle køb (1% cashback)</li>
-              <li>• Daglige login bonusser</li>
-              <li>• Byt Shards til rabatter</li>
+            <ul className="space-y-1 text-sm text-muted-foreground">
+              <li>• Optjen shards på alle køb (1 % tilbage)</li>
+              <li>• Daglig bonus for at logge ind</li>
+              <li>• Byt shards til rabat</li>
             </ul>
           </div>
 

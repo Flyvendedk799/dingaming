@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
-import { motion } from "framer-motion";
-import { ChevronLeft, Heart, Share, Star, Zap, Shield, ShoppingCart, Loader2 } from "lucide-react";
+import { motion, type PanInfo } from "framer-motion";
+import { ChevronLeft, Heart, Share, Zap, Shield, ShoppingCart, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useCartStore } from "@/stores/cartStore";
 import { usePricing } from "@/lib/pricing";
@@ -17,8 +17,6 @@ interface MobileGameCardProps {
   marginPercent?: number | null;
   platform: string;
   discount?: number;
-  rating?: number;
-  reviews?: number;
   onClose: () => void;
 }
 
@@ -31,8 +29,6 @@ const MobileGameCard = ({
   marginPercent,
   platform,
   discount,
-  rating = 4.5,
-  reviews = 234,
   onClose,
 }: MobileGameCardProps) => {
   const addItem = useCartStore(state => state.addItem);
@@ -51,7 +47,7 @@ const MobileGameCard = ({
     };
   }, []);
 
-  const handleDragEnd = (_: any, info: any) => {
+  const handleDragEnd = (_: MouseEvent | TouchEvent | PointerEvent, info: PanInfo) => {
     if (info.offset.y > 100) {
       onClose();
     }
@@ -121,13 +117,10 @@ const MobileGameCard = ({
 
       {/* Content */}
       <div className="p-5 -mt-10 relative">
-        <div className="flex items-center gap-2 mb-2">
-          <span className="px-2.5 py-1 rounded-lg bg-muted text-xs font-medium">{platform}</span>
-          <div className="flex items-center gap-1">
-            <Star className="w-4 h-4 text-accent fill-accent" />
-            <span className="text-sm font-medium">{rating}</span>
-            <span className="text-xs text-muted-foreground">({reviews})</span>
-          </div>
+        {/* The star rating and review count that used to sit here were both
+            generated, not collected. */}
+        <div className="mb-2 flex items-center gap-2">
+          <span className="pill">{platform}</span>
         </div>
 
         <h2 className="font-heading text-2xl font-bold mb-4">{title}</h2>

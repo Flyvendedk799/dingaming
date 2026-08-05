@@ -170,10 +170,10 @@ const RewardsPage = () => {
                 >
                   {/* Icon */}
                   <div className={`w-12 h-12 rounded-xl flex items-center justify-center mb-4 ${
-                    isVoucher ? 'bg-success/10' : 'bg-primary/10'
+                    isVoucher ? 'bg-club/10' : 'bg-primary/10'
                   }`}>
                     {isVoucher ? (
-                      <Tag className={`w-6 h-6 ${isVoucher ? 'text-success' : 'text-primary'}`} />
+                      <Tag className={`w-6 h-6 ${isVoucher ? 'text-club' : 'text-primary'}`} />
                     ) : (
                       <Gift className="w-6 h-6 text-primary" />
                     )}
@@ -189,7 +189,7 @@ const RewardsPage = () => {
 
                   {/* Value indicator for vouchers */}
                   {reward.value_dkk && (
-                    <div className="inline-flex items-center gap-1 px-2 py-1 bg-success/10 text-success rounded-full text-sm mb-4">
+                    <div className="inline-flex items-center gap-1 px-2 py-1 bg-club/10 text-club rounded-full text-sm mb-4">
                       <Check className="w-3 h-3" />
                       {reward.value_dkk} DKK værdi
                     </div>
@@ -248,19 +248,19 @@ const RewardsPage = () => {
           <h3 className="font-semibold text-foreground mb-3">Sådan virker det</h3>
           <ul className="space-y-2 text-sm text-muted-foreground">
             <li className="flex items-start gap-2">
-              <Check className="w-4 h-4 text-success mt-0.5 shrink-0" />
+              <Check className="w-4 h-4 text-club mt-0.5 shrink-0" />
               Vælg en reward du vil indløse
             </li>
             <li className="flex items-start gap-2">
-              <Check className="w-4 h-4 text-success mt-0.5 shrink-0" />
+              <Check className="w-4 h-4 text-club mt-0.5 shrink-0" />
               Dine Shards trækkes automatisk fra din balance
             </li>
             <li className="flex items-start gap-2">
-              <Check className="w-4 h-4 text-success mt-0.5 shrink-0" />
+              <Check className="w-4 h-4 text-club mt-0.5 shrink-0" />
               Rabatkoder kan bruges ved checkout og er gyldige i 30 dage
             </li>
             <li className="flex items-start gap-2">
-              <Check className="w-4 h-4 text-success mt-0.5 shrink-0" />
+              <Check className="w-4 h-4 text-club mt-0.5 shrink-0" />
               Du kan finde dine indløste rewards under "Mine Rewards"
             </li>
           </ul>

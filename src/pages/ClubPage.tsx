@@ -156,7 +156,7 @@ const ClubPage = () => {
                     >
                       <div className="flex items-center gap-3">
                         <div className={`w-8 h-8 rounded-full flex items-center justify-center ${
-                          tx.amount > 0 ? 'bg-success/10 text-success' : 'bg-accent/10 text-accent'
+                          tx.amount > 0 ? 'bg-club/10 text-club' : 'bg-club/10 text-club'
                         }`}>
                           {getTransactionIcon(tx.type)}
                         </div>
@@ -173,7 +173,7 @@ const ClubPage = () => {
                         </div>
                       </div>
                       <span className={`font-semibold ${
-                        tx.amount > 0 ? 'text-success' : 'text-accent'
+                        tx.amount > 0 ? 'text-club' : 'text-club'
                       }`}>
                         {tx.amount > 0 ? '+' : ''}{formatShards(tx.amount)}
                       </span>

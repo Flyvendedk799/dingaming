@@ -102,7 +102,7 @@ const SupportPage = () => {
           {[
             { icon: Key, title: "Aktiveringsguide", desc: "Trin-for-trin vejledning" },
             { icon: RefreshCw, title: "Refundering", desc: "14 dages returret" },
-            { icon: Clock, title: "Hurtig levering", desc: "Keys sendt på 30 sek" },
+            { icon: Clock, title: "Hurtig levering", desc: "Nøgle på e-mail inden for 60 sekunder" },
           ].map((item, index) => (
             <motion.div
               key={item.title}

@@ -71,7 +71,7 @@ const MobileClub = ({ onBack }: MobileClubProps) => {
         >
           <div className="px-4 py-3">
             <h1 className="font-heading text-xl font-bold flex items-center gap-2">
-              <Sparkles className="w-5 h-5 text-success" />
+              <Sparkles className="w-5 h-5 text-club" />
               Customer Club
             </h1>
           </div>
@@ -85,9 +85,9 @@ const MobileClub = ({ onBack }: MobileClubProps) => {
           >
             {/* Animated sparkles icon */}
             <motion.div 
-              className="w-24 h-24 mx-auto rounded-full bg-gradient-to-br from-success/20 to-primary/20 flex items-center justify-center mb-6 border border-success/30"
+              className="w-24 h-24 mx-auto rounded-full bg-gradient-to-br from-club/20 to-primary/20 flex items-center justify-center mb-6 border border-club/30"
               animate={{ 
-                boxShadow: ["0 0 0 0 hsl(var(--success) / 0)", "0 0 30px 10px hsl(var(--success) / 0.2)", "0 0 0 0 hsl(var(--success) / 0)"]
+                boxShadow: ["0 0 0 0 hsl(var(--club) / 0)", "0 0 30px 10px hsl(var(--club) / 0.2)", "0 0 0 0 hsl(var(--club) / 0)"]
               }}
               transition={{ duration: 3, repeat: Infinity }}
             >
@@ -95,7 +95,7 @@ const MobileClub = ({ onBack }: MobileClubProps) => {
                 animate={{ rotate: [0, 10, -10, 0] }}
                 transition={{ duration: 4, repeat: Infinity }}
               >
-                <Sparkles className="w-12 h-12 text-success" />
+                <Sparkles className="w-12 h-12 text-club" />
               </motion.div>
             </motion.div>
             
@@ -106,7 +106,7 @@ const MobileClub = ({ onBack }: MobileClubProps) => {
 
             <div className="space-y-3">
               <Link to="/signup" className="block">
-                <Button className="w-full bg-success hover:bg-success/90 text-success-foreground h-12">
+                <Button className="w-full bg-club hover:bg-club/90 text-club-foreground h-12">
                   <Sparkles className="w-5 h-5 mr-2" />
                   Opret konto gratis
                   <ArrowRight className="w-4 h-4 ml-2" />
@@ -132,8 +132,8 @@ const MobileClub = ({ onBack }: MobileClubProps) => {
             
             {[
               { icon: ShoppingBag, title: '1% Cashback', desc: 'På alle køb i Shards', color: 'text-primary', bgColor: 'bg-primary/10' },
-              { icon: Calendar, title: 'Daglige Bonusser', desc: 'Gratis Shards hver dag', color: 'text-success', bgColor: 'bg-success/10' },
-              { icon: Gamepad2, title: 'Sweepstake Spil', desc: 'Vind flere Shards', color: 'text-accent', bgColor: 'bg-accent/10' },
+              { icon: Calendar, title: 'Daglige Bonusser', desc: 'Gratis Shards hver dag', color: 'text-club', bgColor: 'bg-club/10' },
+              { icon: Gamepad2, title: 'Sweepstake Spil', desc: 'Vind flere Shards', color: 'text-club', bgColor: 'bg-club/10' },
               { icon: Package, title: 'Åbn Cases', desc: 'Vind spil med Shards', color: 'text-violet-400', bgColor: 'bg-violet-400/10' },
             ].map((benefit, i) => (
               <motion.div
@@ -183,13 +183,13 @@ const MobileClub = ({ onBack }: MobileClubProps) => {
         <div className="px-4 py-3">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <div className={`w-10 h-10 rounded-xl bg-gradient-to-br from-success/20 to-primary/10 flex items-center justify-center`}>
+              <div className={`w-10 h-10 rounded-xl bg-gradient-to-br from-club/20 to-primary/10 flex items-center justify-center`}>
                 <TierIcon className={`w-5 h-5 ${currentTier.color}`} />
               </div>
               <div>
                 <h1 className="font-heading text-lg font-bold flex items-center gap-2">
                   {user?.user_metadata?.display_name || user?.email?.split('@')[0]}
-                  <span className={`text-xs px-1.5 py-0.5 rounded ${currentTier.color} bg-success/10`}>
+                  <span className={`text-xs px-1.5 py-0.5 rounded ${currentTier.color} bg-club/10`}>
                     {currentTier.name}
                   </span>
                 </h1>
@@ -218,22 +218,22 @@ const MobileClub = ({ onBack }: MobileClubProps) => {
           animate={{ opacity: 1, y: 0 }}
         >
           {/* Animated background */}
-          <div className="absolute inset-0 bg-gradient-to-br from-success/25 via-success/10 to-primary/15" />
+          <div className="absolute inset-0 bg-gradient-to-br from-club/25 via-club/10 to-primary/15" />
           <motion.div
-            className="absolute -top-10 -right-10 w-32 h-32 rounded-full bg-success/20 blur-3xl"
+            className="absolute -top-10 -right-10 w-32 h-32 rounded-full bg-club/20 blur-3xl"
             animate={{ scale: [1, 1.3, 1], opacity: [0.3, 0.5, 0.3] }}
             transition={{ duration: 4, repeat: Infinity }}
           />
           
-          <div className="relative border border-success/30 rounded-2xl backdrop-blur-sm p-5">
+          <div className="relative border border-club/30 rounded-2xl backdrop-blur-sm p-5">
             <div className="flex items-center gap-2 mb-2">
-              <Sparkles className="w-4 h-4 text-success" />
+              <Sparkles className="w-4 h-4 text-club" />
               <span className="text-xs text-muted-foreground uppercase tracking-wider">Din Balance</span>
             </div>
             
             <div className="flex items-baseline gap-2 mb-3">
               <motion.span 
-                className="font-heading text-4xl text-success"
+                className="font-heading text-4xl text-club"
                 key={balance?.balance}
                 initial={{ scale: 1.1 }}
                 animate={{ scale: 1 }}
@@ -249,12 +249,12 @@ const MobileClub = ({ onBack }: MobileClubProps) => {
 
             <div className="grid grid-cols-3 gap-2">
               <Link to="/club/rewards">
-                <Button size="sm" className="w-full bg-success hover:bg-success/90 text-success-foreground">
+                <Button size="sm" className="w-full bg-club hover:bg-club/90 text-club-foreground">
                   <Gift className="w-4 h-4" />
                 </Button>
               </Link>
               <Link to="/club/casino">
-                <Button size="sm" variant="outline" className="w-full border-accent text-accent hover:bg-accent/10">
+                <Button size="sm" variant="outline" className="w-full border-club text-club hover:bg-club/10">
                   <Gamepad2 className="w-4 h-4" />
                 </Button>
               </Link>
@@ -276,10 +276,10 @@ const MobileClub = ({ onBack }: MobileClubProps) => {
         >
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-2">
-              <Flame className="w-5 h-5 text-accent" />
+              <Flame className="w-5 h-5 text-club" />
               <span className="font-semibold text-foreground">Login Streak</span>
             </div>
-            <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-accent/10 text-accent">
+            <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-club/10 text-club">
               <Flame className="w-3.5 h-3.5" />
               <span className="text-sm font-bold">{streakCount}</span>
             </div>
@@ -297,7 +297,7 @@ const MobileClub = ({ onBack }: MobileClubProps) => {
                   key={dayNum}
                   className={`relative flex flex-col items-center p-2 rounded-xl transition-all ${
                     isCompleted 
-                      ? 'bg-success/20 border border-success/40' 
+                      ? 'bg-club/20 border border-club/40' 
                       : isToday
                         ? 'bg-primary/20 border-2 border-primary'
                         : 'bg-muted/50 border border-border/50'
@@ -310,26 +310,26 @@ const MobileClub = ({ onBack }: MobileClubProps) => {
                   disabled={claimDaily.isPending}
                 >
                   <span className={`text-[10px] font-medium ${
-                    isCompleted ? 'text-success' : isToday ? 'text-primary' : 'text-muted-foreground'
+                    isCompleted ? 'text-club' : isToday ? 'text-primary' : 'text-muted-foreground'
                   }`}>
                     {dayNum}
                   </span>
                   <div className={`w-6 h-6 rounded-lg flex items-center justify-center my-0.5 ${
-                    isCompleted ? 'bg-success/30' : isToday ? 'bg-primary/30' : 'bg-muted'
+                    isCompleted ? 'bg-club/30' : isToday ? 'bg-primary/30' : 'bg-muted'
                   }`}>
                     {isCompleted ? (
-                      <Check className="w-3 h-3 text-success" />
+                      <Check className="w-3 h-3 text-club" />
                     ) : isToday && claimDaily.isPending ? (
                       <Loader2 className="w-3 h-3 animate-spin text-primary" />
                     ) : (
-                      <Gift className={`w-3 h-3 ${dayNum === 7 ? 'text-accent' : 'text-muted-foreground/50'}`} />
+                      <Gift className={`w-3 h-3 ${dayNum === 7 ? 'text-club' : 'text-muted-foreground/50'}`} />
                     )}
                   </div>
-                  <span className={`text-[8px] ${dayNum === 7 ? 'text-accent font-bold' : 'text-muted-foreground'}`}>
+                  <span className={`text-[8px] ${dayNum === 7 ? 'text-club font-bold' : 'text-muted-foreground'}`}>
                     +{reward}
                   </span>
                   {dayNum === 7 && (
-                    <div className="absolute -top-1 -right-1 px-1 py-0.5 rounded text-[6px] font-bold bg-accent text-accent-foreground">
+                    <div className="absolute -top-1 -right-1 px-1 py-0.5 rounded text-[6px] font-bold bg-club text-club-foreground">
                       2X
                     </div>
                   )}
@@ -359,14 +359,14 @@ const MobileClub = ({ onBack }: MobileClubProps) => {
         >
           <Link 
             to="/club/casino"
-            className="p-4 rounded-2xl bg-gradient-to-br from-accent/10 to-accent/5 border border-accent/20 flex flex-col"
+            className="p-4 rounded-2xl bg-gradient-to-br from-club/10 to-club/5 border border-club/20 flex flex-col"
           >
-            <div className="w-12 h-12 rounded-xl bg-accent/20 flex items-center justify-center mb-3">
-              <Gamepad2 className="w-6 h-6 text-accent" />
+            <div className="w-12 h-12 rounded-xl bg-club/20 flex items-center justify-center mb-3">
+              <Gamepad2 className="w-6 h-6 text-club" />
             </div>
             <span className="font-semibold text-foreground">Casino</span>
             <span className="text-xs text-muted-foreground">Mines & Dice</span>
-            <div className="mt-2 flex items-center text-accent text-xs font-medium">
+            <div className="mt-2 flex items-center text-club text-xs font-medium">
               Spil nu <ChevronRight className="w-4 h-4" />
             </div>
           </Link>
@@ -394,7 +394,7 @@ const MobileClub = ({ onBack }: MobileClubProps) => {
         >
           <div className="flex items-center justify-between mb-3">
             <h2 className="font-semibold text-foreground">Seneste Aktivitet</h2>
-            <button className="text-sm text-success flex items-center">
+            <button className="text-sm text-club flex items-center">
               Se alle <ChevronRight className="w-4 h-4" />
             </button>
           </div>
@@ -411,7 +411,7 @@ const MobileClub = ({ onBack }: MobileClubProps) => {
                 >
                   <div className="flex items-center gap-3">
                     <div className={`w-9 h-9 rounded-xl flex items-center justify-center ${
-                      tx.amount > 0 ? 'bg-success/10 text-success' : 'bg-accent/10 text-accent'
+                      tx.amount > 0 ? 'bg-club/10 text-club' : 'bg-club/10 text-club'
                     }`}>
                       {getTransactionIcon(tx.type)}
                     </div>
@@ -426,7 +426,7 @@ const MobileClub = ({ onBack }: MobileClubProps) => {
                     </div>
                   </div>
                   <span className={`font-semibold text-sm ${
-                    tx.amount > 0 ? 'text-success' : 'text-accent'
+                    tx.amount > 0 ? 'text-club' : 'text-club'
                   }`}>
                     {tx.amount > 0 ? '+' : ''}{formatShards(tx.amount)}
                   </span>

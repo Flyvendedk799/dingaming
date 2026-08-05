@@ -3,9 +3,8 @@ import { motion } from "framer-motion";
 import { Tag, ArrowLeft, Flame, Percent, Clock } from "lucide-react";
 import { fetchKinguinProducts, KinguinProduct } from "@/lib/kinguin";
 import MobileGameTile from "./MobileGameTile";
-import FlipClock from "./FlipClock";
 import { MobileProductGridSkeleton } from "./ui/ProductCardSkeleton";
-import { getStableRating } from "@/lib/stableRating";
+import { platformAndRegion } from "@/lib/product";
 
 interface MobileDealsProps {
   onSelectGame: (product: KinguinProduct) => void;
@@ -75,42 +74,12 @@ const MobileDeals = ({ onSelectGame, onBack }: MobileDealsProps) => {
         </div>
       </div>
 
-      {/* Hero Banner with Countdown */}
-      <div className="px-4 py-4">
-        <motion.div 
-          className="relative p-5 rounded-3xl overflow-hidden"
-          initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
-        >
-          <div className="relative z-10">
-            <div className="flex items-center gap-3 mb-4">
-              <motion.div 
-                className="w-12 h-12 rounded-2xl bg-accent/20 flex items-center justify-center"
-                animate={{ rotate: [0, -5, 5, 0] }}
-                transition={{ duration: 0.5, repeat: Infinity, repeatDelay: 3 }}
-              >
-                <Flame className="w-6 h-6 text-accent" />
-              </motion.div>
-              <div>
-                <h2 className="font-semibold text-foreground text-lg">Op til 70% rabat!</h2>
-                <p className="text-sm text-muted-foreground">Begrænset tid</p>
-              </div>
-            </div>
-
-            {/* Countdown Timer */}
-            <div className="bg-card/60 backdrop-blur-sm rounded-2xl p-4 border border-border/50">
-              <div className="flex items-center gap-2 mb-3">
-                <Clock className="w-4 h-4 text-destructive" />
-                <span className="text-xs font-medium text-destructive">Udløber om</span>
-              </div>
-              <FlipClock 
-                targetDate={dealEndTime} 
-                size="sm"
-                showLabels={true}
-              />
-            </div>
-          </div>
-        </motion.div>
+      {/* The "Op til 70% rabat" claim and the countdown that reset on every
+          load are both gone — neither was tied to anything real. */}
+      <div className="border-b border-border px-4 py-4">
+        <p className="text-sm leading-relaxed text-muted-foreground">
+          Spil med nedsat pris. Priserne er inkl. moms.
+        </p>
       </div>
 
       {isLoading ? (
@@ -154,7 +123,7 @@ const MobileDeals = ({ onSelectGame, onBack }: MobileDealsProps) => {
                       originalPrice={product.original_price}
                       platform={product.platform || 'Steam'}
                       discount={Math.round((1 - product.sell_price / product.original_price) * 100)}
-                      rating={getStableRating(product.id)}
+                      meta={platformAndRegion(product)}
                       onClick={() => onSelectGame(product)} 
                     />
                   </motion.div>
@@ -194,7 +163,7 @@ const MobileDeals = ({ onSelectGame, onBack }: MobileDealsProps) => {
                       originalPrice={product.original_price}
                       platform={product.platform || 'Steam'}
                       discount={Math.round((1 - product.sell_price / product.original_price) * 100)}
-                      rating={getStableRating(product.id)}
+                      meta={platformAndRegion(product)}
                       onClick={() => onSelectGame(product)} 
                     />
                   </motion.div>
@@ -234,7 +203,7 @@ const MobileDeals = ({ onSelectGame, onBack }: MobileDealsProps) => {
                       originalPrice={product.original_price}
                       platform={product.platform || 'Steam'}
                       discount={Math.round((1 - product.sell_price / product.original_price) * 100)}
-                      rating={getStableRating(product.id)}
+                      meta={platformAndRegion(product)}
                       onClick={() => onSelectGame(product)} 
                     />
                   </motion.div>

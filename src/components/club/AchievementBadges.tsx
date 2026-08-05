@@ -52,8 +52,8 @@ const ACHIEVEMENTS: Omit<Achievement, 'current' | 'unlocked'>[] = [
     name: 'Ugens Warrior',
     description: '7-dages login streak',
     icon: Flame,
-    color: 'text-accent',
-    bgColor: 'bg-accent/20',
+    color: 'text-club',
+    bgColor: 'bg-club/20',
     requirement: 7,
     rarity: 'rare',
   },
@@ -184,14 +184,14 @@ const AchievementBadges = ({
           {[...Array(Math.min(unlockedCount, 5))].map((_, i) => (
             <motion.div
               key={i}
-              className="w-2 h-2 rounded-full bg-success"
+              className="w-2 h-2 rounded-full bg-club"
               initial={{ scale: 0 }}
               animate={{ scale: 1 }}
               transition={{ delay: 0.3 + i * 0.1 }}
             />
           ))}
           {unlockedCount > 5 && (
-            <span className="text-xs text-success font-medium ml-1">+{unlockedCount - 5}</span>
+            <span className="text-xs text-club font-medium ml-1">+{unlockedCount - 5}</span>
           )}
         </div>
       </div>
@@ -253,12 +253,12 @@ const AchievementBadges = ({
                 {/* Unlocked checkmark */}
                 {achievement.unlocked && (
                   <motion.div
-                    className="absolute bottom-1 right-1 w-4 h-4 rounded-full bg-success flex items-center justify-center"
+                    className="absolute bottom-1 right-1 w-4 h-4 rounded-full bg-club flex items-center justify-center"
                     initial={{ scale: 0 }}
                     animate={{ scale: 1 }}
                     transition={{ type: "spring", delay: 0.5 + index * 0.05 }}
                   >
-                    <Medal className="w-2.5 h-2.5 text-success-foreground" />
+                    <Medal className="w-2.5 h-2.5 text-club-foreground" />
                   </motion.div>
                 )}
               </div>

@@ -27,11 +27,11 @@ const EnhancedBalanceCard = ({
       animate={{ opacity: 1, y: 0 }}
     >
       {/* Animated gradient background */}
-      <div className="absolute inset-0 bg-gradient-to-br from-success/30 via-success/10 to-primary/20" />
+      <div className="absolute inset-0 bg-gradient-to-br from-club/30 via-club/10 to-primary/20" />
       
       {/* Animated orbs */}
       <motion.div
-        className="absolute -top-20 -right-20 w-40 h-40 rounded-full bg-success/20 blur-3xl"
+        className="absolute -top-20 -right-20 w-40 h-40 rounded-full bg-club/20 blur-3xl"
         animate={{ 
           scale: [1, 1.2, 1],
           opacity: [0.3, 0.5, 0.3]
@@ -48,22 +48,22 @@ const EnhancedBalanceCard = ({
       />
 
       {/* Glass overlay */}
-      <div className="relative border border-success/30 rounded-3xl backdrop-blur-sm p-6 md:p-8">
+      <div className="relative border border-club/30 rounded-3xl backdrop-blur-sm p-6 md:p-8">
         {/* Header */}
         <div className="flex items-start justify-between mb-6">
           <div className="flex items-center gap-3">
             <motion.div
-              className="w-12 h-12 rounded-2xl bg-success/20 flex items-center justify-center"
+              className="w-12 h-12 rounded-2xl bg-club/20 flex items-center justify-center"
               animate={{ rotate: [0, 10, -10, 0] }}
               transition={{ duration: 4, repeat: Infinity, repeatDelay: 3 }}
             >
-              <Sparkles className="w-6 h-6 text-success" />
+              <Sparkles className="w-6 h-6 text-club" />
             </motion.div>
             <div>
               <p className="text-sm text-muted-foreground">Din Shard Balance</p>
               <div className="flex items-center gap-2">
                 <motion.span
-                  className="text-xs text-success flex items-center gap-1"
+                  className="text-xs text-club flex items-center gap-1"
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
                   transition={{ delay: 0.5 }}
@@ -84,7 +84,7 @@ const EnhancedBalanceCard = ({
             animate={{ opacity: 1, scale: 1 }}
             transition={{ delay: 0.2, type: "spring" }}
           >
-            <span className="font-heading text-5xl md:text-6xl lg:text-7xl text-success tracking-tight">
+            <span className="font-heading text-5xl md:text-6xl lg:text-7xl text-club tracking-tight">
               {isLoading ? '...' : formatShards(balance)}
             </span>
             <span className="text-2xl text-muted-foreground">Shards</span>
@@ -126,7 +126,7 @@ const EnhancedBalanceCard = ({
         <div className="grid grid-cols-3 gap-3">
           <Link to="/club/rewards" className="block">
             <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
-              <Button className="w-full h-auto py-3 flex flex-col items-center gap-1 bg-success hover:bg-success/90 text-success-foreground">
+              <Button className="w-full h-auto py-3 flex flex-col items-center gap-1 bg-club hover:bg-club/90 text-club-foreground">
                 <Gift className="w-5 h-5" />
                 <span className="text-xs">Rewards</span>
               </Button>
@@ -134,7 +134,7 @@ const EnhancedBalanceCard = ({
           </Link>
           <Link to="/club/games" className="block">
             <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
-              <Button variant="outline" className="w-full h-auto py-3 flex flex-col items-center gap-1 border-accent text-accent hover:bg-accent/10">
+              <Button variant="outline" className="w-full h-auto py-3 flex flex-col items-center gap-1 border-club text-club hover:bg-club/10">
                 <Gamepad2 className="w-5 h-5" />
                 <span className="text-xs">Spil</span>
               </Button>

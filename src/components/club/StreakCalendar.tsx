@@ -40,17 +40,17 @@ const StreakCalendar = ({ currentStreak, canClaimToday, onClaim, isPending }: St
             }}
             transition={{ duration: 0.5, repeat: Infinity, repeatDelay: 2 }}
           >
-            <div className="w-10 h-10 rounded-xl bg-accent/20 flex items-center justify-center">
-              <Flame className="w-5 h-5 text-accent" />
+            <div className="w-10 h-10 rounded-xl bg-club/20 flex items-center justify-center">
+              <Flame className="w-5 h-5 text-club" />
             </div>
             {currentStreak >= 7 && (
               <motion.div
-                className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-success flex items-center justify-center"
+                className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-club flex items-center justify-center"
                 initial={{ scale: 0 }}
                 animate={{ scale: 1 }}
                 transition={{ type: "spring", stiffness: 400 }}
               >
-                <Check className="w-2.5 h-2.5 text-success-foreground" />
+                <Check className="w-2.5 h-2.5 text-club-foreground" />
               </motion.div>
             )}
           </motion.div>
@@ -66,7 +66,7 @@ const StreakCalendar = ({ currentStreak, canClaimToday, onClaim, isPending }: St
         </div>
         
         <motion.div
-          className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-accent/10 text-accent"
+          className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-club/10 text-club"
           animate={currentStreak >= 7 ? { 
             boxShadow: ["0 0 0 0 hsl(var(--accent) / 0)", "0 0 0 8px hsl(var(--accent) / 0)"]
           } : {}}
@@ -90,7 +90,7 @@ const StreakCalendar = ({ currentStreak, canClaimToday, onClaim, isPending }: St
               key={dayNum}
               className={`relative flex flex-col items-center p-2 rounded-xl transition-all ${
                 isCompleted 
-                  ? 'bg-success/20 border border-success/40' 
+                  ? 'bg-club/20 border border-club/40' 
                   : isToday
                     ? 'bg-primary/20 border-2 border-primary cursor-pointer hover:bg-primary/30'
                     : 'bg-muted/50 border border-border/50'
@@ -104,7 +104,7 @@ const StreakCalendar = ({ currentStreak, canClaimToday, onClaim, isPending }: St
             >
               {/* Day number */}
               <span className={`text-xs font-semibold mb-1 ${
-                isCompleted ? 'text-success' : isToday ? 'text-primary' : 'text-muted-foreground'
+                isCompleted ? 'text-club' : isToday ? 'text-primary' : 'text-muted-foreground'
               }`}>
                 Dag {dayNum}
               </span>
@@ -112,13 +112,13 @@ const StreakCalendar = ({ currentStreak, canClaimToday, onClaim, isPending }: St
               {/* Icon or checkmark */}
               <div className={`w-8 h-8 rounded-lg flex items-center justify-center mb-1 ${
                 isCompleted 
-                  ? 'bg-success/30' 
+                  ? 'bg-club/30' 
                   : isToday 
                     ? 'bg-primary/30'
                     : 'bg-muted'
               }`}>
                 {isCompleted ? (
-                  <Check className="w-4 h-4 text-success" />
+                  <Check className="w-4 h-4 text-club" />
                 ) : isToday ? (
                   isPending ? (
                     <motion.div
@@ -130,13 +130,13 @@ const StreakCalendar = ({ currentStreak, canClaimToday, onClaim, isPending }: St
                     <Gift className="w-4 h-4 text-primary" />
                   )
                 ) : (
-                  <Gift className={`w-4 h-4 ${reward.bonus ? 'text-accent' : 'text-muted-foreground/50'}`} />
+                  <Gift className={`w-4 h-4 ${reward.bonus ? 'text-club' : 'text-muted-foreground/50'}`} />
                 )}
               </div>
 
               {/* Shards reward */}
               <span className={`text-[10px] font-medium ${
-                reward.bonus ? 'text-accent' : isCompleted ? 'text-success' : 'text-muted-foreground'
+                reward.bonus ? 'text-club' : isCompleted ? 'text-club' : 'text-muted-foreground'
               }`}>
                 +{reward.shards}
               </span>
@@ -144,7 +144,7 @@ const StreakCalendar = ({ currentStreak, canClaimToday, onClaim, isPending }: St
               {/* Bonus indicator */}
               {reward.bonus && (
                 <motion.div
-                  className="absolute -top-1 -right-1 px-1.5 py-0.5 rounded text-[8px] font-bold bg-accent text-accent-foreground"
+                  className="absolute -top-1 -right-1 px-1.5 py-0.5 rounded text-[8px] font-bold bg-club text-club-foreground"
                   animate={{ scale: [1, 1.1, 1] }}
                   transition={{ duration: 1, repeat: Infinity, repeatDelay: 2 }}
                 >
@@ -159,7 +159,7 @@ const StreakCalendar = ({ currentStreak, canClaimToday, onClaim, isPending }: St
       {/* Today's prompt */}
       {canClaimToday && (
         <motion.div
-          className="mt-4 p-3 rounded-xl bg-gradient-to-r from-primary/10 to-accent/10 border border-primary/20"
+          className="mt-4 p-3 rounded-xl bg-gradient-to-r from-primary/10 to-club/10 border border-primary/20"
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.5 }}
