@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { KinguinProduct } from "@/lib/kinguin";
 import { usePricing } from "@/lib/pricing";
 import { discountPercent, platformAndRegion } from "@/lib/product";
+import { daProductName } from "@/lib/da";
 import { useCartStore } from "@/stores/cartStore";
 import { toast } from "sonner";
 import { Link } from "react-router-dom";
@@ -56,7 +57,7 @@ const KinguinProductCard = ({ product, onQuickView }: KinguinProductCardProps) =
     });
 
     setJustAdded(true);
-    toast.success(`${product.name} lagt i kurven`);
+    toast.success(`${daProductName(product.name)} lagt i kurven`);
     setTimeout(() => setJustAdded(false), 2000);
   };
 
@@ -129,7 +130,7 @@ const KinguinProductCard = ({ product, onQuickView }: KinguinProductCardProps) =
         <p className="label-eyebrow text-muted-foreground">{platformAndRegion(product)}</p>
 
         <h3 className="mb-auto mt-1.5 line-clamp-2 font-semibold leading-snug text-foreground">
-          {product.name}
+          {daProductName(product.name)}
         </h3>
 
         <div className="mt-3 flex items-end justify-between gap-3">

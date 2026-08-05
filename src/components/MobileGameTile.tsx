@@ -2,6 +2,7 @@ import { forwardRef, useCallback, useRef, useState } from "react";
 import { ShoppingCart } from "lucide-react";
 import { useCartStore } from "@/stores/cartStore";
 import { usePricing } from "@/lib/pricing";
+import { daProductName } from "@/lib/da";
 import { toast } from "sonner";
 
 interface MobileGameTileProps {
@@ -119,7 +120,9 @@ const MobileGameTile = forwardRef<HTMLDivElement, MobileGameTileProps>(
 
         <div className="p-3">
           <p className="label-eyebrow text-muted-foreground">{meta || platform}</p>
-          <h3 className="mt-1 line-clamp-2 text-sm font-semibold leading-snug">{title}</h3>
+          <h3 className="mt-1 line-clamp-2 text-sm font-semibold leading-snug">
+            {daProductName(title)}
+          </h3>
           <div className="mt-2 flex items-baseline gap-2">
             <span className="num text-lg font-bold text-primary">{formatDKK(priceDkk)}</span>
             {hasDiscount && originalPrice && (

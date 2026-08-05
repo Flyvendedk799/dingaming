@@ -11,6 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { X } from "lucide-react";
 import WLoader from "@/components/WLoader";
 import { breadcrumbLd, useSeo } from "@/lib/seo";
+import { daGenre } from "@/lib/da";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import KinguinProductCard from "@/components/KinguinProductCard";
@@ -157,7 +158,9 @@ const CategoriesPage = () => {
 
   const total = data?.total ?? 0;
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
-  const heading = filters.genre || filters.platform || "Alle spil";
+  // The genre keeps its English value in the URL and the query — that is what
+  // is stored in the column — but never shows in English.
+  const heading = daGenre(filters.genre ?? "") || filters.platform || "Alle spil";
 
   // Only the clean first page of a facet is worth indexing — paginated and
   // multi-filter permutations are near-duplicates of each other.
@@ -182,7 +185,7 @@ const CategoriesPage = () => {
 
   const activeChips = [
     filters.platform && { key: "platform", label: filters.platform },
-    filters.genre && { key: "genre", label: filters.genre },
+    filters.genre && { key: "genre", label: daGenre(filters.genre) },
     filters.maxPrice !== null && { key: "max", label: `Under ${filters.maxPrice} DKK` },
     filters.minPrice !== null && { key: "min", label: `Over ${filters.minPrice} DKK` },
     filters.region === "eu" && { key: "region", label: "Virker i Danmark" },

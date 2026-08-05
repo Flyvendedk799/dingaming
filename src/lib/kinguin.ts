@@ -8,6 +8,10 @@ export interface KinguinProduct {
   description?: string | null;
   cover_image: string | null;
   screenshots?: string[] | null;
+  /** Index-aligned with `screenshots`. Kinguin's newer thumbnail URLs 404, so
+   *  treat these as a hint and fall back to the full-size URL on error. */
+  screenshot_thumbs?: string[] | null;
+  videos?: { id: string; url: string }[] | null;
   original_price: number;
   sell_price: number;
   platform: string | null;

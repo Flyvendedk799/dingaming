@@ -63,13 +63,26 @@ Deno.serve(async (req) => {
     }
 
     // Process and upsert products into the local catalog
-    const productsToUpsert = allProducts.map((product: any) => ({
+    const productsToUpsert = allProducts.map((product: any) => {
+      // Kinguin nests these under `images.screenshots`. Reading
+      // `product.screenshots` — a field the API does not return — left every
+      // row with an empty array, which is why product pages only ever showed
+      // the cover. Thumbnails are kept index-aligned with the full URLs.
+      const shots = Array.isArray(product.images?.screenshots) ? product.images.screenshots : []
+      return {
       kinguin_id: product.kinguinId,
       product_id: product.productId,
       name: product.name,
       description: product.description,
       cover_image: product.coverImage || product.images?.cover?.url,
-      screenshots: product.screenshots?.map((s: any) => s.url) || [],
+      screenshots: shots.map((s: any) => s?.url).filter(Boolean),
+      screenshot_thumbs: shots.map((s: any) => s?.thumbnail || s?.url || '').filter(Boolean),
+      videos: (Array.isArray(product.videos) ? product.videos : [])
+        .filter((v: any) => v?.video_id)
+        .map((v: any) => ({
+          id: v.video_id,
+          url: v.video_url || `https://www.youtube.com/watch?v=${v.video_id}`,
+        })),
       original_price: parseFloat(product.price || 0),
       sell_price: parseFloat(product.price || 0) * DEFAULT_MARGIN,
       platform: product.platform,
@@ -79,7 +92,8 @@ Deno.serve(async (req) => {
       region_name: product.region?.name || (product.regionId === 3 ? 'Worldwide' : 'Europe'),
       is_available: (product.qty || 0) > 0,
       qty: product.qty || 0,
-    }))
+      }
+    })
 
     if (productsToUpsert.length > 0) {
       const { error } = await supabase
