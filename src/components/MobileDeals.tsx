@@ -4,7 +4,6 @@ import { Tag, ArrowLeft, Flame, Percent, Clock } from "lucide-react";
 import { fetchKinguinProducts, KinguinProduct } from "@/lib/kinguin";
 import MobileGameTile from "./MobileGameTile";
 import FlipClock from "./FlipClock";
-import MeshGradient from "./MeshGradient";
 import { MobileProductGridSkeleton } from "./ui/ProductCardSkeleton";
 import { getStableRating } from "@/lib/stableRating";
 
@@ -83,9 +82,6 @@ const MobileDeals = ({ onSelectGame, onBack }: MobileDealsProps) => {
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
         >
-          <MeshGradient colors="accent" intensity="medium" />
-          <div className="absolute inset-0 bg-gradient-to-br from-background/80 to-transparent" />
-          
           <div className="relative z-10">
             <div className="flex items-center gap-3 mb-4">
               <motion.div 

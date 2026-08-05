@@ -1,6 +1,5 @@
 import { forwardRef } from "react";
 import { Home, Search, Tag, Sparkles, ShoppingCart } from "lucide-react";
-import { motion } from "framer-motion";
 
 interface MobileNavProps {
   activeTab: string;
@@ -9,102 +8,77 @@ interface MobileNavProps {
   shardBalance?: number;
 }
 
-const MobileNav = forwardRef<HTMLElement, MobileNavProps>(({ 
-  activeTab, 
-  onTabChange, 
-  cartCount = 0, 
-  shardBalance = 0 
-}, ref) => {
-  const tabs = [
-    { id: 'home', icon: Home, label: 'Hjem' },
-    { id: 'search', icon: Search, label: 'Søg' },
-    { id: 'deals', icon: Tag, label: 'Tilbud' },
-    { id: 'cart', icon: ShoppingCart, label: 'Kurv', badge: cartCount },
-    { id: 'club', icon: Sparkles, label: 'Club', badge: shardBalance > 0 ? Math.floor(shardBalance / 1000) : undefined },
-  ];
+/**
+ * Bottom tab bar.
+ *
+ * Three fixes from the identity review: the active tab used emerald rather
+ * than the brand colour, "Club" was English in an otherwise Danish bar, and
+ * the club badge showed floor(shards / 1000) — which reads as "0" for anyone
+ * with fewer than a thousand shards. The badge now shows nothing unless
+ * there is a balance worth showing.
+ */
+const MobileNav = forwardRef<HTMLElement, MobileNavProps>(
+  ({ activeTab, onTabChange, cartCount = 0, shardBalance = 0 }, ref) => {
+    const tabs = [
+      { id: "home", icon: Home, label: "Hjem" },
+      { id: "search", icon: Search, label: "Søg" },
+      { id: "deals", icon: Tag, label: "Tilbud" },
+      { id: "cart", icon: ShoppingCart, label: "Kurv", badge: cartCount || undefined },
+      { id: "club", icon: Sparkles, label: "Klub", club: true },
+    ];
 
-  return (
-    <motion.nav 
-      ref={ref}
-      className="fixed bottom-0 left-0 right-0 z-50 md:hidden"
-      initial={{ y: 100 }}
-      animate={{ y: 0 }}
-      transition={{ delay: 0.5, type: "spring", stiffness: 300, damping: 30 }}
-    >
-      {/* Premium glassmorphism background */}
-      <div 
-        className="absolute inset-x-2 inset-y-0 bg-card/70 backdrop-blur-2xl border border-border/30 rounded-t-3xl shadow-premium-lg"
-        style={{ 
-          paddingBottom: 'env(safe-area-inset-bottom, 0px)',
-        }}
-      />
-      
-      <div 
-        className="relative flex items-center justify-around px-2"
-        style={{ 
-          paddingBottom: 'max(env(safe-area-inset-bottom, 8px), 8px)',
-          paddingTop: '8px',
-        }}
+    return (
+      <nav
+        ref={ref}
+        className="fixed inset-x-0 bottom-0 z-50 border-t border-border bg-background/95 backdrop-blur-xl md:hidden"
+        style={{ paddingBottom: "max(env(safe-area-inset-bottom, 8px), 8px)" }}
       >
-        {tabs.map((tab) => {
-          const isActive = activeTab === tab.id;
-          const Icon = tab.icon;
-          
-          return (
-            <motion.button
-              key={tab.id}
-              onClick={() => onTabChange(tab.id)}
-              className="relative flex flex-col items-center justify-center min-w-[60px] py-1"
-              whileTap={{ scale: 0.9 }}
-            >
-              <motion.div
-                className={`relative p-2 rounded-2xl transition-colors duration-200 ${
-                  isActive ? 'bg-success/15' : ''
-                }`}
-                animate={isActive ? { scale: [1, 1.1, 1] } : {}}
-                transition={{ duration: 0.2 }}
+        <div className="flex items-stretch justify-around px-2 pt-2">
+          {tabs.map((tab) => {
+            const isActive = activeTab === tab.id;
+            const Icon = tab.icon;
+            const activeColour = tab.club ? "text-club" : "text-primary";
+
+            return (
+              <button
+                key={tab.id}
+                onClick={() => onTabChange(tab.id)}
+                className="relative flex min-w-[60px] flex-col items-center justify-center py-1"
+                aria-current={isActive ? "page" : undefined}
               >
-                <Icon 
-                  className={`w-6 h-6 transition-colors duration-200 ${
-                    isActive ? 'text-success' : 'text-muted-foreground'
+                <span
+                  className={`relative rounded-xl p-2 transition-colors duration-fast ${
+                    isActive ? (tab.club ? "bg-club/15" : "bg-primary/15") : ""
                   }`}
-                  strokeWidth={isActive ? 2.5 : 2}
-                />
-                
-                {/* Badge */}
-                {tab.badge && tab.badge > 0 && (
-                  <motion.span
-                    className="absolute -top-1 -right-1 min-w-[18px] h-[18px] bg-destructive text-destructive-foreground text-[10px] font-bold rounded-full flex items-center justify-center px-1"
-                    initial={{ scale: 0 }}
-                    animate={{ scale: 1 }}
-                    transition={{ type: "spring", stiffness: 500 }}
-                  >
-                    {tab.badge}
-                  </motion.span>
-                )}
-              </motion.div>
-              
-              <span className={`text-[10px] mt-0.5 font-medium transition-colors duration-200 ${
-                isActive ? 'text-success' : 'text-muted-foreground'
-              }`}>
-                {tab.label}
-              </span>
-              
-              {/* Active indicator dot */}
-              {isActive && (
-                <motion.div
-                  className="absolute -bottom-1 w-1 h-1 rounded-full bg-success"
-                  layoutId="activeTab"
-                  transition={{ type: "spring", stiffness: 500, damping: 30 }}
-                />
-              )}
-            </motion.button>
-          );
-        })}
-      </div>
-    </motion.nav>
-  );
-});
+                >
+                  <Icon
+                    className={`h-6 w-6 transition-colors duration-fast ${
+                      isActive ? activeColour : "text-muted-foreground"
+                    }`}
+                    strokeWidth={isActive ? 2.5 : 2}
+                  />
+                  {tab.badge ? (
+                    <span className="num absolute -right-1 -top-1 flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-primary px-1 text-[11px] font-bold text-primary-foreground">
+                      {tab.badge}
+                    </span>
+                  ) : null}
+                </span>
+
+                <span
+                  className={`mt-0.5 text-xs font-medium transition-colors duration-fast ${
+                    isActive ? activeColour : "text-muted-foreground"
+                  }`}
+                >
+                  {tab.label}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+      </nav>
+    );
+  },
+);
 
 MobileNav.displayName = "MobileNav";
 

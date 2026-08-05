@@ -6,7 +6,6 @@ import Footer from "@/components/Footer";
 import KinguinProductCard from "@/components/KinguinProductCard";
 import NewsletterBanner from "@/components/NewsletterBanner";
 import FlipClock from "@/components/FlipClock";
-import MeshGradient from "@/components/MeshGradient";
 import { ProductGridSkeleton } from "@/components/ui/ProductCardSkeleton";
 import { motion } from "framer-motion";
 import { Flame, Clock, Percent, Sparkles, Zap } from "lucide-react";
@@ -54,9 +53,6 @@ const DealsPage = () => {
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5 }}
         >
-          <MeshGradient colors="accent" intensity="medium" />
-          <div className="absolute inset-0 bg-gradient-to-r from-background/90 via-background/50 to-transparent" />
-          
           <div className="relative z-10 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-8">
             <div>
               <motion.div 

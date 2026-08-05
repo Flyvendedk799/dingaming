@@ -30,7 +30,7 @@ export const useRecentlyViewed = create<RecentlyViewedStore>()(
       clearProducts: () => set({ products: [] }),
     }),
     {
-      name: 'dingaming-recently-viewed',
+      name: 'wgaming-recently-viewed',
       storage: createJSONStorage(() => localStorage),
     }
   )

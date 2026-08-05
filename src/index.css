@@ -2,69 +2,74 @@
 @tailwind components;
 @tailwind utilities;
 
-@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&family=Playfair+Display:wght@500;600;700&display=swap');
+/* Fonts are loaded from index.html. Keeping the @import here as well put it
+   after the @tailwind directives, which is invalid CSS and warned on every
+   build. */
 
 @layer base {
   :root {
-    /* Warm, sophisticated dark palette */
-    --background: 30 10% 6%;
-    --foreground: 40 20% 96%;
+    /* ---------------------------------------------------------------
+       WGaming — Signal Lime on warm charcoal.
+       One colour owns the brand. Amber belongs to the club, red to
+       discounts and errors, blue to regional information. Nothing else.
+       --------------------------------------------------------------- */
+    --background: 40 10% 4%;
+    --foreground: 42 33% 94%;
 
-    --card: 30 8% 10%;
-    --card-foreground: 40 20% 96%;
+    --card: 30 11% 7%;
+    --card-foreground: 42 33% 94%;
 
-    --popover: 30 10% 8%;
-    --popover-foreground: 40 20% 96%;
+    --popover: 30 11% 7%;
+    --popover-foreground: 42 33% 94%;
 
-    /* Warm gold/amber primary for premium feel */
-    --primary: 38 92% 50%;
-    --primary-foreground: 30 10% 6%;
+    --secondary: 33 13% 10%;
+    --secondary-foreground: 42 20% 84%;
 
-    --secondary: 30 6% 15%;
-    --secondary-foreground: 40 15% 85%;
+    --muted: 33 13% 10%;
+    --muted-foreground: 38 8% 57%;
 
-    --muted: 30 6% 14%;
-    --muted-foreground: 30 8% 50%;
+    --border: 40 15% 16%;
+    --input: 33 13% 10%;
 
-    /* Soft coral accent */
-    --accent: 15 75% 60%;
-    --accent-foreground: 30 10% 6%;
+    --primary: 80 90% 59%; /* Signal Lime */
+    --primary-foreground: 75 43% 6%; /* Lime Ink — the only text colour on lime */
+    --ring: 80 90% 59%;
 
-    --destructive: 0 72% 55%;
-    --destructive-foreground: 0 0% 98%;
+    /* Prices already read as "the green one", so success and primary are the
+       same lime. Existing text-success usage becomes brand-correct for free. */
+    --success: 80 90% 59%;
+    --success-foreground: 75 43% 6%;
 
-    /* Elegant emerald for success */
-    --success: 158 64% 42%;
-    --success-foreground: 0 0% 98%;
+    /* Coral is retired. The token stays, pointing at a neutral, so any
+       leftover accent usage degrades to a surface instead of a stray hue. */
+    --accent: 33 13% 10%;
+    --accent-foreground: 42 33% 94%;
 
-    --border: 30 6% 18%;
-    --input: 30 6% 15%;
-    --ring: 38 92% 50%;
+    --club: 38 91% 55%; /* Shard Amber — club, shards and tiers only. Never a button. */
+    --club-foreground: 75 43% 6%;
 
-    --radius: 1rem;
+    --destructive: 4 100% 61%; /* Discount percentages and errors */
+    --destructive-foreground: 0 0% 100%;
 
-    /* Premium effects */
-    --glow-primary: 38 92% 50%;
-    --glow-accent: 15 75% 60%;
-    --gradient-hero: linear-gradient(135deg, hsl(38 92% 50% / 0.06) 0%, hsl(30 10% 6%) 50%, hsl(15 75% 60% / 0.04) 100%);
-    --gradient-card: linear-gradient(145deg, hsl(30 8% 12%) 0%, hsl(30 8% 8%) 100%);
-    --gradient-premium: linear-gradient(135deg, hsl(38 92% 50% / 0.1), hsl(15 75% 60% / 0.08));
-    --gradient-glass: linear-gradient(135deg, hsl(0 0% 100% / 0.05), hsl(0 0% 100% / 0.02));
-    
-    /* Premium shadows */
-    --shadow-sm: 0 2px 8px -2px hsl(0 0% 0% / 0.3);
-    --shadow-md: 0 8px 24px -8px hsl(0 0% 0% / 0.4);
-    --shadow-lg: 0 16px 48px -12px hsl(0 0% 0% / 0.5);
-    --shadow-glow: 0 0 40px -10px hsl(var(--success) / 0.4);
+    --info: 217 100% 64%; /* Region locks, platform requirements */
+    --info-foreground: 0 0% 100%;
 
-    --sidebar-background: 30 10% 6%;
-    --sidebar-foreground: 40 20% 96%;
-    --sidebar-primary: 38 92% 50%;
-    --sidebar-primary-foreground: 30 10% 6%;
-    --sidebar-accent: 30 6% 14%;
-    --sidebar-accent-foreground: 40 20% 96%;
-    --sidebar-border: 30 6% 18%;
-    --sidebar-ring: 38 92% 50%;
+    --radius: 0.625rem; /* buttons 10px, cards 14px (rounded-xl), pills 999px */
+
+    /* Three tiers, one curve. */
+    --ease: cubic-bezier(0.2, 0.8, 0.25, 1);
+    --t-fast: 120ms; /* hover, press, focus, tab switch */
+    --t-base: 240ms; /* drawer, modal, page, accordion */
+    --t-reward: 600ms; /* club and casino only */
+
+    --sidebar-background: 40 10% 4%;
+    --sidebar-foreground: 42 33% 94%;
+    --sidebar-primary: 80 90% 59%;
+    --sidebar-primary-foreground: 75 43% 6%;
+    --sidebar-accent: 33 13% 10%;
+    --sidebar-accent-foreground: 42 33% 94%;
+    --sidebar-border: 40 15% 16%;
+    --sidebar-ring: 80 90% 59%;
   }
 }
 
@@ -73,7 +78,6 @@
     @apply border-border;
   }
 
-  /* Safe area padding utilities */
   .pt-safe {
     padding-top: env(safe-area-inset-top, 0px);
   }
@@ -88,43 +92,50 @@
   }
 
   html {
-    /* iOS smooth scrolling */
     -webkit-overflow-scrolling: touch;
-    /* Prevent pull-to-refresh on mobile */
     overscroll-behavior-y: none;
   }
 
   body {
     @apply bg-background text-foreground antialiased;
-    font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+    font-family: Archivo, -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
     scroll-behavior: smooth;
-    font-feature-settings: "ss01", "ss02";
-    /* Prevent text selection on mobile for app-like feel */
     -webkit-user-select: none;
     user-select: none;
-    /* Prevent callout on long press */
     -webkit-touch-callout: none;
-    /* Disable tap highlight */
     -webkit-tap-highlight-color: transparent;
   }
 
-  /* Allow text selection in inputs/textareas */
-  input, textarea {
+  input,
+  textarea {
     -webkit-user-select: text;
     user-select: text;
   }
 
-  h1, h2, h3, h4, h5, h6 {
-    font-family: 'Playfair Display', Georgia, serif;
+  /* One family. The width axis carries the contrast a second family used to. */
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6 {
+    font-family: Archivo, system-ui, sans-serif;
     letter-spacing: -0.02em;
+    font-weight: 700;
+  }
+
+  /* Width 125% only above 40px, where it reads as intent rather than distortion. */
+  h1 {
+    font-stretch: 125%;
+    font-weight: 800;
+    letter-spacing: -0.03em;
   }
 
   ::selection {
-    background: hsl(var(--success) / 0.3);
+    background: hsl(var(--primary) / 0.28);
     color: hsl(var(--foreground));
   }
 
-  /* Hide scrollbar for mobile */
   .scrollbar-hide {
     -ms-overflow-style: none;
     scrollbar-width: none;
@@ -133,486 +144,90 @@
     display: none;
   }
 
-  /* Smooth scrollbar */
   ::-webkit-scrollbar {
     width: 8px;
   }
-
   ::-webkit-scrollbar-track {
     background: hsl(var(--background));
   }
-
   ::-webkit-scrollbar-thumb {
     background: hsl(var(--muted));
     border-radius: 4px;
   }
-
   ::-webkit-scrollbar-thumb:hover {
-    background: hsl(var(--success) / 0.5);
+    background: hsl(var(--border));
+  }
+
+  :focus-visible {
+    outline: 2px solid hsl(var(--ring));
+    outline-offset: 2px;
   }
 }
 
 @layer components {
-  /* Refined trust badge */
+  /* Prices and order numbers: Archivo Narrow, tabular, always. */
+  .num {
+    font-family: "Archivo Narrow", ui-monospace, monospace;
+    font-variant-numeric: tabular-nums;
+    font-weight: 600;
+  }
+
+  /* 12px, 700, +12% tracking, uppercase. */
+  .label-eyebrow {
+    @apply text-xs font-bold uppercase;
+    letter-spacing: 0.12em;
+  }
+
+  /* Pills. One role per colour — see the identity sheet. */
+  .pill {
+    @apply inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5;
+    @apply text-xs font-bold uppercase;
+    letter-spacing: 0.1em;
+    border-color: hsl(var(--border));
+    background: hsl(var(--muted));
+    color: hsl(var(--secondary-foreground));
+  }
+  .pill-primary {
+    background: hsl(var(--primary) / 0.12);
+    border-color: hsl(var(--primary) / 0.25);
+    color: hsl(var(--primary));
+  }
+  .pill-info {
+    background: hsl(var(--info) / 0.12);
+    border-color: hsl(var(--info) / 0.25);
+    color: hsl(var(--info));
+  }
+  .pill-club {
+    background: hsl(var(--club) / 0.12);
+    border-color: hsl(var(--club) / 0.25);
+    color: hsl(var(--club));
+  }
+
+  /* Cards lift 2px and brighten their border. Nothing else — no scale, no
+     glow, no gradient sweep. */
+  .game-card {
+    @apply relative overflow-hidden rounded-xl bg-card;
+    border: 1px solid hsl(var(--border));
+    transition:
+      transform var(--t-fast) var(--ease),
+      border-color var(--t-fast) var(--ease);
+  }
+  .game-card:hover {
+    border-color: hsl(40 15% 26%);
+    transform: translateY(-2px);
+  }
+
   .trust-badge {
-    @apply inline-flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium transition-all duration-300;
+    @apply inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-medium;
     background: hsl(var(--muted));
     color: hsl(var(--foreground));
     border: 1px solid hsl(var(--border));
+    transition: border-color var(--t-fast) var(--ease);
   }
-
   .trust-badge:hover {
-    background: hsl(var(--secondary));
-    border-color: hsl(var(--primary) / 0.3);
-    transform: translateY(-1px);
+    border-color: hsl(40 15% 26%);
   }
 
-  /* Trustpilot specific badge */
-  .trustpilot-badge {
-    @apply inline-flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium transition-all duration-300;
-    background: hsl(var(--primary) / 0.1);
-    color: hsl(var(--primary));
-    border: 1px solid hsl(var(--primary) / 0.2);
-  }
-
-  .trustpilot-badge:hover {
-    transform: translateY(-1px);
-    background: hsl(var(--primary) / 0.15);
-  }
-
-  .urgency-badge {
-    @apply inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold;
-    background: hsl(var(--accent) / 0.1);
-    color: hsl(var(--accent));
-    border: 1px solid hsl(var(--accent) / 0.2);
-  }
-
-  /* Premium featured card */
-  .featured-card {
-    @apply relative rounded-2xl overflow-hidden;
-    background: var(--gradient-card);
-    border: 1px solid hsl(var(--border));
-    box-shadow: 
-      0 24px 64px -16px hsl(0 0% 0% / 0.5),
-      inset 0 1px 0 hsl(0 0% 100% / 0.03);
-  }
-
-  .featured-card::before {
-    content: '';
-    position: absolute;
-    inset: 0;
-    border-radius: inherit;
-    padding: 1px;
-    background: linear-gradient(135deg, hsl(var(--primary) / 0.2), transparent 50%, hsl(var(--accent) / 0.15));
-    -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
-    mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
-    -webkit-mask-composite: xor;
-    mask-composite: exclude;
-    pointer-events: none;
-  }
-
-  /* Elegant card styling */
-  .game-card {
-    @apply relative bg-card rounded-xl overflow-hidden;
-    border: 1px solid hsl(var(--border));
-    box-shadow: 0 4px 20px -8px hsl(0 0% 0% / 0.3);
-    transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
-  }
-
-  .game-card:hover {
-    border-color: hsl(var(--primary) / 0.3);
-    transform: translateY(-6px);
-    box-shadow: 
-      0 28px 50px -16px hsl(0 0% 0% / 0.5),
-      0 0 0 1px hsl(var(--primary) / 0.1);
-  }
-
-  .game-card:hover .game-card-image {
-    transform: scale(1.05);
-  }
-
-  .game-card-image {
-    transition: transform 0.7s cubic-bezier(0.4, 0, 0.2, 1);
-  }
-
-  /* Price styling - elegant, not glowing */
-  .price-hero {
-    @apply relative inline-block;
-    font-size: 2.5rem;
-    font-weight: 700;
-    color: hsl(var(--primary));
-    letter-spacing: -0.02em;
-  }
-
-  .price-hero-lg {
-    font-size: 3rem;
-  }
-
-  /* Button enhancements */
-  .btn-primary {
-    @apply relative overflow-hidden;
-  }
-
-  .btn-primary::before {
-    content: '';
-    position: absolute;
-    top: 0;
-    left: -100%;
-    width: 100%;
-    height: 100%;
-    background: linear-gradient(90deg, transparent, hsl(0 0% 100% / 0.2), transparent);
-    transition: left 0.6s ease;
-  }
-
-  .btn-primary:hover::before {
-    left: 100%;
-  }
-
-  /* Secondary CTA enhancement */
-  .btn-secondary-cta {
-    @apply relative px-6 py-3 rounded-xl font-semibold;
-    background: linear-gradient(135deg, hsl(var(--secondary)), hsl(220 15% 12%));
-    border: 1px solid hsl(var(--border));
-    color: hsl(var(--foreground));
-    transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
-  }
-
-  .btn-secondary-cta:hover {
-    background: linear-gradient(135deg, hsl(220 15% 18%), hsl(220 15% 14%));
-    border-color: hsl(var(--success) / 0.3);
-    transform: translateY(-2px);
-    box-shadow: 0 12px 32px -8px hsl(0 0% 0% / 0.5);
-  }
-
-  /* ========================================
-     MASTER ANIMATION SYSTEM
-     ======================================== */
-
-  /* Hero entrance - The grand reveal */
-  .hero-entrance {
-    opacity: 0;
-  }
-
-  .hero-entrance.animate {
-    animation: heroReveal 1.2s cubic-bezier(0.16, 1, 0.3, 1) forwards;
-  }
-
-  @keyframes heroReveal {
-    0% {
-      opacity: 0;
-      transform: translateY(60px) scale(0.95);
-      filter: blur(10px);
-    }
-    60% {
-      filter: blur(0);
-    }
-    100% {
-      opacity: 1;
-      transform: translateY(0) scale(1);
-      filter: blur(0);
-    }
-  }
-
-  /* Floating ambient orb */
-  .ambient-orb {
-    animation: orbFloat 8s ease-in-out infinite;
-  }
-
-  .ambient-orb-delayed {
-    animation: orbFloat 10s ease-in-out infinite;
-    animation-delay: -4s;
-  }
-
-  @keyframes orbFloat {
-    0%, 100% {
-      transform: translate(0, 0) scale(1);
-      opacity: 0.3;
-    }
-    25% {
-      transform: translate(30px, -20px) scale(1.1);
-      opacity: 0.4;
-    }
-    50% {
-      transform: translate(-20px, 20px) scale(0.95);
-      opacity: 0.25;
-    }
-    75% {
-      transform: translate(10px, 10px) scale(1.05);
-      opacity: 0.35;
-    }
-  }
-
-  /* Text reveal - Character by character feel */
-  .text-reveal {
-    opacity: 0;
-    transform: translateY(40px);
-    animation: textReveal 0.8s cubic-bezier(0.16, 1, 0.3, 1) forwards;
-  }
-
-  @keyframes textReveal {
-    to {
-      opacity: 1;
-      transform: translateY(0);
-    }
-  }
-
-  /* Magnetic hover effect for buttons */
-  .magnetic-hover {
-    transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-  }
-
-  .magnetic-hover:hover {
-    transform: translateY(-4px);
-  }
-
-  .magnetic-hover:active {
-    transform: translateY(-2px) scale(0.98);
-  }
-
-  /* Glow pulse for CTAs */
-  .glow-pulse {
-    animation: glowPulse 3s ease-in-out infinite;
-  }
-
-  @keyframes glowPulse {
-    0%, 100% {
-      box-shadow: 0 0 20px hsl(var(--success) / 0.3);
-    }
-    50% {
-      box-shadow: 0 0 40px hsl(var(--success) / 0.5), 0 0 60px hsl(var(--success) / 0.2);
-    }
-  }
-
-  /* Countdown tick animation */
-  .countdown-tick {
-    transition: transform 0.15s cubic-bezier(0.4, 0, 0.2, 1);
-  }
-
-  .countdown-tick.tick {
-    animation: countdownTick 0.3s ease-out;
-  }
-
-  @keyframes countdownTick {
-    0% { transform: scale(1); }
-    50% { transform: scale(1.15); }
-    100% { transform: scale(1); }
-  }
-
-  /* Card entrance stagger */
-  .card-entrance {
-    opacity: 0;
-    transform: translateY(40px) scale(0.95);
-  }
-
-  .card-entrance.animate {
-    animation: cardSlideIn 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards;
-  }
-
-  @keyframes cardSlideIn {
-    to {
-      opacity: 1;
-      transform: translateY(0) scale(1);
-    }
-  }
-
-  /* Attention grab for deals */
-  .attention-shake {
-    animation: attentionShake 0.5s cubic-bezier(0.36, 0.07, 0.19, 0.97) both;
-  }
-
-  @keyframes attentionShake {
-    10%, 90% { transform: translateX(-1px) rotate(-0.5deg); }
-    20%, 80% { transform: translateX(2px) rotate(0.5deg); }
-    30%, 50%, 70% { transform: translateX(-3px) rotate(-0.5deg); }
-    40%, 60% { transform: translateX(3px) rotate(0.5deg); }
-  }
-
-  /* Screen shake for epic moments */
-  .animate-shake {
-    animation: screenShake 0.3s ease-in-out;
-  }
-
-  @keyframes screenShake {
-    0%, 100% { transform: translate(0, 0) rotate(0deg); }
-    10% { transform: translate(-8px, -6px) rotate(-1deg); }
-    20% { transform: translate(8px, 6px) rotate(1deg); }
-    30% { transform: translate(-6px, 4px) rotate(0deg); }
-    40% { transform: translate(6px, -4px) rotate(1deg); }
-    50% { transform: translate(-4px, 6px) rotate(-1deg); }
-    60% { transform: translate(4px, -6px) rotate(0deg); }
-    70% { transform: translate(-8px, 4px) rotate(-1deg); }
-    80% { transform: translate(8px, -4px) rotate(1deg); }
-    90% { transform: translate(-4px, -4px) rotate(0deg); }
-  }
-
-  /* Scroll reveal */
-  .scroll-reveal {
-    opacity: 0;
-    transform: translateY(30px);
-    transition: all 0.8s cubic-bezier(0.16, 1, 0.3, 1);
-  }
-
-  .scroll-reveal.visible {
-    opacity: 1;
-    transform: translateY(0);
-  }
-
-  /* Price pop animation */
-  .price-pop {
-    animation: pricePop 0.4s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
-  }
-
-  @keyframes pricePop {
-    0% { transform: scale(0.8); opacity: 0; }
-    50% { transform: scale(1.1); }
-    100% { transform: scale(1); opacity: 1; }
-  }
-
-  /* Stock bar fill */
-  .stock-fill {
-    animation: stockFill 1.5s cubic-bezier(0.4, 0, 0.2, 1) forwards;
-    animation-delay: 0.5s;
-    transform-origin: left;
-    transform: scaleX(0);
-  }
-
-  @keyframes stockFill {
-    to { transform: scaleX(1); }
-  }
-
-  /* Add to cart success */
-  .cart-success {
-    animation: cartSuccess 0.5s cubic-bezier(0.16, 1, 0.3, 1);
-  }
-
-  @keyframes cartSuccess {
-    0% { transform: scale(1); }
-    30% { transform: scale(1.1); }
-    50% { transform: scale(0.95); }
-    100% { transform: scale(1); }
-  }
-
-  /* Social proof ticker */
-  .ticker-slide {
-    animation: tickerSlide 20s linear infinite;
-  }
-
-  @keyframes tickerSlide {
-    0% { transform: translateX(100%); }
-    100% { transform: translateX(-100%); }
-  }
-
-  /* Trust badge bounce on scroll */
-  .trust-bounce {
-    animation: trustBounce 0.6s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
-  }
-
-  @keyframes trustBounce {
-    0% { transform: translateY(20px) scale(0.9); opacity: 0; }
-    60% { transform: translateY(-5px) scale(1.02); }
-    100% { transform: translateY(0) scale(1); opacity: 1; }
-  }
-
-  /* Ripple effect on click */
-  .ripple {
-    position: relative;
-    overflow: hidden;
-  }
-
-  .ripple::after {
-    content: '';
-    position: absolute;
-    inset: 0;
-    background: radial-gradient(circle at var(--ripple-x, 50%) var(--ripple-y, 50%), hsl(0 0% 100% / 0.3), transparent 60%);
-    opacity: 0;
-    transform: scale(0);
-    transition: transform 0.5s, opacity 0.5s;
-  }
-
-  .ripple:active::after {
-    opacity: 1;
-    transform: scale(2.5);
-    transition: transform 0s, opacity 0s;
-  }
-
-  /* Smooth parallax layer */
-  .parallax-slow {
-    will-change: transform;
-    transition: transform 0.1s linear;
-  }
-
-  /* Icon spin on hover */
-  .icon-spin:hover svg {
-    animation: iconSpin 0.4s ease-out;
-  }
-
-  @keyframes iconSpin {
-    0% { transform: rotate(0deg) scale(1); }
-    50% { transform: rotate(180deg) scale(1.2); }
-    100% { transform: rotate(360deg) scale(1); }
-  }
-
-  /* Border glow sweep */
-  .border-glow {
-    position: relative;
-  }
-
-  .border-glow::before {
-    content: '';
-    position: absolute;
-    inset: -2px;
-    background: linear-gradient(90deg, transparent, hsl(var(--success) / 0.5), transparent);
-    border-radius: inherit;
-    z-index: -1;
-    opacity: 0;
-    transition: opacity 0.3s;
-  }
-
-  .border-glow:hover::before {
-    opacity: 1;
-    animation: borderSweep 1.5s linear infinite;
-  }
-
-  @keyframes borderSweep {
-    0% { transform: rotate(0deg); }
-    100% { transform: rotate(360deg); }
-  }
-
-  /* Number counter animation */
-  .number-counter {
-    display: inline-block;
-    animation: numberPop 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
-  }
-
-  @keyframes numberPop {
-    0% { transform: scale(1.3); opacity: 0; }
-    100% { transform: scale(1); opacity: 1; }
-  }
-
-  /* Wishlist heart animation */
-  .heart-pop {
-    animation: heartPop 0.45s cubic-bezier(0.17, 0.89, 0.32, 1.49);
-  }
-
-  @keyframes heartPop {
-    0% { transform: scale(1); }
-    25% { transform: scale(0.8); }
-    50% { transform: scale(1.3); }
-    75% { transform: scale(0.95); }
-    100% { transform: scale(1); }
-  }
-
-  /* Floating label */
-  .float-label {
-    animation: floatLabel 3s ease-in-out infinite;
-  }
-
-  @keyframes floatLabel {
-    0%, 100% { transform: translateY(0); }
-    50% { transform: translateY(-8px); }
-  }
-
-  /* Skeleton loading shimmer */
   .skeleton-shimmer {
     background: linear-gradient(
       90deg,
@@ -625,107 +240,66 @@
   }
 
   @keyframes shimmer {
-    0% { background-position: 200% 0; }
-    100% { background-position: -200% 0; }
-  }
-
-  /* Focus ring animation */
-  .focus-ring-animated:focus {
-    outline: none;
-    animation: focusRing 0.3s ease-out forwards;
-  }
-
-  @keyframes focusRing {
-    0% { box-shadow: 0 0 0 0px hsl(var(--success)); }
-    100% { box-shadow: 0 0 0 3px hsl(var(--success) / 0.3); }
+    0% {
+      background-position: 200% 0;
+    }
+    100% {
+      background-position: -200% 0;
+    }
   }
 }
 
 @layer utilities {
   .font-heading {
-    font-family: 'Space Grotesk', sans-serif;
+    font-family: Archivo, system-ui, sans-serif;
   }
 
-  /* Refined shadows */
-  .shadow-soft {
-    box-shadow: 0 4px 20px -4px hsl(0 0% 0% / 0.25);
+  /* Display type: the wide, tight setting used for hero and page titles. */
+  .text-display {
+    font-weight: 800;
+    font-stretch: 125%;
+    letter-spacing: -0.03em;
+    line-height: 0.98;
   }
 
-  .shadow-elevated {
-    box-shadow: 
-      0 12px 40px -8px hsl(0 0% 0% / 0.4),
-      0 4px 12px -4px hsl(0 0% 0% / 0.2);
-  }
-
-  .shadow-glow-success {
-    box-shadow: 0 0 20px hsl(var(--success) / 0.2);
-  }
-
-  /* Hover effects */
   .hover-lift {
-    transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+    transition: transform var(--t-fast) var(--ease);
   }
-
   .hover-lift:hover {
-    transform: translateY(-4px);
-    box-shadow: 0 20px 60px -12px hsl(0 0% 0% / 0.5);
+    transform: translateY(-2px);
   }
 
-  .hover-scale {
-    transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-  }
-
-  .hover-scale:hover {
-    transform: scale(1.03);
-  }
-
-  /* Price styling */
   .price-main {
-    @apply text-3xl font-bold text-success;
+    @apply num text-3xl font-bold text-primary;
   }
-
   .price-original {
-    @apply text-base text-muted-foreground line-through;
+    @apply num text-base text-muted-foreground line-through;
   }
-
   .price-save {
-    @apply text-sm font-semibold text-destructive;
+    @apply num text-sm font-bold text-destructive;
   }
 
-  /* Text utilities */
   .text-balance {
     text-wrap: balance;
   }
-
-  /* Gradient text */
-  .text-gradient-success {
-    background: linear-gradient(135deg, hsl(var(--success)), hsl(160 70% 55%));
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    background-clip: text;
+  .text-pretty {
+    text-wrap: pretty;
   }
 
-  /* Focus states */
   .focus-ring {
-    @apply focus:outline-none focus:ring-2 focus:ring-success focus:ring-offset-2 focus:ring-offset-background;
+    @apply focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 focus:ring-offset-background;
   }
+}
 
-  /* Animation delay utilities */
-  .delay-100 { animation-delay: 100ms; }
-  .delay-200 { animation-delay: 200ms; }
-  .delay-300 { animation-delay: 300ms; }
-  .delay-400 { animation-delay: 400ms; }
-  .delay-500 { animation-delay: 500ms; }
-  .delay-600 { animation-delay: 600ms; }
-  .delay-700 { animation-delay: 700ms; }
-  .delay-800 { animation-delay: 800ms; }
-
-  /* Easing utilities */
-  .ease-out-expo {
-    transition-timing-function: cubic-bezier(0.16, 1, 0.3, 1);
-  }
-
-  .ease-out-back {
-    transition-timing-function: cubic-bezier(0.34, 1.56, 0.64, 1);
+/* Reward-tier motion is decorative. Everything drops to a single fast fade for
+   anyone who asked for less movement. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
   }
 }

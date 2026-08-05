@@ -1,131 +1,99 @@
 import { Link } from "react-router-dom";
-import { Facebook, Instagram, Twitter, Youtube, Shield, Zap } from "lucide-react";
+import Logo from "@/components/Logo";
 import NewsletterSignup from "./NewsletterSignup";
 
-const Footer = () => {
-  const gameLinks = [
-    { label: "Alle Spil", href: "/#spil" },
-    { label: "Steam Keys", href: "/categories" },
-    { label: "PlayStation", href: "/categories" },
-    { label: "Xbox", href: "/categories" },
-    { label: "Nintendo Switch", href: "/categories" },
-    { label: "PC Games", href: "/categories" },
-  ];
+/**
+ * Footer.
+ *
+ * Every help link used to point at /support, and the bottom row's three links
+ * were href="#". Until those pages exist, the list only carries destinations
+ * that actually resolve — a payment badge means nothing next to a dead
+ * "Handelsbetingelser" link.
+ */
+const gameLinks = [
+  { label: "Alle spil", href: "/search" },
+  { label: "Steam", href: "/search?platform=Steam" },
+  { label: "PlayStation", href: "/search?platform=PlayStation" },
+  { label: "Xbox", href: "/search?platform=Xbox" },
+  { label: "Nintendo Switch", href: "/search?platform=Nintendo%20Switch" },
+];
 
-  const helpLinks = [
-    { label: "Kontakt Os", href: "/support" },
-    { label: "FAQ", href: "/support" },
-    { label: "Aktiveringsguide", href: "/support" },
-    { label: "Refundering", href: "/support" },
-    { label: "Handelsbetingelser", href: "/support" },
-    { label: "Privatlivspolitik", href: "/support" },
-  ];
-  return (
-    <footer className="bg-card border-t border-border">
-      {/* Newsletter */}
-      <div className="border-b border-border">
-        <div className="container mx-auto px-4 py-14">
-          <div className="max-w-2xl mx-auto text-center">
-            <h3 className="font-heading text-2xl sm:text-3xl font-bold text-foreground mb-3">
-              Få eksklusive tilbud først
-            </h3>
-            <p className="text-muted-foreground mb-8">
-              Tilmeld dig og få <span className="text-primary font-semibold">10% rabat</span> på din første ordre + ugentlige deals
-            </p>
-            <NewsletterSignup source="footer" variant="default" />
-          </div>
+const helpLinks = [
+  { label: "Kontakt os", href: "/support" },
+  { label: "Aktiveringsguide", href: "/support" },
+  { label: "Refundering", href: "/support" },
+  { label: "Handelsbetingelser", href: "/support" },
+  { label: "Privatlivspolitik", href: "/support" },
+];
+
+const paymentMarks = ["Visa", "Mastercard", "MobilePay", "PayPal", "Apple Pay"];
+
+const Footer = () => (
+  <footer className="border-t border-border bg-card">
+    <div className="container mx-auto px-4 py-12">
+      <div className="grid grid-cols-1 gap-10 md:grid-cols-2 lg:grid-cols-[1.4fr_1fr_1fr_1.2fr]">
+        <div>
+          <Link to="/" className="inline-flex" aria-label="WGaming forside">
+            <Logo size={28} />
+          </Link>
+          <p className="mt-4 max-w-[290px] text-sm leading-relaxed text-muted-foreground">
+            Officielle digitale nøgler til Steam, PlayStation, Xbox og Nintendo. Dansk support.
+          </p>
+          <p className="num mt-4 text-[13px] text-muted-foreground/70">WGaming ApS · CVR 00000000</p>
+        </div>
+
+        <div>
+          <h4 className="label-eyebrow mb-4 text-foreground">Spil</h4>
+          <ul className="flex flex-col gap-2.5 text-sm text-muted-foreground">
+            {gameLinks.map((link) => (
+              <li key={link.label}>
+                <Link to={link.href} className="transition-colors duration-fast hover:text-foreground">
+                  {link.label}
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </div>
+
+        <div>
+          <h4 className="label-eyebrow mb-4 text-foreground">Hjælp</h4>
+          <ul className="flex flex-col gap-2.5 text-sm text-muted-foreground">
+            {helpLinks.map((link) => (
+              <li key={link.label}>
+                <Link to={link.href} className="transition-colors duration-fast hover:text-foreground">
+                  {link.label}
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </div>
+
+        <div>
+          <h4 className="label-eyebrow mb-4 text-foreground">Nyhedsbrev</h4>
+          <p className="mb-4 text-sm leading-relaxed text-muted-foreground">
+            Tilbud én gang om ugen. Ikke andet.
+          </p>
+          <NewsletterSignup source="footer" variant="compact" />
         </div>
       </div>
 
-      <div className="container mx-auto px-4 py-14">
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-10 mb-12">
-          {/* Brand */}
-          <div>
-            <a href="/" className="flex items-center gap-2.5 mb-5">
-              <div className="w-10 h-10 rounded-lg bg-primary flex items-center justify-center">
-                <Zap className="w-5 h-5 text-primary-foreground" />
-              </div>
-              <div>
-                <span className="font-heading text-xl font-bold text-foreground">GameKeys</span>
-                <span className="text-success font-bold">.dk</span>
-              </div>
-            </a>
-            <p className="text-sm text-muted-foreground mb-5 leading-relaxed">
-              Danmarks største udvalg af digitale game keys med øjeblikkelig levering og dansk support.
-            </p>
-            <div className="flex items-center gap-2">
-              {[Facebook, Instagram, Twitter, Youtube].map((Icon, i) => (
-                <a 
-                  key={i} 
-                  href="#" 
-                  className="w-10 h-10 rounded-lg bg-muted flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted/80 transition-colors"
-                >
-                  <Icon className="w-5 h-5" />
-                </a>
-              ))}
-            </div>
-          </div>
-
-          {/* Links */}
-          <div>
-            <h4 className="font-heading font-semibold text-foreground mb-5">Spil</h4>
-            <ul className="space-y-3 text-sm">
-              {gameLinks.map((link) => (
-                <li key={link.label}>
-                  <Link to={link.href} className="text-muted-foreground hover:text-primary transition-colors">{link.label}</Link>
-                </li>
-              ))}
-            </ul>
-          </div>
-
-          <div>
-            <h4 className="font-heading font-semibold text-foreground mb-5">Hjælp</h4>
-            <ul className="space-y-3 text-sm">
-              {helpLinks.map((link) => (
-                <li key={link.label}>
-                  <Link to={link.href} className="text-muted-foreground hover:text-primary transition-colors">{link.label}</Link>
-                </li>
-              ))}
-            </ul>
-          </div>
-
-          {/* Trust */}
-          <div>
-            <h4 className="font-heading font-semibold text-foreground mb-5">Sikker Handel</h4>
-            <div className="space-y-4">
-              <div className="flex items-center gap-3 p-4 rounded-xl bg-muted/50 border border-border">
-                <Shield className="w-10 h-10 text-primary" />
-                <div>
-                  <div className="font-medium text-foreground">SSL Krypteret</div>
-                  <div className="text-xs text-muted-foreground">100% sikker betaling</div>
-                </div>
-              </div>
-              <div>
-                <p className="text-xs text-muted-foreground mb-3">Betalingsmetoder:</p>
-                <div className="flex flex-wrap gap-2">
-                  {["Visa", "MC", "MobilePay", "PayPal", "Apple Pay"].map((m) => (
-                    <div key={m} className="px-3 py-1.5 rounded-lg bg-muted border border-border text-xs font-medium text-muted-foreground">
-                      {m}
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Bottom */}
-        <div className="pt-8 border-t border-border flex flex-col sm:flex-row items-center justify-between gap-4 text-sm text-muted-foreground">
-          <p>© {new Date().getFullYear()} GameKeys.dk. Alle rettigheder forbeholdes.</p>
-          <div className="flex items-center gap-6">
-            <a href="#" className="hover:text-foreground transition-colors">Privatlivspolitik</a>
-            <a href="#" className="hover:text-foreground transition-colors">Cookies</a>
-            <a href="#" className="hover:text-foreground transition-colors">Vilkår</a>
-          </div>
+      <div className="mt-10 flex flex-col items-start justify-between gap-4 border-t border-border pt-6 sm:flex-row sm:items-center">
+        <p className="text-[13px] text-muted-foreground/70">
+          © {new Date().getFullYear()} WGaming ApS
+        </p>
+        <div className="flex flex-wrap gap-2">
+          {paymentMarks.map((mark) => (
+            <span
+              key={mark}
+              className="num rounded-md border border-border px-2.5 py-1 text-[13px] text-muted-foreground/70"
+            >
+              {mark}
+            </span>
+          ))}
         </div>
       </div>
-    </footer>
-  );
-};
+    </div>
+  </footer>
+);
 
 export default Footer;

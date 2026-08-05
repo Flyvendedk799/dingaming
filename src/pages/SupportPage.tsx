@@ -235,7 +235,7 @@ const SupportPage = () => {
               <div className="mt-6 pt-6 border-t border-border">
                 <div className="flex items-center gap-3 text-muted-foreground">
                   <Mail className="w-4 h-4" />
-                  <span className="text-sm">support@dingaming.dk</span>
+                  <span className="text-sm">support@wgaming.dk</span>
                 </div>
                 <div className="flex items-center gap-3 text-muted-foreground mt-2">
                   <CheckCircle2 className="w-4 h-4 text-success" />

@@ -102,7 +102,7 @@ export const useCartStore = create<CartStore>()(
       },
     }),
     {
-      name: 'dingaming-cart',
+      name: 'wgaming-cart',
       storage: createJSONStorage(() => localStorage),
     }
   )

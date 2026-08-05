@@ -1,37 +1,48 @@
 import { useState } from "react";
-import { motion } from "framer-motion";
-import { ShoppingCart, Check, Globe, Monitor, Clock, Eye, Heart } from "lucide-react";
+import { Check, Eye, Heart, ShoppingCart } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { KinguinProduct } from "@/lib/kinguin";
 import { usePricing } from "@/lib/pricing";
+import { discountPercent, platformAndRegion } from "@/lib/product";
 import { useCartStore } from "@/stores/cartStore";
 import { toast } from "sonner";
 import { Link } from "react-router-dom";
 
 interface KinguinProductCardProps {
   product: KinguinProduct;
-  index: number;
+  index?: number;
   onQuickView?: (product: KinguinProduct) => void;
 }
 
-const KinguinProductCard = ({ product, index, onQuickView }: KinguinProductCardProps) => {
-  const [isAdding, setIsAdding] = useState(false);
+/**
+ * Product card.
+ *
+ * The cover used to carry four badges — platform, region, discount and stock —
+ * two of which were positioned on top of each other. Now it carries at most
+ * one: the discount. Platform and region moved above the title as a label,
+ * where they read as information rather than decoration.
+ *
+ * The buy button is deliberately an outline: a grid of eight lime buttons
+ * would break the rule that one screen gets one lime button.
+ */
+const KinguinProductCard = ({ product, onQuickView }: KinguinProductCardProps) => {
   const [justAdded, setJustAdded] = useState(false);
-  const [isHovered, setIsHovered] = useState(false);
   const [isWishlisted, setIsWishlisted] = useState(false);
   const addItem = useCartStore((state) => state.addItem);
   const { getPrice, formatDKK, loading } = usePricing();
+
+  const priceInDkk = getPrice(product.sell_price, product.margin_percent);
+  const originalPriceInDkk = getPrice(product.original_price, product.margin_percent);
+  const discount = discountPercent(product);
 
   const handleAddToCart = (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
 
     if (!product.is_available) {
-      toast.error("Udsolgt", { description: "Dette produkt er ikke tilgængeligt." });
+      toast.error("Udsolgt", { description: "Dette produkt kan ikke købes lige nu." });
       return;
     }
-
-    setIsAdding(true);
 
     addItem({
       variantId: `kinguin-${product.kinguin_id}`,
@@ -39,16 +50,13 @@ const KinguinProductCard = ({ product, index, onQuickView }: KinguinProductCardP
       title: product.name,
       quantity: 1,
       price: { amount: String(priceInDkk), currencyCode: "DKK" },
-      originalAmount:
-        product.original_price > product.sell_price ? String(originalPriceInDkk) : undefined,
+      originalAmount: discount > 0 ? String(originalPriceInDkk) : undefined,
       image: product.cover_image || undefined,
       sku: `KINGUIN-${product.kinguin_id}`,
     });
 
-    setIsAdding(false);
     setJustAdded(true);
-    toast.success(`${product.name} tilføjet til kurv`);
-
+    toast.success(`${product.name} lagt i kurven`);
     setTimeout(() => setJustAdded(false), 2000);
   };
 
@@ -62,161 +70,97 @@ const KinguinProductCard = ({ product, index, onQuickView }: KinguinProductCardP
     e.preventDefault();
     e.stopPropagation();
     setIsWishlisted(!isWishlisted);
-    toast.success(isWishlisted ? 'Fjernet fra ønskeliste' : 'Tilføjet til ønskeliste');
+    toast.success(isWishlisted ? "Fjernet fra ønskelisten" : "Tilføjet til ønskelisten");
   };
 
-  const imageUrl = product.cover_image || '/placeholder.svg';
-  const platform = product.platform || 'Steam';
-  const regionLabel = product.region_name || (product.region_id === 3 ? 'Worldwide' : 'Europe');
-
-  const priceInDkk = getPrice(product.sell_price, product.margin_percent);
-  const originalPriceInDkk = getPrice(product.original_price, product.margin_percent);
-  const discountPercent = product.original_price > product.sell_price 
-    ? Math.round((1 - product.sell_price / product.original_price) * 100)
-    : 0;
-
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ delay: index * 0.05, duration: 0.4 }}
-      whileHover={{ y: -4 }}
-      className="h-full"
-      onMouseEnter={() => setIsHovered(true)}
-      onMouseLeave={() => setIsHovered(false)}
+    <Link
+      to={`/product/${product.kinguin_id}`}
+      className="game-card group flex h-full flex-col"
     >
-      <Link 
-        to={`/product/${product.kinguin_id}`}
-        className="group flex flex-col h-full bg-card rounded-2xl border border-border/50 overflow-hidden hover:border-primary/40 transition-all duration-500 hover:shadow-xl hover:shadow-primary/10 relative"
-      >
-        {/* Hover glow effect */}
-        <div className="absolute inset-0 rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none bg-gradient-to-b from-primary/5 via-transparent to-transparent" />
+      <div className="relative aspect-[3/4] overflow-hidden bg-muted">
+        <img
+          src={product.cover_image || "/placeholder.svg"}
+          alt={product.name}
+          className="h-full w-full object-cover"
+          loading="lazy"
+          onError={(e) => {
+            e.currentTarget.src = "/placeholder.svg";
+          }}
+        />
 
-        {/* Image */}
-        <div className="relative aspect-[3/4] overflow-hidden bg-gradient-to-br from-muted to-muted/50">
-          <img
-            src={imageUrl}
-            alt={product.name}
-            className="w-full h-full object-cover transition-all duration-700 group-hover:scale-110"
-            loading="lazy"
-          />
-          
-          {/* Image overlay gradient */}
-          <div className="absolute inset-0 bg-gradient-to-t from-background/80 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
-          
-          {/* Platform badge */}
-          <div className="absolute top-3 left-3 flex items-center gap-1.5 px-2.5 py-1.5 bg-background/95 backdrop-blur-md rounded-lg text-xs font-semibold shadow-lg border border-border/50">
-            <Monitor className="w-3.5 h-3.5 text-primary" />
-            {platform}
-          </div>
+        {/* The only badge allowed over a cover. */}
+        {discount > 0 && (
+          <span className="num absolute left-2.5 top-2.5 rounded-md bg-destructive px-2 py-1 text-xs font-bold text-destructive-foreground">
+            −{discount}&nbsp;%
+          </span>
+        )}
 
-          {/* Region badge */}
-          <div className="absolute top-3 right-3 flex items-center gap-1.5 px-2.5 py-1.5 bg-primary backdrop-blur-md rounded-lg text-xs font-semibold text-primary-foreground shadow-lg">
-            <Globe className="w-3.5 h-3.5" />
-            {regionLabel}
-          </div>
-
-          {/* Discount badge */}
-          {discountPercent > 0 && (
-            <motion.div 
-              initial={{ scale: 0 }}
-              animate={{ scale: 1 }}
-              className="absolute bottom-3 left-3 px-2.5 py-1.5 bg-destructive backdrop-blur-md rounded-lg text-sm font-bold text-destructive-foreground shadow-lg"
+        <div className="pointer-events-none absolute inset-0 flex items-center justify-center gap-2 opacity-0 transition-opacity duration-fast group-hover:pointer-events-auto group-hover:opacity-100">
+          {onQuickView && (
+            <button
+              onClick={handleQuickView}
+              className="flex h-11 w-11 items-center justify-center rounded-full border border-border bg-background/90 backdrop-blur-sm transition-colors duration-fast hover:bg-background"
+              aria-label="Hurtigt kig"
             >
-              -{discountPercent}%
-            </motion.div>
+              <Eye className="h-5 w-5 text-foreground" />
+            </button>
           )}
-
-          {/* Stock indicator */}
-          {product.qty && product.qty > 0 && product.qty <= 5 && (
-            <div className="absolute bottom-3 left-3 px-2.5 py-1.5 bg-accent backdrop-blur-md rounded-lg text-xs font-semibold text-accent-foreground shadow-lg animate-pulse">
-              Kun {product.qty} tilbage
-            </div>
-          )}
-          
-          {/* Quick actions overlay */}
-          <motion.div 
-            className="absolute inset-0 flex items-center justify-center gap-2"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: isHovered ? 1 : 0 }}
-            transition={{ duration: 0.2 }}
+          <button
+            onClick={handleWishlist}
+            className={`flex h-11 w-11 items-center justify-center rounded-full border border-border backdrop-blur-sm transition-colors duration-fast ${
+              isWishlisted
+                ? "bg-destructive text-destructive-foreground"
+                : "bg-background/90 hover:bg-background"
+            }`}
+            aria-label={isWishlisted ? "Fjern fra ønskeliste" : "Tilføj til ønskeliste"}
           >
-            {/* Quick view button */}
-            {onQuickView && (
-              <motion.button
-                initial={{ scale: 0.8, opacity: 0 }}
-                animate={{ scale: isHovered ? 1 : 0.8, opacity: isHovered ? 1 : 0 }}
-                transition={{ delay: 0.05 }}
-                onClick={handleQuickView}
-                className="w-12 h-12 rounded-full bg-background/90 backdrop-blur-sm flex items-center justify-center shadow-lg hover:bg-background hover:scale-110 transition-all border border-border/50"
-              >
-                <Eye className="w-5 h-5 text-foreground" />
-              </motion.button>
-            )}
-            
-            {/* Wishlist button */}
-            <motion.button
-              initial={{ scale: 0.8, opacity: 0 }}
-              animate={{ scale: isHovered ? 1 : 0.8, opacity: isHovered ? 1 : 0 }}
-              transition={{ delay: 0.1 }}
-              onClick={handleWishlist}
-              className={`w-12 h-12 rounded-full backdrop-blur-sm flex items-center justify-center shadow-lg hover:scale-110 transition-all border border-border/50 ${
-                isWishlisted ? 'bg-destructive/90 text-destructive-foreground' : 'bg-background/90 hover:bg-background'
-              }`}
-            >
-              <Heart className={`w-5 h-5 ${isWishlisted ? 'fill-current' : ''}`} />
-            </motion.button>
-          </motion.div>
-          
-          {/* Instant delivery indicator */}
-          <div className="absolute bottom-3 right-3 flex items-center gap-1 px-2 py-1 bg-success/90 backdrop-blur-md rounded-lg text-[10px] font-semibold text-success-foreground shadow-lg opacity-0 group-hover:opacity-100 transition-opacity duration-300">
-            <Clock className="w-3 h-3" />
-            30 sek
-          </div>
+            <Heart className={`h-5 w-5 ${isWishlisted ? "fill-current" : ""}`} />
+          </button>
         </div>
+      </div>
 
-        {/* Content */}
-        <div className="flex flex-col flex-1 p-4">
-          <h3 className="font-semibold text-foreground line-clamp-2 mb-auto group-hover:text-primary transition-colors duration-300 leading-snug">
-            {product.name}
-          </h3>
+      <div className="flex flex-1 flex-col p-4">
+        <p className="label-eyebrow text-muted-foreground">{platformAndRegion(product)}</p>
 
-          <div className="flex items-end justify-between gap-3 mt-4">
-            <div className="flex flex-col gap-0.5">
-              <span className="text-xl font-bold text-primary tracking-tight">
-                {loading ? '...' : formatDKK(priceInDkk)}
+        <h3 className="mb-auto mt-1.5 line-clamp-2 font-semibold leading-snug text-foreground">
+          {product.name}
+        </h3>
+
+        <div className="mt-3 flex items-end justify-between gap-3">
+          <div className="flex flex-col">
+            <span className="num text-xl font-bold leading-tight text-primary">
+              {loading ? "—" : formatDKK(priceInDkk)}
+            </span>
+            {discount > 0 && (
+              <span className="num text-[13px] text-muted-foreground/70 line-through">
+                {loading ? "" : formatDKK(originalPriceInDkk)}
               </span>
-              {product.original_price !== product.sell_price && (
-                <span className="text-xs text-muted-foreground line-through decoration-destructive/50">
-                  {loading ? '...' : formatDKK(originalPriceInDkk)}
-                </span>
-              )}
-            </div>
-            
-            <motion.div whileTap={{ scale: 0.95 }}>
-              <Button
-                size="sm"
-                onClick={handleAddToCart}
-                disabled={isAdding || !product.is_available}
-                className={`shrink-0 transition-all duration-300 ${justAdded ? 'bg-success hover:bg-success' : ''}`}
-              >
-                {justAdded ? (
-                  <>
-                    <Check className="w-4 h-4" />
-                    <span className="hidden sm:inline ml-1">Tilføjet</span>
-                  </>
-                ) : (
-                  <>
-                    <ShoppingCart className="w-4 h-4" />
-                    <span className="ml-1">Køb</span>
-                  </>
-                )}
-              </Button>
-            </motion.div>
+            )}
           </div>
+
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleAddToCart}
+            disabled={!product.is_available}
+            className="shrink-0"
+          >
+            {justAdded ? (
+              <>
+                <Check className="h-4 w-4" />
+                <span className="ml-1 hidden sm:inline">Lagt i</span>
+              </>
+            ) : (
+              <>
+                <ShoppingCart className="h-4 w-4" />
+                <span className="ml-1">Køb</span>
+              </>
+            )}
+          </Button>
         </div>
-      </Link>
-    </motion.div>
+      </div>
+    </Link>
   );
 };
 

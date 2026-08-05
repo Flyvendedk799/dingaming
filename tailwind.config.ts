@@ -56,6 +56,16 @@ export default {
           DEFAULT: "hsl(var(--success))",
           foreground: "hsl(var(--success-foreground))",
         },
+        // Amber lives here and only here: club, shards, tiers.
+        club: {
+          DEFAULT: "hsl(var(--club))",
+          foreground: "hsl(var(--club-foreground))",
+        },
+        // Region locks, platform requirements — neutral information.
+        info: {
+          DEFAULT: "hsl(var(--info))",
+          foreground: "hsl(var(--info-foreground))",
+        },
         sidebar: {
           DEFAULT: "hsl(var(--sidebar-background))",
           foreground: "hsl(var(--sidebar-foreground))",
@@ -68,8 +78,19 @@ export default {
         },
       },
       fontFamily: {
-        sans: ["DM Sans", "sans-serif"],
-        heading: ["Playfair Display", "serif"],
+        sans: ["Archivo", "system-ui", "sans-serif"],
+        heading: ["Archivo", "system-ui", "sans-serif"],
+        // Prices, order numbers, counts — tabular figures.
+        num: ["Archivo Narrow", "ui-monospace", "monospace"],
+      },
+      transitionTimingFunction: {
+        DEFAULT: "cubic-bezier(0.2, 0.8, 0.25, 1)",
+        brand: "cubic-bezier(0.2, 0.8, 0.25, 1)",
+      },
+      transitionDuration: {
+        fast: "120ms",
+        base: "240ms",
+        reward: "600ms",
       },
       borderRadius: {
         lg: "var(--radius)",
@@ -79,14 +100,11 @@ export default {
         "2xl": "calc(var(--radius) + 8px)",
         "3xl": "calc(var(--radius) + 12px)",
       },
+      // No glow. Depth comes from the border and the surface step, so the
+      // remaining shadows are plain drop shadows kept for menus and modals.
       boxShadow: {
-        'premium': '0 8px 32px -8px hsl(0 0% 0% / 0.4)',
-        'premium-lg': '0 16px 48px -12px hsl(0 0% 0% / 0.5)',
-        'glow': '0 0 40px -10px hsl(158 64% 42% / 0.4)',
-        'glow-primary': '0 0 40px -10px hsl(38 92% 50% / 0.4)',
-        'glow-accent': '0 0 40px -10px hsl(15 75% 60% / 0.4)',
-        'inner-glow': 'inset 0 1px 0 hsl(0 0% 100% / 0.05)',
-        'card-hover': '0 20px 60px -12px hsl(0 0% 0% / 0.5), 0 0 0 1px hsl(38 92% 50% / 0.1)',
+        premium: "0 8px 32px -8px hsl(0 0% 0% / 0.5)",
+        "premium-lg": "0 16px 48px -12px hsl(0 0% 0% / 0.6)",
       },
       keyframes: {
         "accordion-down": {
@@ -97,30 +115,17 @@ export default {
           from: { height: "var(--radix-accordion-content-height)" },
           to: { height: "0" },
         },
-        "pulse-glow": {
-          "0%, 100%": { boxShadow: "0 0 20px hsl(var(--success) / 0.3)" },
-          "50%": { boxShadow: "0 0 40px hsl(var(--success) / 0.5)" },
-        },
-        "shimmer": {
+        // Loading only. pulse-glow, float and scale-pulse are gone with the
+        // rest of the ambient motion.
+        shimmer: {
           "0%": { backgroundPosition: "200% 0" },
           "100%": { backgroundPosition: "-200% 0" },
         },
-        "float": {
-          "0%, 100%": { transform: "translateY(0px)" },
-          "50%": { transform: "translateY(-10px)" },
-        },
-        "scale-pulse": {
-          "0%, 100%": { transform: "scale(1)" },
-          "50%": { transform: "scale(1.05)" },
-        },
       },
       animation: {
-        "accordion-down": "accordion-down 0.2s ease-out",
-        "accordion-up": "accordion-up 0.2s ease-out",
-        "pulse-glow": "pulse-glow 3s ease-in-out infinite",
-        "shimmer": "shimmer 2s linear infinite",
-        "float": "float 4s ease-in-out infinite",
-        "scale-pulse": "scale-pulse 2s ease-in-out infinite",
+        "accordion-down": "accordion-down 240ms cubic-bezier(0.2, 0.8, 0.25, 1)",
+        "accordion-up": "accordion-up 240ms cubic-bezier(0.2, 0.8, 0.25, 1)",
+        shimmer: "shimmer 1.5s linear infinite",
       },
     },
   },
