@@ -112,11 +112,42 @@ supabase/
   config.toml      Local stack configuration
 ```
 
-## Deploying to a hosted Supabase project
+## Deployment
 
-The app is portable. To deploy:
+### Self-hosted (current production)
+
+DinGaming runs on the ServerHoster VPS as a `process` service that serves the
+built `dist/` with ServerHoster's static server, alongside a **local** Supabase
+stack (Postgres + Auth + Edge Functions in Docker) on the same box. There is no
+hosted Supabase project and no Lovable dependency.
+
+Deploys are pulled from `main` on GitHub — push, and ServerHoster resets the
+clone to the remote, runs `npm run build`, and restarts the service.
+
+Two things must be configured outside the repo:
+
+- **`SUPABASE_AUTH_JWT_SECRET`** — required (see `[auth] jwt_secret` in
+  `supabase/config.toml`). Without it the stack falls back to Supabase's
+  *published* demo JWT secret, which lets anyone who can reach the API mint a
+  `service_role` token and bypass RLS entirely. Generate with
+  `openssl rand -hex 32` and put it where `supabase start` will see it.
+- **Edge function secrets** — `KINGUIN_API_KEY`, and the Stripe keys once real
+  payments are turned on. These live in ServerHoster's encrypted resource
+  secrets, which it writes to the functions' env file at start.
+
+### Hosted Supabase (alternative)
 
 1. Create a Supabase project and run `supabase db push` to apply migrations.
 2. Set frontend env (`.env`) to your project URL + anon key (see `.env.example`).
 3. Deploy functions: `supabase functions deploy` and set secrets
    (`KINGUIN_API_KEY`, `STRIPE_SECRET_KEY`, etc. — see `supabase/.env.example`).
+
+## Payments and fulfillment
+
+`process-payment` creates a real Stripe PaymentIntent when `STRIPE_SECRET_KEY`
+is set, and otherwise simulates a successful payment for local development.
+
+Fulfillment places a **real** Kinguin order — spending real merchant balance —
+only when the payment actually went through Stripe. A simulated payment always
+gets demo keys, so a deployment with a Kinguin key but no Stripe key can't hand
+out real game keys for free.
