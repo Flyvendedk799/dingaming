@@ -54,6 +54,22 @@ export interface ProductListOptions {
    * leave it off: someone who asked for a specific title should find it.
    */
   requireCoverImage?: boolean;
+  /**
+   * Games only — no prepaid vouchers, software licences or subscriptions.
+   *
+   * The catalogue carries several thousand of those, and they were dominating
+   * the front page. See the `is_game` generated column.
+   */
+  gamesOnly?: boolean;
+  /**
+   * Ordering. "fresh" is updated_at, which is churned constantly by Kinguin's
+   * product webhook and therefore close to random; "stocked" is the sane
+   * default for a curated shelf, because widely-available titles are the
+   * mainstream ones.
+   */
+  order?: "fresh" | "stocked" | "discount";
+  /** Keep out the sub-euro shovelware and the four-figure outliers. */
+  priceRange?: { min?: number; max?: number };
 }
 
 export async function fetchKinguinProducts(
@@ -66,11 +82,22 @@ export async function fetchKinguinProducts(
 
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
     try {
-      let query = supabase
+      const sort = {
+        fresh: { column: 'updated_at', ascending: false },
+        stocked: { column: 'qty', ascending: false },
+        discount: { column: 'discount_percent', ascending: false },
+      }[options.order ?? 'fresh'];
+
+      // Each conditional filter below re-generics the Supabase builder, and by
+      // the fifth one TypeScript gives up with "type instantiation is
+      // excessively deep". The chain is held loosely and the row shape is
+      // asserted once on the way out.
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      let query: any = supabase
         .from('kinguin_products')
         .select(PRODUCT_LIST_COLUMNS)
         .eq('is_available', true)
-        .order('updated_at', { ascending: false })
+        .order(sort.column, { ascending: sort.ascending })
         .limit(limit);
 
       if (searchQuery) {
@@ -81,6 +108,17 @@ export async function fetchKinguinProducts(
         // Missing art is stored as both NULL and '' depending on which Kinguin
         // endpoint the row came from, so both have to be excluded.
         query = query.not('cover_image', 'is', null).neq('cover_image', '');
+      }
+
+      if (options.gamesOnly) {
+        query = query.eq('is_game', true);
+      }
+
+      if (options.priceRange?.min !== undefined) {
+        query = query.gte('sell_price', options.priceRange.min);
+      }
+      if (options.priceRange?.max !== undefined) {
+        query = query.lte('sell_price', options.priceRange.max);
       }
 
       const { data, error } = await query;
@@ -103,6 +141,44 @@ export async function fetchKinguinProducts(
 
   console.error('Error fetching Kinguin products after retries:', lastError);
   throw lastError;
+}
+
+/**
+ * The selection shown on the front page.
+ *
+ * Admin-flagged products come first — that is what `is_featured` is for, and
+ * it works now that admins can actually write to the catalogue. When nothing
+ * is flagged, it falls back to a shelf that at least looks like a games shop:
+ * real games with artwork, priced like games rather than like shovelware or
+ * four-figure voucher bundles, best-stocked first.
+ *
+ * It is deliberately NOT ordered by updated_at. Kinguin's product webhook
+ * touches thousands of rows an hour, so that ordering made the front page a
+ * near-random slice of the catalogue that changed on every reload.
+ */
+export async function fetchShopfrontProducts(limit = 12): Promise<KinguinProduct[]> {
+  const { data: featured } = await supabase
+    .from('kinguin_products')
+    .select(PRODUCT_LIST_COLUMNS)
+    .eq('is_available', true)
+    .eq('is_featured', true)
+    .not('cover_image', 'is', null)
+    .neq('cover_image', '')
+    .order('display_order', { ascending: true })
+    .limit(limit);
+
+  const curated = (featured ?? []) as unknown as KinguinProduct[];
+  if (curated.length >= limit) return curated;
+
+  const fill = await fetchKinguinProducts(limit - curated.length, undefined, {
+    requireCoverImage: true,
+    gamesOnly: true,
+    order: 'stocked',
+    priceRange: { min: 5, max: 80 },
+  });
+
+  const seen = new Set(curated.map((p) => p.kinguin_id));
+  return [...curated, ...fill.filter((p) => !seen.has(p.kinguin_id))].slice(0, limit);
 }
 
 export async function fetchKinguinProductById(kinguinId: number): Promise<KinguinProduct | null> {

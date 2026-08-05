@@ -30,7 +30,12 @@ const Hero = () => {
   const { data: featured } = useQuery({
     queryKey: ["hero-featured"],
     queryFn: async () => {
-      const products = await fetchKinguinProducts(24, undefined, { requireCoverImage: true });
+      const products = await fetchKinguinProducts(24, undefined, {
+        requireCoverImage: true,
+        gamesOnly: true,
+        order: "stocked",
+        priceRange: { min: 8, max: 80 },
+      });
       if (products.length === 0) return null;
 
       const best = products
@@ -71,7 +76,7 @@ const Hero = () => {
           <div className="overflow-hidden rounded-xl border border-border bg-card">
             <div className="flex items-center justify-between border-b border-border px-4 py-3">
               <span className="label-eyebrow text-muted-foreground">
-                {deal.discount > 0 ? "Største rabat lige nu" : "Nyeste i kataloget"}
+                {deal.discount > 0 ? "Største rabat lige nu" : "Udvalgt spil"}
               </span>
               {deal.discount > 0 && (
                 <span className="num text-[13px] font-bold text-destructive">
