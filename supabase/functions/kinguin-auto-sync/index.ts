@@ -16,7 +16,12 @@ const PAGE_SIZE = 100
 // it keeps a single run inside the edge runtime's CPU budget — exceeding it
 // kills the isolate mid-flight, which previously meant the watermark was never
 // advanced and every subsequent run repeated the same doomed walk.
-const MAX_PAGES_PER_REGION = 8
+//
+// Measured: 16 pages of bulk upserts finish in a couple of seconds, nowhere
+// near the limit, because the time is network wait rather than CPU. Kinguin
+// churns fast enough that an hour of changes can still exceed this — watch for
+// `caughtUp: false` in the log if the webhook is not registered yet.
+const MAX_PAGES_PER_REGION = 20
 
 interface SyncProgress {
   synced: number
