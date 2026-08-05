@@ -11,22 +11,30 @@ const KINGUIN_API_V2 = 'https://gateway.kinguin.net/esa/api/v2'
 /**
  * Kinguin webhook receiver.
  *
- * Kinguin sends exactly two events — `product.update` and `order.status`.
- * There is no `order.complete`: every order transition, including delivery,
- * arrives as `order.status` with a `status` field.
+ * The merchant dashboard configures each event separately, with its own URL
+ * and secret, and offers `order.complete` as well as `order.status` and
+ * `product.update` — the public API docs only list the latter two, so trust
+ * the dashboard.
+ *
+ * Because the exact envelope differs between those events, the event name is
+ * resolved from three places in order of reliability:
+ *   1. an `?event=` query parameter, which you control when pasting the URL
+ *      into the dashboard and which therefore always works
+ *   2. the `X-Event-Name` header
+ *   3. the body, or an inference from which ids it contains
  *
  * Two things about the real format broke the previous version:
  *
- * 1. The event name is in the `X-Event-Name` HEADER, not the body. The old
- *    code read `payload.event`, which never exists, so every event logged as
- *    "unknown" and routing fell through to guessing from body fields.
+ * 1. The event name is not in the body. The old code read `payload.event`, so
+ *    every event logged as "unknown" and routing fell through to guessing.
  *
- * 2. The order payload is only { orderId, orderExternalId, status, updatedAt }
- *    — it carries NO keys. The old code gated completion on
- *    `payload.status === 'completed' && payload.products`, and since
- *    `products` is never present, a paid order was never marked complete and
- *    the customer never received the key they had paid for. Keys have to be
- *    fetched from the API in a second call, which is what this now does.
+ * 2. The documented order payload is only
+ *    { orderId, orderExternalId, status, updatedAt } — no keys. The old code
+ *    gated completion on `payload.status === 'completed' && payload.products`,
+ *    and since `products` is never present, a paid order was never marked
+ *    complete and the customer never received the key. Keys are fetched in a
+ *    second call, and `order.complete` counts as delivery whether or not it
+ *    carries a status field.
  */
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -52,9 +60,10 @@ Deno.serve(async (req) => {
 
     const payload = await req.json()
 
-    // Header first — that is where Kinguin actually puts it. The body fields
-    // are a fallback so a hand-sent test payload still routes correctly.
+    // ?event= wins: it is the one signal we set ourselves when configuring the
+    // webhook, so it cannot be wrong about which dashboard entry fired.
     const eventName =
+      new URL(req.url).searchParams.get('event') ||
       req.headers.get('x-event-name') ||
       payload.event ||
       payload.type ||
@@ -72,10 +81,10 @@ Deno.serve(async (req) => {
       payload,
     })
 
-    if (eventName === 'product.update' || payload.kinguinId) {
+    if (eventName === 'product.update' || (eventName === 'unknown' && payload.kinguinId)) {
       await handleProductUpdate(supabase, payload)
-    } else if (eventName === 'order.status' || payload.orderId) {
-      await handleOrderStatusChange(supabase, payload)
+    } else if (eventName.startsWith('order.') || payload.orderId) {
+      await handleOrderStatusChange(supabase, payload, eventName)
     }
 
     // Kinguin expects a 2xx with an empty body; it recommends 204.
@@ -155,19 +164,23 @@ async function fetchKeys(orderId: string): Promise<Array<{ productName: string; 
     .filter((k: any) => k.key)
 }
 
-async function handleOrderStatusChange(supabase: any, payload: any) {
+async function handleOrderStatusChange(supabase: any, payload: any, eventName = 'order.status') {
   const orderId: string | undefined = payload.orderId
   const status: string | undefined = payload.status
   if (!orderId) return
 
   const now = new Date().toISOString()
 
+  // order.complete means delivered by definition, so it counts even if the
+  // envelope carries no status field at all.
+  const isDelivered = eventName === 'order.complete' || status === 'completed'
+
   await supabase
     .from('kinguin_orders')
-    .update({ status: status ?? 'unknown', updated_at: now })
+    .update({ status: status ?? (isDelivered ? 'completed' : 'unknown'), updated_at: now })
     .eq('order_id', orderId)
 
-  if (status === 'completed') {
+  if (isDelivered) {
     const keys = await fetchKeys(orderId)
 
     if (keys.length === 0) {
