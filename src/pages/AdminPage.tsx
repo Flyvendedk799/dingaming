@@ -10,7 +10,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
-import { RefreshCw, Settings, Database, Clock, TrendingUp, Package, Download, Wallet, ShoppingCart, Key, RotateCcw, Eye, Copy, CheckCircle, XCircle, Loader2, Sparkles, Star, ShieldAlert, LogIn } from "lucide-react";
+import { RefreshCw, Settings, Database, Clock, TrendingUp, Package, Download, Wallet, ShoppingCart, Key, RotateCcw, Eye, Copy, CheckCircle, XCircle, Loader2, Sparkles, Star, ShieldAlert, LogIn, Activity, ShoppingBag, Ticket } from "lucide-react";
 import { Progress } from "@/components/ui/progress";
 import Header from "@/components/Header";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -19,6 +19,10 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { ScrollArea } from "@/components/ui/scroll-area";
 import CustomerClubTab from "@/components/admin/CustomerClubTab";
 import ProductManagementTab from "@/components/admin/ProductManagementTab";
+import OrdersTab from "@/components/admin/OrdersTab";
+import OperationsTab from "@/components/admin/OperationsTab";
+import DiscountCodesTab from "@/components/admin/DiscountCodesTab";
+import { callAdminFunction, saveStoreSetting } from "@/lib/adminApi";
 
 interface StoreSetting {
   key: string;
@@ -167,26 +171,11 @@ const AdminPage = () => {
   const fetchBalance = async () => {
     setLoadingBalance(true);
     try {
-      const response = await fetch(
-        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/kinguin-balance`,
-        {
-          method: 'GET',
-          headers: {
-            'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
-            'Content-Type': 'application/json'
-          }
-        }
-      );
-
-      const result = await response.json();
-      
-      if (result.error) {
-        console.error('Balance error:', result.error);
-      } else {
-        setBalance(result.balance);
-      }
+      const result = await callAdminFunction<{ balance: number }>('kinguin-balance', { method: 'GET' });
+      setBalance(result.balance);
     } catch (error) {
       console.error('Balance fetch error:', error);
+      setBalance(null);
     } finally {
       setLoadingBalance(false);
     }
@@ -195,34 +184,20 @@ const AdminPage = () => {
   const fetchOrders = async (page = 1, status = '') => {
     setLoadingOrders(true);
     try {
-      const params = new URLSearchParams();
-      params.set('page', page.toString());
-      params.set('limit', '25');
-      if (status) params.set('status', status);
+      const query: Record<string, string> = { page: page.toString(), limit: '25' };
+      if (status) query.status = status;
 
-      const response = await fetch(
-        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/kinguin-orders?${params.toString()}`,
-        {
-          method: 'GET',
-          headers: {
-            'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
-            'Content-Type': 'application/json'
-          }
-        }
+      const result = await callAdminFunction<{ orders?: KinguinOrder[]; total?: number }>(
+        'kinguin-orders',
+        { method: 'GET', query },
       );
 
-      const result = await response.json();
-      
-      if (result.error) {
-        toast.error(result.error);
-      } else {
-        setOrders(result.orders || []);
-        setOrdersTotal(result.total || 0);
-        setOrdersPage(page);
-      }
+      setOrders(result.orders || []);
+      setOrdersTotal(result.total || 0);
+      setOrdersPage(page);
     } catch (error) {
       console.error('Orders fetch error:', error);
-      toast.error('Kunne ikke hente ordrer');
+      toast.error(error instanceof Error ? error.message : 'Kunne ikke hente ordrer');
     } finally {
       setLoadingOrders(false);
     }
@@ -234,27 +209,14 @@ const AdminPage = () => {
     setOrderKeys([]);
     
     try {
-      const response = await fetch(
-        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/kinguin-keys?orderId=${orderId}&action=download`,
-        {
-          method: 'GET',
-          headers: {
-            'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
-            'Content-Type': 'application/json'
-          }
-        }
-      );
-
-      const result = await response.json();
-      
-      if (result.error) {
-        toast.error(result.error);
-      } else {
-        setOrderKeys(result.keys || []);
-      }
+      const result = await callAdminFunction<{ keys?: KinguinKey[] }>('kinguin-keys', {
+        method: 'GET',
+        query: { orderId, action: 'download' },
+      });
+      setOrderKeys(result.keys || []);
     } catch (error) {
       console.error('Keys fetch error:', error);
-      toast.error('Kunne ikke hente nøgler');
+      toast.error(error instanceof Error ? error.message : 'Kunne ikke hente nøgler');
     } finally {
       setLoadingKeys(false);
     }
@@ -265,28 +227,15 @@ const AdminPage = () => {
     
     setReturningKeys(true);
     try {
-      const response = await fetch(
-        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/kinguin-keys?orderId=${orderId}&action=return`,
-        {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
-            'Content-Type': 'application/json'
-          }
-        }
-      );
-
-      const result = await response.json();
-      
-      if (result.error) {
-        toast.error(result.error);
-      } else {
-        toast.success('Nøgler returneret!');
-        fetchOrders(ordersPage, ordersStatus);
-      }
+      await callAdminFunction('kinguin-keys', {
+        method: 'POST',
+        query: { orderId, action: 'return' },
+      });
+      toast.success('Nøgler returneret!');
+      fetchOrders(ordersPage, ordersStatus);
     } catch (error) {
       console.error('Return keys error:', error);
-      toast.error('Kunne ikke returnere nøgler');
+      toast.error(error instanceof Error ? error.message : 'Kunne ikke returnere nøgler');
     } finally {
       setReturningKeys(false);
     }
@@ -300,18 +249,15 @@ const AdminPage = () => {
   const saveSetting = async (key: string, value: any) => {
     setSaving(true);
     try {
-      const { error } = await supabase
-        .from('store_settings')
-        .update({ value: JSON.stringify(value) })
-        .eq('key', key);
-
-      if (error) throw error;
-
+      // The value column is jsonb, so the raw value goes in as-is. It used to be
+      // JSON.stringify'd first, which stored the *string* "false" rather than
+      // the boolean — and `auto_sync_enabled === false` then never matched.
+      await saveStoreSetting(key, value);
       setSettings(prev => ({ ...prev, [key]: value }));
       toast.success('Indstilling gemt');
     } catch (error) {
       console.error('Error saving setting:', error);
-      toast.error('Kunne ikke gemme indstilling');
+      toast.error(error instanceof Error ? error.message : 'Kunne ikke gemme indstilling');
     } finally {
       setSaving(false);
     }
@@ -320,28 +266,24 @@ const AdminPage = () => {
   const triggerKinguinSync = async () => {
     setSyncing(true);
     try {
-      const response = await fetch(
-        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/kinguin-auto-sync`,
-        {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
-            'Content-Type': 'application/json'
-          }
-        }
-      );
+      const result = await callAdminFunction<{
+        synced?: number;
+        caughtUp?: boolean;
+        skipped?: boolean;
+        reason?: string;
+      }>('kinguin-auto-sync');
 
-      const result = await response.json();
-      
-      if (result.success) {
-        toast.success(`Synk fuldført: ${result.newProducts} nye, ${result.updatedProducts} opdaterede`);
-        loadData();
+      if (result.skipped) {
+        toast.info(result.reason ?? 'Synk kører allerede');
       } else {
-        toast.error(result.error || 'Synk fejlede');
+        toast.success(
+          `Synk fuldført: ${result.synced ?? 0} produkter${result.caughtUp === false ? ' (ikke helt ajour — kør igen)' : ''}`
+        );
+        loadData();
       }
     } catch (error) {
       console.error('Sync error:', error);
-      toast.error('Kunne ikke starte synk');
+      toast.error(error instanceof Error ? error.message : 'Kunne ikke starte synk');
     } finally {
       setSyncing(false);
     }
@@ -354,27 +296,18 @@ const AdminPage = () => {
     try {
       let totalSynced = 0;
       
-      while (true) {
-        const response = await fetch(
-          `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/kinguin-backfill`,
-          {
-            method: 'POST',
-            headers: {
-              'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
-              'Content-Type': 'application/json'
-            }
-          }
-        );
+      // Bounded so a stuck backfill can't spin forever in the browser tab.
+      for (let round = 0; round < 500; round++) {
+        const result = await callAdminFunction<{
+          skipped?: boolean;
+          reason?: string;
+          synced?: number;
+          nextPage?: number;
+          complete?: boolean;
+        }>('kinguin-backfill');
 
-        const result = await response.json();
-        
         if (result.skipped) {
-          toast.info(result.reason);
-          break;
-        }
-        
-        if (result.error) {
-          toast.error(result.error);
+          toast.info(result.reason ?? 'Backfill kører allerede');
           break;
         }
 
@@ -394,7 +327,7 @@ const AdminPage = () => {
       loadData();
     } catch (error) {
       console.error('Backfill error:', error);
-      toast.error('Kunne ikke starte backfill');
+      toast.error(error instanceof Error ? error.message : 'Kunne ikke starte backfill');
     } finally {
       setBackfilling(false);
       setBackfillProgress(null);
@@ -549,11 +482,23 @@ const AdminPage = () => {
           </Card>
         </div>
 
-        <Tabs defaultValue="products" className="space-y-6">
+        <Tabs defaultValue="overview" className="space-y-6">
           <TabsList className="flex-wrap h-auto gap-1">
+            <TabsTrigger value="overview" className="gap-2">
+              <Activity className="w-4 h-4" />
+              Overblik
+            </TabsTrigger>
+            <TabsTrigger value="customer-orders" className="gap-2">
+              <ShoppingBag className="w-4 h-4" />
+              Kundeordrer
+            </TabsTrigger>
             <TabsTrigger value="products" className="gap-2">
               <Star className="w-4 h-4" />
               Produkter
+            </TabsTrigger>
+            <TabsTrigger value="discounts" className="gap-2">
+              <Ticket className="w-4 h-4" />
+              Rabatkoder
             </TabsTrigger>
             <TabsTrigger value="sync" className="gap-2">
               <RefreshCw className="w-4 h-4" />
@@ -561,7 +506,7 @@ const AdminPage = () => {
             </TabsTrigger>
             <TabsTrigger value="orders" className="gap-2" onClick={() => fetchOrders(1, ordersStatus)}>
               <ShoppingCart className="w-4 h-4" />
-              Ordrer
+              Kinguin-ordrer
             </TabsTrigger>
             <TabsTrigger value="pricing" className="gap-2">
               <TrendingUp className="w-4 h-4" />
@@ -577,9 +522,21 @@ const AdminPage = () => {
             </TabsTrigger>
           </TabsList>
 
+          <TabsContent value="overview">
+            <OperationsTab />
+          </TabsContent>
+
+          <TabsContent value="customer-orders">
+            <OrdersTab />
+          </TabsContent>
+
           {/* Product Management Tab */}
           <TabsContent value="products">
             <ProductManagementTab />
+          </TabsContent>
+
+          <TabsContent value="discounts">
+            <DiscountCodesTab />
           </TabsContent>
 
           <TabsContent value="sync" className="space-y-6">

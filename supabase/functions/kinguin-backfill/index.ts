@@ -1,4 +1,5 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import { requireAdmin } from '../_shared/adminAuth.ts'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -16,11 +17,15 @@ Deno.serve(async (req) => {
     return new Response(null, { headers: corsHeaders })
   }
 
+  // Walks the entire Kinguin catalogue — expensive, admins and the cron only.
+  const auth = await requireAdmin(req, corsHeaders)
+  if (!auth.ok) return auth.response!
+
   try {
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
     const supabase = createClient(supabaseUrl, supabaseKey)
-    
+
     const kinguinApiKey = Deno.env.get('KINGUIN_API_KEY')
     
     if (!kinguinApiKey) {
