@@ -189,12 +189,13 @@ const MobileGameTile = forwardRef<HTMLDivElement, MobileGameTileProps>(({
     >
       {/* Image */}
       <div className="relative aspect-[4/3] overflow-hidden">
-        <motion.img 
-          src={image} 
-          alt={title} 
+        <motion.img
+          src={image || '/placeholder.svg'}
+          alt={title}
           className="w-full h-full object-cover"
           animate={{ scale: isPressed ? 1.05 : 1 }}
           transition={{ duration: 0.3 }}
+          onError={(e) => { e.currentTarget.src = '/placeholder.svg'; }}
         />
         
         {/* Gradient overlay */}

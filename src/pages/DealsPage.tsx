@@ -32,6 +32,8 @@ const DealsPage = () => {
         .select("*")
         .eq("is_available", true)
         .eq("is_on_sale", true)
+        .not("cover_image", "is", null)
+        .neq("cover_image", "")
         .order("updated_at", { ascending: false })
         .limit(48);
       setProducts((data || []) as KinguinProduct[]);

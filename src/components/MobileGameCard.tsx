@@ -104,7 +104,12 @@ const MobileGameCard = ({
 
       {/* Image */}
       <div className="h-[45vh] relative">
-        <img src={image} alt={title} className="w-full h-full object-cover" />
+        <img
+          src={image || '/placeholder.svg'}
+          alt={title}
+          className="w-full h-full object-cover"
+          onError={(e) => { e.currentTarget.src = '/placeholder.svg'; }}
+        />
         <div className="absolute inset-0 bg-gradient-to-t from-background via-transparent to-transparent" />
         
         {discount !== undefined && discount > 0 && (

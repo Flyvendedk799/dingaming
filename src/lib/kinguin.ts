@@ -44,7 +44,23 @@ const PRODUCT_LIST_COLUMNS = `
   sale_label
 `;
 
-export async function fetchKinguinProducts(limit = 20, searchQuery?: string): Promise<KinguinProduct[]> {
+export interface ProductListOptions {
+  /**
+   * Hide products with no cover art.
+   *
+   * Roughly a tenth of the Kinguin catalogue comes back without artwork, which
+   * looks broken in a grid. Discovery surfaces (home, deals) set this so they
+   * only show products that look presentable. Search and category browsing
+   * leave it off: someone who asked for a specific title should find it.
+   */
+  requireCoverImage?: boolean;
+}
+
+export async function fetchKinguinProducts(
+  limit = 20,
+  searchQuery?: string,
+  options: ProductListOptions = {},
+): Promise<KinguinProduct[]> {
   const maxRetries = 3;
   let lastError: Error | null = null;
 
@@ -59,6 +75,12 @@ export async function fetchKinguinProducts(limit = 20, searchQuery?: string): Pr
 
       if (searchQuery) {
         query = query.ilike('name', `%${searchQuery}%`);
+      }
+
+      if (options.requireCoverImage) {
+        // Missing art is stored as both NULL and '' depending on which Kinguin
+        // endpoint the row came from, so both have to be excluded.
+        query = query.not('cover_image', 'is', null).neq('cover_image', '');
       }
 
       const { data, error } = await query;

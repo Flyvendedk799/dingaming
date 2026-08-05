@@ -28,7 +28,7 @@ const MobileDeals = ({ onSelectGame, onBack }: MobileDealsProps) => {
   useEffect(() => {
     const load = async () => {
       try {
-        const data = await fetchKinguinProducts(50);
+        const data = await fetchKinguinProducts(50, undefined, { requireCoverImage: true });
         // Sort by discount percentage
         const sorted = data.sort((a, b) => {
           const discountA = (1 - a.sell_price / a.original_price) * 100;

@@ -19,28 +19,39 @@ const MobileSearch = ({ onSelectGame, onBack }: MobileSearchProps) => {
   const [showFilters, setShowFilters] = useState(false);
   const [selectedPlatform, setSelectedPlatform] = useState<string | null>(null);
 
+  // Search runs against the database rather than a preloaded page, so the whole
+  // catalogue is reachable. With no query typed this is a browse list, so it
+  // sticks to products that have cover art; once someone searches for something
+  // specific, art-less titles show up too.
   useEffect(() => {
-    const load = async () => {
+    let cancelled = false;
+    const trimmed = query.trim();
+
+    const timer = setTimeout(async () => {
+      setIsLoading(true);
       try {
-        const data = await fetchKinguinProducts(50);
-        setAllProducts(data);
+        const data = trimmed
+          ? await fetchKinguinProducts(50, trimmed)
+          : await fetchKinguinProducts(50, undefined, { requireCoverImage: true });
+        if (!cancelled) setAllProducts(data);
       } catch (e) {
         console.error('Error loading products:', e);
       } finally {
-        setIsLoading(false);
+        if (!cancelled) setIsLoading(false);
       }
+    }, trimmed ? 250 : 0);
+
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
     };
-    load();
-  }, []);
+  }, [query]);
 
   const platforms = [...new Set(allProducts.map(p => p.platform).filter(Boolean))];
 
-  const filteredProducts = allProducts.filter(product => {
-    const matchesQuery = query.length === 0 || 
-      product.name.toLowerCase().includes(query.toLowerCase());
-    const matchesPlatform = !selectedPlatform || product.platform === selectedPlatform;
-    return matchesQuery && matchesPlatform;
-  });
+  const filteredProducts = selectedPlatform
+    ? allProducts.filter(product => product.platform === selectedPlatform)
+    : allProducts;
 
   return (
     <div className="min-h-screen bg-background pb-24">

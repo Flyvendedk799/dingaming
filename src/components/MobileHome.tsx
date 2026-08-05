@@ -25,7 +25,7 @@ const MobileHome = ({ onSelectGame }: MobileHomeProps) => {
   useEffect(() => {
     const load = async () => {
       try {
-        const data = await fetchKinguinProducts(12);
+        const data = await fetchKinguinProducts(12, undefined, { requireCoverImage: true });
         setProducts(data);
       } catch (e) {
         console.error('Error loading products:', e);
@@ -141,7 +141,7 @@ const MobileHome = ({ onSelectGame }: MobileHomeProps) => {
           </div>
           {products[0] && (
             <div className="absolute right-0 top-0 bottom-0 w-1/2">
-              <img src={products[0].cover_image || ''} alt="" className="w-full h-full object-cover opacity-40" />
+              <img src={products[0].cover_image || '/placeholder.svg'} alt="" className="w-full h-full object-cover opacity-40" />
               <div className="absolute inset-0 bg-gradient-to-r from-background to-transparent" />
             </div>
           )}
