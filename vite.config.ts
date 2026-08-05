@@ -23,17 +23,24 @@ export default defineConfig(() => ({
         manualChunks(id) {
           if (!id.includes("node_modules")) return undefined;
 
-          // React and the router change rarely and are needed on every page,
-          // so they get the longest-lived chunk.
-          if (/[\\/]node_modules[\\/](react|react-dom|react-router|react-router-dom|scheduler)[\\/]/.test(id)) {
+          // ONLY the React runtime goes here — nothing that depends on another
+          // package. An earlier version also put react-router in this chunk,
+          // but its dependency @remix-run/router fell through to "vendor", so
+          // react imported vendor while vendor (lucide, at module scope) called
+          // React.forwardRef. That circular edge between chunks meant one side
+          // evaluated with the other's bindings still undefined, and the site
+          // rendered a blank page with "Cannot read properties of undefined
+          // (reading 'forwardRef')". Keep this chunk a leaf.
+          if (/[\\/]node_modules[\\/](react|react-dom|scheduler)[\\/]/.test(id)) {
             return "react";
           }
-          // Only the pages that talk to the database need this.
           if (id.includes("@supabase")) return "supabase";
           // Heavy, and used almost entirely by the club and casino screens.
           if (id.includes("framer-motion")) return "motion";
           if (id.includes("@radix-ui")) return "radix";
           if (id.includes("@tanstack")) return "query";
+          // The router and everything else share one chunk so no package is
+          // ever separated from its own dependencies.
           return "vendor";
         },
       },
