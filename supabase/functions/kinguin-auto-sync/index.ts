@@ -151,13 +151,26 @@ Deno.serve(async (req) => {
           const rows = fresh.map((product: any) => {
             const price = parseFloat(product.price || 0)
             const qty = product.qty || 0
+            // Same field as the manual sync: Kinguin nests screenshots under
+            // `images.screenshots`. This upsert runs hourly over every changed
+            // product, so reading the wrong field did not merely fail to fill
+            // the column — it actively blanked media that was already there,
+            // roughly 3,500 products an hour.
+            const shots = Array.isArray(product.images?.screenshots) ? product.images.screenshots : []
             return {
               kinguin_id: product.kinguinId,
               product_id: product.productId,
               name: product.name,
               description: product.description,
               cover_image: product.coverImage || product.images?.cover?.url,
-              screenshots: product.screenshots?.map((s: any) => s.url) || [],
+              screenshots: shots.map((s: any) => s?.url).filter(Boolean),
+              screenshot_thumbs: shots.map((s: any) => s?.thumbnail || s?.url || '').filter(Boolean),
+              videos: (Array.isArray(product.videos) ? product.videos : [])
+                .filter((v: any) => v?.video_id)
+                .map((v: any) => ({
+                  id: v.video_id,
+                  url: v.video_url || `https://www.youtube.com/watch?v=${v.video_id}`,
+                })),
               original_price: price,
               sell_price: price,
               platform: product.platform,
