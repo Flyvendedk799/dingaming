@@ -215,9 +215,9 @@ const CheckoutPage = () => {
 
                       <div className="flex-1 min-w-0 flex flex-col">
                         <h3 className="font-semibold text-foreground line-clamp-2 mb-1">{item.title}</h3>
-                        <div className="flex items-center gap-2 text-xs text-muted-foreground mb-auto">
-                          <Zap className="w-3 h-3 text-success" />
-                          Instant levering
+                        <div className="mb-auto flex items-center gap-2 text-xs text-muted-foreground">
+                          <Zap className="h-3 w-3 text-primary" />
+                          Nøgle på e-mail inden for 60 sekunder
                         </div>
                         <p className="font-bold text-lg text-primary mt-2">
                           {formatDKK(parseFloat(item.price.amount))}

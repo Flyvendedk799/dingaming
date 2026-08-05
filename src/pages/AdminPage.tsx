@@ -518,7 +518,7 @@ const AdminPage = () => {
             </TabsTrigger>
             <TabsTrigger value="club" className="gap-2">
               <Sparkles className="w-4 h-4" />
-              Customer Club
+              Klub
             </TabsTrigger>
           </TabsList>
 

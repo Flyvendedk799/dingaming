@@ -72,7 +72,7 @@ const MobileClub = ({ onBack }: MobileClubProps) => {
           <div className="px-4 py-3">
             <h1 className="font-heading text-xl font-bold flex items-center gap-2">
               <Sparkles className="w-5 h-5 text-club" />
-              Customer Club
+              Klub
             </h1>
           </div>
         </div>
@@ -194,7 +194,7 @@ const MobileClub = ({ onBack }: MobileClubProps) => {
                   </span>
                 </h1>
                 <p className="text-xs text-muted-foreground">
-                  Customer Club Member
+                  Klubmedlem
                 </p>
               </div>
             </div>

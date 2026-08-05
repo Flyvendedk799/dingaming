@@ -78,7 +78,7 @@ const ClubPage = () => {
           <div className="flex items-center justify-between mb-2">
             <div>
               <h1 className="font-heading text-3xl md:text-4xl text-foreground">
-                Customer Club
+                Klub
               </h1>
               <p className="text-muted-foreground">
                 Velkommen tilbage, {user.user_metadata?.display_name || user.email?.split('@')[0]}!

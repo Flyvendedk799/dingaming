@@ -167,7 +167,7 @@ const MobileCart = ({ onBack }: MobileCartProps) => {
               </Button>
               <p className="text-center text-xs text-muted-foreground mt-3 flex items-center justify-center gap-1">
                 <Zap className="w-3 h-3" />
-                Keys leveres på 30 sekunder
+                Nøgle på e-mail inden for 60 sekunder
               </p>
             </motion.div>
           </>

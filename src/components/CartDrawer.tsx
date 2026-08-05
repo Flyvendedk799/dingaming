@@ -158,9 +158,9 @@ export const CartDrawer = () => {
                         <h4 className="font-medium text-sm text-foreground line-clamp-2 mb-1">
                           {item.title}
                         </h4>
-                        <div className="flex items-center gap-2 text-xs text-muted-foreground mb-auto">
-                          <Zap className="w-3 h-3 text-success" />
-                          30 sek levering
+                        <div className="mb-auto flex items-center gap-2 text-xs text-muted-foreground">
+                          <Zap className="h-3 w-3 text-primary" />
+                          Nøgle på e-mail inden for 60 sekunder
                         </div>
                         <p className="font-bold text-primary mt-2">
                           {formatDKK(parseFloat(item.price.amount))}
@@ -225,8 +225,8 @@ export const CartDrawer = () => {
                     Sikker betaling
                   </div>
                   <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                    <Clock className="w-3.5 h-3.5 text-success" />
-                    Instant levering
+                    <Clock className="h-3.5 w-3.5 text-primary" />
+                    Levering inden for 60 sekunder
                   </div>
                 </div>
 

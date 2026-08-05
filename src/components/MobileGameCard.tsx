@@ -141,13 +141,13 @@ const MobileGameCard = ({
         </div>
 
         {/* Trust badges */}
-        <div className="flex items-center gap-4 mb-6 text-sm text-muted-foreground">
+        <div className="mb-6 flex flex-wrap items-center gap-4 text-sm text-muted-foreground">
           <span className="flex items-center gap-1.5">
-            <Zap className="w-4 h-4 text-success" />
-            30 sek levering
+            <Zap className="h-4 w-4 text-primary" />
+            Nøgle inden for 60 sekunder
           </span>
           <span className="flex items-center gap-1.5">
-            <Shield className="w-4 h-4 text-success" />
+            <Shield className="h-4 w-4 text-primary" />
             Garanti
           </span>
         </div>

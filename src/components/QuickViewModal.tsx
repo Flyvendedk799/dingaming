@@ -225,8 +225,8 @@ export const QuickViewModal = ({ product, onClose }: QuickViewModalProps) => {
                     <Zap className="w-4 h-4 text-success" />
                   </div>
                   <div>
-                    <p className="text-xs font-medium text-foreground">30 sek levering</p>
-                    <p className="text-[10px] text-muted-foreground">Direkte til din email</p>
+                    <p className="text-xs font-medium text-foreground">Nøgle inden for 60 sekunder</p>
+                    <p className="text-xs text-muted-foreground">Direkte til din e-mail</p>
                   </div>
                 </div>
                 <div className="flex items-center gap-2 p-3 rounded-xl bg-muted/50">
