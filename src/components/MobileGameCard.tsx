@@ -3,6 +3,8 @@ import { motion, type PanInfo } from "framer-motion";
 import { ChevronLeft, Heart, Share, Zap, Shield, ShoppingCart, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useCartStore } from "@/stores/cartStore";
+import { useIsWishlisted, useWishlist } from "@/stores/wishlistStore";
+import { KinguinProduct } from "@/lib/kinguin";
 import { usePricing } from "@/lib/pricing";
 import { toast } from "sonner";
 
@@ -36,7 +38,24 @@ const MobileGameCard = ({
   const priceDkk = getPrice(price, marginPercent);
   const originalDkk = originalPrice ? getPrice(originalPrice, marginPercent) : 0;
   const [isAdding, setIsAdding] = useState(false);
-  const [isWishlisted, setIsWishlisted] = useState(false);
+  const isWishlisted = useIsWishlisted(kinguinId);
+  const toggleWishlist = useWishlist((s) => s.toggle);
+
+  // This sheet is handed loose props rather than a product, so the wishlist
+  // entry is rebuilt from them — enough for the list to render a card.
+  const wishlistEntry = {
+    id: String(kinguinId),
+    kinguin_id: kinguinId,
+    name: title,
+    cover_image: image,
+    original_price: originalPrice ?? price,
+    sell_price: price,
+    margin_percent: marginPercent ?? null,
+    platform,
+    genres: null,
+    is_available: true,
+    qty: null,
+  } as KinguinProduct;
 
   // Lock body scroll while the sheet is mounted (prevents stuck "no popup but no scroll" states)
   useEffect(() => {
@@ -81,7 +100,11 @@ const MobileGameCard = ({
         
         <div className="flex gap-2">
           <motion.button
-            onClick={() => setIsWishlisted(!isWishlisted)}
+            onClick={() => {
+              const added = toggleWishlist(wishlistEntry);
+              toast.success(added ? 'Gemt på ønskelisten' : 'Fjernet fra ønskelisten');
+            }}
+            aria-label={isWishlisted ? 'Fjern fra ønskeliste' : 'Gem på ønskeliste'}
             className={`w-10 h-10 rounded-full backdrop-blur-md flex items-center justify-center ${
               isWishlisted ? 'bg-destructive' : 'bg-background/80'
             }`}

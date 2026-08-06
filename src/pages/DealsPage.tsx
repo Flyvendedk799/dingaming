@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
-import { KinguinProduct } from "@/lib/kinguin";
+import { fetchKinguinProducts, KinguinProduct } from "@/lib/kinguin";
 import { Button } from "@/components/ui/button";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
@@ -15,6 +15,8 @@ const DealsPage = () => {
   useSeo({ title: "Tilbud", description: "Spil med nedsat pris. Officielle digitale nøgler, priser inkl. moms.", path: "/deals" });
   const [products, setProducts] = useState<KinguinProduct[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [cheapest, setCheapest] = useState<KinguinProduct[]>([]);
+  const [isLoadingCheap, setIsLoadingCheap] = useState(false);
 
   useEffect(() => {
     const loadProducts = async () => {
@@ -30,8 +32,27 @@ const DealsPage = () => {
         .neq("cover_image", "")
         .order("discount_percent", { ascending: false })
         .limit(48);
-      setProducts((data || []) as KinguinProduct[]);
+      const found = (data || []) as KinguinProduct[];
+      setProducts(found);
       setIsLoading(false);
+
+      // Only pay for the fallback query when there is nothing to show.
+      if (found.length === 0) {
+        setIsLoadingCheap(true);
+        // Ordered by stock rather than by price. Sorting the catalogue purely
+        // by "cheapest" fills the page with asset-flip shovelware, which is a
+        // poor first impression on the one page people arrive at ready to
+        // spend. Widely-stocked titles under ~12 EUR are recognisable games at
+        // a low price, which is what "billige spil" should mean.
+        const cheap = await fetchKinguinProducts(24, undefined, {
+          requireCoverImage: true,
+          gamesOnly: true,
+          order: "stocked",
+          priceRange: { min: 3, max: 12 },
+        });
+        setCheapest(cheap);
+        setIsLoadingCheap(false);
+      }
     };
     loadProducts();
   }, []);
@@ -72,16 +93,32 @@ const DealsPage = () => {
             </div>
           </motion.div>
         ) : (
-          <div className="rounded-xl border border-border bg-card py-16 text-center">
-            <h3 className="mb-2 text-2xl">Ingen tilbud lige nu</h3>
-            <p className="mx-auto max-w-md text-muted-foreground">
-              Der er ingen spil med nedsat pris i kataloget i øjeblikket. Hele udvalget er stadig
-              åbent — priserne er inkl. moms.
-            </p>
-            <Button asChild variant="outline" className="mt-6">
-              <Link to="/search">Se alle spil</Link>
-            </Button>
-          </div>
+          // No product currently carries a discount, so this page was a dead
+          // end reached from both the main nav and the hero — the worst place
+          // to send someone who arrived looking to spend money. Rather than
+          // inventing a "was" price, it falls back to the genuinely cheapest
+          // games and says plainly that these are prices, not reductions.
+          <>
+            <div className="mb-8 rounded-xl border border-border bg-card p-6">
+              <h2 className="text-xl">Ingen nedsatte spil lige nu</h2>
+              <p className="mt-2 max-w-2xl text-muted-foreground">
+                Vi opfinder ikke før-priser, så når der ikke er en reel rabat, siger vi det. Til
+                gengæld er her et udvalg af de billigste spil i kataloget — alle priser er inkl.
+                moms.
+              </p>
+            </div>
+
+            <h2 className="mb-6 text-[26px]">Billige spil lige nu</h2>
+            {isLoadingCheap ? (
+              <ProductGridSkeleton count={8} />
+            ) : (
+              <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+                {cheapest.map((product, index) => (
+                  <KinguinProductCard key={product.id} product={product} index={index} />
+                ))}
+              </div>
+            )}
+          </>
         )}
 
         {/* Newsletter Banner */}

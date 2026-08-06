@@ -19,6 +19,7 @@ import { Badge } from "@/components/ui/badge";
 import { KinguinProduct } from "@/lib/kinguin";
 import { usePricing } from "@/lib/pricing";
 import { useCartStore } from "@/stores/cartStore";
+import { useIsWishlisted, useWishlist } from "@/stores/wishlistStore";
 import { toast } from "sonner";
 import { Link } from "react-router-dom";
 
@@ -31,7 +32,8 @@ export const QuickViewModal = ({ product, onClose }: QuickViewModalProps) => {
   const [isAdding, setIsAdding] = useState(false);
   const [justAdded, setJustAdded] = useState(false);
   const [selectedImage, setSelectedImage] = useState(0);
-  const [isWishlisted, setIsWishlisted] = useState(false);
+  const isWishlisted = useIsWishlisted(product?.kinguin_id);
+  const toggleWishlist = useWishlist((s) => s.toggle);
   const addItem = useCartStore((state) => state.addItem);
   const { getPrice, formatDKK } = usePricing();
 
@@ -294,7 +296,12 @@ export const QuickViewModal = ({ product, onClose }: QuickViewModalProps) => {
                 <Button
                   size="lg"
                   variant="outline"
-                  onClick={() => setIsWishlisted(!isWishlisted)}
+                  onClick={() => {
+                    if (!product) return;
+                    const added = toggleWishlist(product);
+                    toast.success(added ? 'Gemt på ønskelisten' : 'Fjernet fra ønskelisten');
+                  }}
+                  aria-label={isWishlisted ? 'Fjern fra ønskeliste' : 'Gem på ønskeliste'}
                   className={isWishlisted ? 'text-destructive border-destructive/30' : ''}
                 >
                   <Heart className={`w-5 h-5 ${isWishlisted ? 'fill-current' : ''}`} />

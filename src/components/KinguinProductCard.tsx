@@ -5,6 +5,7 @@ import { KinguinProduct } from "@/lib/kinguin";
 import { usePricing } from "@/lib/pricing";
 import { discountPercent, platformAndRegion } from "@/lib/product";
 import { daProductName } from "@/lib/da";
+import { useIsWishlisted, useWishlist } from "@/stores/wishlistStore";
 import { useCartStore } from "@/stores/cartStore";
 import { toast } from "sonner";
 import { Link } from "react-router-dom";
@@ -28,7 +29,8 @@ interface KinguinProductCardProps {
  */
 const KinguinProductCard = ({ product, onQuickView }: KinguinProductCardProps) => {
   const [justAdded, setJustAdded] = useState(false);
-  const [isWishlisted, setIsWishlisted] = useState(false);
+  const isWishlisted = useIsWishlisted(product.kinguin_id);
+  const toggleWishlist = useWishlist((s) => s.toggle);
   const addItem = useCartStore((state) => state.addItem);
   const { getPrice, formatDKK, loading } = usePricing();
 
@@ -70,8 +72,12 @@ const KinguinProductCard = ({ product, onQuickView }: KinguinProductCardProps) =
   const handleWishlist = (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    setIsWishlisted(!isWishlisted);
-    toast.success(isWishlisted ? "Fjernet fra ønskelisten" : "Tilføjet til ønskelisten");
+    // The store is the source of truth, so the toast reports what actually
+    // happened rather than guessing from stale local state.
+    const added = toggleWishlist(product);
+    toast.success(added ? "Gemt på ønskelisten" : "Fjernet fra ønskelisten", {
+      description: added ? "Du finder den under hjertet i menuen." : undefined,
+    });
   };
 
   return (

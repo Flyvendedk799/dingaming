@@ -1,4 +1,4 @@
-import { User, Menu, X, Search, Sparkles, LogIn, Package, Ticket } from "lucide-react";
+import { User, Menu, X, Search, Sparkles, LogIn, Package, Ticket, Heart } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useState } from "react";
 import { Link, NavLink } from "react-router-dom";
@@ -7,6 +7,7 @@ import SearchDropdown from "@/components/SearchDropdown";
 import Logo from "@/components/Logo";
 import { useAuth } from "@/contexts/AuthContext";
 import { useShardBalance } from "@/hooks/useShards";
+import { useWishlist } from "@/stores/wishlistStore";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -31,6 +32,7 @@ const Header = () => {
   const { data: balance } = useShardBalance();
 
   const shards = balance?.balance ?? 0;
+  const wishlistCount = useWishlist((s) => s.items.length);
 
   return (
     <>
@@ -155,6 +157,19 @@ const Header = () => {
                     <LogIn className="h-4 w-4" />
                     Log ind
                   </Button>
+                </Link>
+              )}
+
+              {/* Only appears once something is saved — an always-visible
+                  counter reading 0 is just chrome. */}
+              {wishlistCount > 0 && (
+                <Link to="/wishlist" className="relative" aria-label={`Ønskeliste (${wishlistCount})`}>
+                  <Button variant="ghost" size="icon">
+                    <Heart className="h-5 w-5" />
+                  </Button>
+                  <span className="num absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-primary px-1 text-[10px] font-bold text-primary-foreground">
+                    {wishlistCount}
+                  </span>
                 </Link>
               )}
 

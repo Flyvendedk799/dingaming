@@ -71,9 +71,15 @@ export interface ProductListOptions {
    * default for a curated shelf, because widely-available titles are the
    * mainstream ones.
    */
-  order?: "fresh" | "stocked" | "discount";
+  order?: "fresh" | "stocked" | "discount" | "cheapest";
   /** Keep out the sub-euro shovelware and the four-figure outliers. */
   priceRange?: { min?: number; max?: number };
+  /** Exact genre match against the array column, for related-product shelves. */
+  genre?: string;
+  /** Substring match, so "PlayStation" catches PlayStation 4 and 5. */
+  platform?: string;
+  /** Keeps the product you are already looking at out of its own shelf. */
+  excludeKinguinId?: number;
 }
 
 export async function fetchKinguinProducts(
@@ -90,6 +96,7 @@ export async function fetchKinguinProducts(
         fresh: { column: 'updated_at', ascending: false },
         stocked: { column: 'qty', ascending: false },
         discount: { column: 'discount_percent', ascending: false },
+        cheapest: { column: 'sell_price', ascending: true },
       }[options.order ?? 'fresh'];
 
       // Each conditional filter below re-generics the Supabase builder, and by
@@ -116,6 +123,18 @@ export async function fetchKinguinProducts(
 
       if (options.gamesOnly) {
         query = query.eq('is_game', true);
+      }
+
+      if (options.genre) {
+        query = query.contains('genres', [options.genre]);
+      }
+
+      if (options.platform) {
+        query = query.ilike('platform', `%${options.platform}%`);
+      }
+
+      if (options.excludeKinguinId !== undefined) {
+        query = query.neq('kinguin_id', options.excludeKinguinId);
       }
 
       if (options.priceRange?.min !== undefined) {

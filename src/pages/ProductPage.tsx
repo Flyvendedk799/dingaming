@@ -13,6 +13,7 @@ import { breadcrumbLd, productLd, useSeo, SITE_URL } from "@/lib/seo";
 import Header, { DELIVERY_PROMISE } from "@/components/Header";
 import Footer from "@/components/Footer";
 import RecentlyViewed from "@/components/RecentlyViewed";
+import RelatedProducts from "@/components/RelatedProducts";
 import { daGenres, daPlatform, daProductName, daSummary } from "@/lib/da";
 
 const VAT_RATE = 0.25;
@@ -237,7 +238,8 @@ const ProductPage = () => {
         <span className="truncate text-foreground">{daProductName(product.name)}</span>
       </nav>
 
-      <main className="container mx-auto grid items-start gap-10 px-4 py-7 pb-16 lg:grid-cols-[1fr_400px]">
+      {/* pb clears the fixed mobile buy bar. */}
+      <main className="container mx-auto grid items-start gap-10 px-4 py-7 pb-28 lg:grid-cols-[1fr_400px] lg:pb-16">
         <div className="flex flex-col gap-6">
           {media.length > 0 && current && (
             <>
@@ -496,7 +498,32 @@ const ProductPage = () => {
         </aside>
       </main>
 
+      <RelatedProducts product={product} />
       <RecentlyViewed />
+
+      {/* On mobile the buy column sits below the gallery, the activation steps
+          and the description, so the price and the button are several screens
+          down. This keeps both reachable without scrolling back. */}
+      <div className="fixed inset-x-0 bottom-0 z-40 border-t border-border bg-background/95 p-3 backdrop-blur lg:hidden">
+        <div className="flex items-center gap-3">
+          <div className="min-w-0 flex-1">
+            <p className="num text-[22px] font-bold leading-none text-primary">
+              {formatDKK(priceDKK)}
+            </p>
+            <p className="mt-1 truncate text-[12px] text-muted-foreground">
+              Inkl. moms · {DELIVERY_PROMISE}
+            </p>
+          </div>
+          <Button
+            size="lg"
+            onClick={handleBuyNow}
+            disabled={!product.is_available}
+            className="flex-none px-7"
+          >
+            {product.is_available ? "Køb nu" : "Udsolgt"}
+          </Button>
+        </div>
+      </div>
       <Footer />
 
       {/* The trailer is never the lightbox subject — it plays in place. */}
