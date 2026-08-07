@@ -11,6 +11,7 @@ import { motion } from "framer-motion";
 import { supabase } from "@/integrations/supabase/client";
 import WMark from "@/components/WMark";
 import { useSeo } from "@/lib/seo";
+import { daGenre, daPlatform } from "@/lib/da";
 
 const SearchPage = () => {
   useSeo({ title: "Søg", description: "Søg i hele kataloget af digitale spilnøgler til Steam, PlayStation, Xbox og Nintendo.", path: "/search", noindex: true });
@@ -27,15 +28,44 @@ const SearchPage = () => {
   const handleSearch = async (searchQuery?: string, platform?: string, genre?: string) => {
     setIsLoading(true);
     setHasSearched(true);
-    
+
+    // With nothing asked for, this is a browse page rather than a search. It is
+    // where "Alle spil" in the nav and the hero's own button both land, so it
+    // has to show stock, not an empty prompt.
+    const isBrowse = !searchQuery?.trim() && !platform && !genre;
+
     try {
-      // Build query with filters
-      let dbQuery = supabase
-        .from('kinguin_products')
-        .select('*')
+      // Ordered by stock, not updated_at: the product webhook touches ~3,700
+      // rows an hour, so recency here is close to random and the same search
+      // returned a different order every time. Stock ranks the mainstream
+      // titles first, which is the better answer for both modes.
+      // Held loosely from the first link: each conditional filter below
+      // re-generics the builder and tsc gives up at "type instantiation is
+      // excessively deep". Annotating the variable is not enough — the
+      // initialiser is what gets checked.
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const base: any = supabase.from('kinguin_products').select('*');
+
+      let dbQuery = base
         .eq('is_available', true)
-        .order('updated_at', { ascending: false })
+        .order('qty', { ascending: false })
         .limit(100);
+
+      if (isBrowse) {
+        // Only on the browse view — someone who explicitly searches "Rewarble",
+        // a gift card or a specific DLC should still find it.
+        //
+        // Stock alone ranks 1 kr cosmetic DLC above the games they belong to,
+        // because add-ons are held in huge quantities. The price floor and the
+        // name check push those under the base games without needing a DLC
+        // flag, which Kinguin does not provide.
+        dbQuery = dbQuery
+          .eq('is_game', true)
+          .not('cover_image', 'is', null)
+          .neq('cover_image', '')
+          .gte('sell_price', 2)
+          .not('name', 'ilike', '%DLC%');
+      }
 
       // Apply text search
       if (searchQuery?.trim()) {
@@ -68,12 +98,13 @@ const SearchPage = () => {
     }
   };
 
-  // Initial load with URL params
+  // Runs unconditionally now. Previously it only fired when a param was
+  // present, so arriving at /search — the destination of the main nav's
+  // "Alle spil" and the hero's primary button — showed a search box above an
+  // empty page.
   useEffect(() => {
-    if (initialQuery || platformFilter || genreFilter) {
-      handleSearch(initialQuery, platformFilter, genreFilter);
-    }
-  }, []);
+    handleSearch(initialQuery, platformFilter, genreFilter);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -91,8 +122,8 @@ const SearchPage = () => {
   const clearSearch = () => {
     setQuery("");
     setSearchParams({});
-    setProducts([]);
-    setHasSearched(false);
+    // Falls back to browsing rather than blanking the page.
+    handleSearch();
   };
 
   const clearFilter = (filterType: 'platform' | 'genre') => {
@@ -109,12 +140,14 @@ const SearchPage = () => {
     );
   };
 
+  const isBrowsing = !initialQuery && !platformFilter && !genreFilter;
+
   const getSearchTitle = () => {
     const parts = [];
-    if (platformFilter) parts.push(platformFilter);
-    if (genreFilter) parts.push(genreFilter);
+    if (platformFilter) parts.push(daPlatform(platformFilter));
+    if (genreFilter) parts.push(daGenre(genreFilter));
     if (initialQuery) parts.push(`"${initialQuery}"`);
-    return parts.length > 0 ? parts.join(' • ') : 'Søg efter spil';
+    return parts.length > 0 ? parts.join(' • ') : 'Alle spil';
   };
 
   return (
@@ -145,7 +178,7 @@ const SearchPage = () => {
                   onClick={() => clearFilter('platform')}
                   className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-primary/10 border border-primary/20 text-sm text-primary hover:bg-primary/20 transition-colors"
                 >
-                  {platformFilter}
+                  {daPlatform(platformFilter)}
                   <X className="w-3.5 h-3.5" />
                 </button>
               )}
@@ -154,7 +187,7 @@ const SearchPage = () => {
                   onClick={() => clearFilter('genre')}
                   className="inline-flex items-center gap-1.5 rounded-full border border-border bg-muted px-3 py-1.5 text-sm transition-colors duration-fast hover:border-muted-foreground/40"
                 >
-                  {genreFilter}
+                  {daGenre(genreFilter)}
                   <X className="w-3.5 h-3.5" />
                 </button>
               )}
@@ -204,10 +237,16 @@ const SearchPage = () => {
           >
             <div className="flex items-center justify-between mb-6">
               <p className="text-muted-foreground">
-                {products.length} {products.length === 1 ? "resultat" : "resultater"}
-                {initialQuery && ` for "${initialQuery}"`}
-                {platformFilter && ` i ${platformFilter}`}
-                {genreFilter && ` (${genreFilter})`}
+                {isBrowsing ? (
+                  "Mest tilgængelige spil lige nu — søg ovenfor for at finde en bestemt titel"
+                ) : (
+                  <>
+                    {products.length} {products.length === 1 ? "resultat" : "resultater"}
+                    {initialQuery && ` for "${initialQuery}"`}
+                    {platformFilter && ` i ${daPlatform(platformFilter)}`}
+                    {genreFilter && ` (${daGenre(genreFilter)})`}
+                  </>
+                )}
               </p>
             </div>
 
@@ -218,7 +257,10 @@ const SearchPage = () => {
                     key={product.id}
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: index * 0.05, duration: 0.3 }}
+                    // Capped: the stagger was index * 0.05 against a 100-result
+                    // grid, so the last card faded in 5 seconds after the
+                    // first. Only the top rows read as a stagger anyway.
+                    transition={{ delay: Math.min(index, 7) * 0.03, duration: 0.24 }}
                   >
                     <KinguinProductCard product={product} index={index} />
                   </motion.div>
@@ -232,14 +274,16 @@ const SearchPage = () => {
                 <h3 className="font-heading text-2xl text-foreground mb-2">
                   Ingen resultater fundet
                 </h3>
-                <p className="text-muted-foreground mb-6">
-                  Prøv at søge efter noget andet eller fjern filtre
+                <p className="mx-auto mb-6 max-w-md text-muted-foreground">
+                  Vi har {initialQuery ? `ikke "${initialQuery}"` : "ikke noget her"} lige nu.
+                  Titler staves som hos udgiveren — prøv f.eks. "Call of Duty" frem for "COD".
                 </p>
-                <Link to="/">
-                  <Button variant="outline">
-                    Se alle spil
-                  </Button>
-                </Link>
+                {/* Was a link to "/" labelled "Se alle spil", which left the
+                    search behind entirely. Clearing keeps them on the results
+                    page with the full catalogue in front of them. */}
+                <Button variant="outline" onClick={clearSearch}>
+                  Ryd søgningen og se alle spil
+                </Button>
               </div>
             )}
           </motion.div>
@@ -252,12 +296,9 @@ const SearchPage = () => {
             <div className="w-20 h-20 mx-auto mb-6 rounded-full bg-muted flex items-center justify-center">
               <Search className="w-10 h-10 text-muted-foreground" />
             </div>
-            <h3 className="font-heading text-2xl text-foreground mb-2">
-              Søg efter spil
-            </h3>
-            <p className="text-muted-foreground">
-              Indtast et søgeord for at finde spil
-            </p>
+            {/* Only reachable for the instant before the browse query
+                resolves — the page no longer sits here waiting for input. */}
+            <h3 className="font-heading text-2xl text-foreground mb-2">Henter spil…</h3>
           </motion.div>
         )}
       </main>
